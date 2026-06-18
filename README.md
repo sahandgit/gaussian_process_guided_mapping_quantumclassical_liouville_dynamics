@@ -2,9 +2,9 @@
 
 **Gaussian-Process-Based Mapping Quantum-Classical Liouville Dynamics**
 
-GP-MQCLD is a research-software pipeline for studying nonadiabatic dynamics in the mapping representation using Gaussian-process/RKHS density surrogates, PBME-MInt characteristic transport, midpoint quantum-classical Liouville corrections, and reference comparisons against PBME, grid-QCLE, and split-operator TDSE.
+GP-MQCLD is a research-software pipeline for studying nonadiabatic dynamics in the mapping representation using Gaussian-process/RKHS density surrogates, PBME-MInt characteristic transport, midpoint quantum-classical Liouville corrections, and reference comparisons against PBME, grid-QCLE, and split-operator TDSE. The current work will follow a thesis and a subsequent paper.
 
-The repository is designed to stand on its own as a public scientific-computing package. It does **not** depend on a finished thesis or paper. Thesis-specific discussion, final figures, tables, and citations can be added later after the thesis text and validation campaign are complete.
+The repository is designed to stand on its own as a public scientific-computing package.
 
 ---
 
@@ -24,8 +24,7 @@ The abbreviation means:
 So the full title is:
 
 > **Gaussian-Process-Based Mapping Quantum-Classical Liouville Dynamics**
-
-This name is intentionally broader and more scientifically descriptive than implementation-specific names such as “MInt-GP” or “LiouvilleGP-MInt”. The method is not only a MInt propagator and not only a GP regression model. The object of the repository is the complete density-level pipeline:
+The method is not only a MInt propagator and not only a GP regression model. The object of the repository is the complete density-level pipeline:
 
 ```text
 mapping-basis phase-space density
