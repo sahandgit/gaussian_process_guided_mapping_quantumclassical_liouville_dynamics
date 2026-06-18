@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, cite the repository. A thesis or paper citation can be added after completion."
+title: "GP-MQCLD: Gaussian-Process-Based Mapping Quantum-Classical Liouville Dynamics"
+authors:
+  - family-names: "Nikzat"
+    given-names: "Sahand"
+version: "0.1.0"
+date-released: "2026-06-18"
+license: "MIT"
+repository-code: "https://github.com/sahandgit/gp-mqcld"
+keywords:
+  - quantum-classical dynamics
+  - QCLE
+  - PBME
+  - Gaussian process
+  - RKHS
+  - Tully model

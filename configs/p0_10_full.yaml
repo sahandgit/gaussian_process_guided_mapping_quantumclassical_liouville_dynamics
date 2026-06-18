@@ -1,0 +1,12 @@
+# Reference production-style settings for the low-momentum Tully dual avoided crossing run.
+density_mode: full
+sampling_mode: focused
+P0: 10
+R0: -15.0
+sigma_R: 1.0
+dt: 0.5
+n_steps: 6000
+n_train: 2000
+snapshot_every: 20
+panel_every: 200
+seed: 0

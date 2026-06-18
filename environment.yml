@@ -1,0 +1,17 @@
+name: gp-mqcld
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - pytest
+  - jupyterlab
+  - ipykernel
+  - pip:
+      - torch>=2.0
+      - jax>=0.4
+      - jaxlib>=0.4
+      - -e .[dev,notebooks]
