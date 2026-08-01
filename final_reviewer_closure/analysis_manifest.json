@@ -1,0 +1,246 @@
+{
+  "created_utc": "2026-08-01T17:22:43.288381+00:00",
+  "outputs": {
+    "manufactured_comparison": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_policy_comparison.csv",
+      "sha256": "1820eaf95302f6a7428c8dfad3a2c0d8822223ea916050fb85316e240d04722b"
+    },
+    "manufactured_complete": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_complete.csv",
+      "sha256": "4954fe496bb6963451cf94237de8d1113b6a67ec3b66760bba24163391f6b036"
+    },
+    "manufactured_refinement": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_refinement_verdicts.csv",
+      "sha256": "f9c17f20b5bd53a5d85852584d0e3f91671ffef4fb627adb69b2d82e8313adc6"
+    },
+    "manufactured_summary": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_summary.csv",
+      "sha256": "7b51bcc16e20bc08d02f932ac1864a6983abc1444c9aee8bb671c6edc593aff7"
+    },
+    "physical_density": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\density_errors_by_seed.csv",
+      "sha256": "1ef4f5d156802210aa9cb130bb06e951827a154ff33f3efb46c3addbc6c34205"
+    },
+    "physical_density_per_seed": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\density_errors_method_pair_by_seed.csv",
+      "sha256": "ff103258fdf3c5696af6fadf1c395bad744d4addd5f650f96c1c45784f796c96"
+    },
+    "physical_observable": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\observable_errors_by_seed.csv",
+      "sha256": "25c854e967c9557105b974150386ae542bbd8e6f7dc4a4ea060701dd45080542"
+    },
+    "physical_observable_per_seed": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\observable_errors_method_pair_by_seed.csv",
+      "sha256": "ae56b5148359da1bdc16be01e5a67337cb5ad85538371e2cb367fe8bc996eaf7"
+    },
+    "physical_summary": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\paired_improvement_summary.csv",
+      "sha256": "e363f48d8f25484fdfe30fa5d11be846ee52b78fa1a6f67c0975e32924284aff"
+    },
+    "qcle": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_grid_qcle\\qcle_three_level.csv",
+      "sha256": "ac49cdff1bd364ae2c89f5247daa86deac094c928f7d82149e53c5f1dd435896"
+    },
+    "reference_settings": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_settings_by_method_and_momentum.csv",
+      "sha256": "9035e8e48c6c454c921921d242ef0e9e729b794a4ddab0df82b42d58e1df7ee7"
+    },
+    "replication_summary": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\replication\\four_seed_summary.csv",
+      "sha256": "0c5a28174d4f63061c974fb795861fda52c03a8a86348551f5a8a4f8480f87e0"
+    },
+    "replication_values": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\replication\\four_seed_values.csv",
+      "sha256": "050031fb94135a2ba33d48d6b1d2a4317ca221af2ad7192425eeab3340b1e36f"
+    },
+    "support_run": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\support\\independent_cloud_run_by_run.csv",
+      "sha256": "ec998e918083fcfe802584a9fe954bd596a4587968233d554c7cee2c9f14e7c5"
+    },
+    "support_summary": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\support\\independent_cloud_summary.csv",
+      "sha256": "35dea77e559aa8721b7727c1acf06e459521b0aaed961f6cc3f61b0fcca9f75e"
+    },
+    "tail_distribution": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\y0_distribution.csv",
+      "sha256": "2e08d2a157157d7949f466119b8b84e32a36c76b48cb0297e26f514bb8279acb"
+    },
+    "tail_distribution_paired": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\y0_distribution_paired.csv",
+      "sha256": "f98b0153b86509a565fed5bc1313536605f905fddc64cc5fedbe3c27fdc8150b"
+    },
+    "tail_summary": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\tail_summary.csv",
+      "sha256": "48c04ad1ea6152374e6a2df99ddbe39c4e37bf127fbf63efb9fd30f01cc4e6cb"
+    },
+    "tail_sweep": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\threshold_sweep.csv",
+      "sha256": "7b0c081fe652dd0c759f088cc7073401b12008f4a96e33c691c5c6ae3e9af24f"
+    },
+    "tdse": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_three_level.csv",
+      "sha256": "d9cf891d52d069f1c7e12145c480ac8526212b1a98423551e778f5c0ea4f9070"
+    },
+    "timestep_run": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_run_by_run.csv",
+      "sha256": "973c4aeaff0275cb17ea0459dc337cacaf7803f529bc50d557fa5980bd5f48c2"
+    },
+    "timestep_summary": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_summary.csv",
+      "sha256": "7a2b3552f987d0d8ce3d1132bdb9e34bde86bc3c12a053d06e4a5ef23b0ee15b"
+    }
+  },
+  "preserved_outputs": {
+    "figure_disposition.csv": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\figure_disposition.csv",
+      "sha256": "8848e75d43c8b6f86f924b5560a5a44fdfeaf738ce5dcb391e8ff7adb566fbdf"
+    },
+    "kde_gp_baseline.csv": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\kde_gp_baseline.csv",
+      "sha256": "e8a216033e96d48c99c651b691b57ae19b0460803e4ffae9140805cd98e29130"
+    },
+    "numerical_stability_audit.csv": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\numerical_stability_audit.csv",
+      "sha256": "59b3741434bc237177fbc7e016978ec6f125c04063724cde9ff205ae007e3849"
+    },
+    "projection_leakage.csv": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\projection_leakage.csv",
+      "sha256": "a512fb6f0565d1f3be3dd0f098d9a6a13e6523ceba4b9a994b71168c2169455f"
+    },
+    "raw_conservation.csv": {
+      "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\raw_conservation.csv",
+      "sha256": "98d3cb5a3aeb597fff05249bc1ee851b3fc6df9308079d6bffb9361311418d3d"
+    }
+  },
+  "table_crosswalk_rows": [
+    {
+      "artifact_ids": "tab:final-validation-inventory",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\validation_inventory.csv",
+      "source_csv_sha256": "8535f3d75308921a7435d6c841bc468f6df668de27af8ebebe419b2362951168",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ValidationInventory.tex"
+    },
+    {
+      "artifact_ids": "tab:manufactured-complete-density;tab:manufactured-complete-gradient;tab:manufactured-complete-q",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_complete.csv",
+      "source_csv_sha256": "4954fe496bb6963451cf94237de8d1113b6a67ec3b66760bba24163391f6b036",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ManufacturedComplete.tex"
+    },
+    {
+      "artifact_ids": "tab:manufactured-summary",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_summary.csv",
+      "source_csv_sha256": "7b51bcc16e20bc08d02f932ac1864a6983abc1444c9aee8bb671c6edc593aff7",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ManufacturedSummary.tex"
+    },
+    {
+      "artifact_ids": "tab:manufactured-refinement",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_refinement_verdicts.csv",
+      "source_csv_sha256": "f9c17f20b5bd53a5d85852584d0e3f91671ffef4fb627adb69b2d82e8313adc6",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ManufacturedRefinement.tex"
+    },
+    {
+      "artifact_ids": "tab:timestep-run-by-run",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_run_by_run.csv",
+      "source_csv_sha256": "973c4aeaff0275cb17ea0459dc337cacaf7803f529bc50d557fa5980bd5f48c2",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\TimeStepRunByRun.tex"
+    },
+    {
+      "artifact_ids": "tab:independent-cloud-support",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\support\\independent_cloud_summary.csv",
+      "source_csv_sha256": "35dea77e559aa8721b7727c1acf06e459521b0aaed961f6cc3f61b0fcca9f75e",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\IndependentCloudSupport.tex"
+    },
+    {
+      "artifact_ids": "tab:four-seed-replication",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\replication\\four_seed_summary.csv",
+      "source_csv_sha256": "0c5a28174d4f63061c974fb795861fda52c03a8a86348551f5a8a4f8480f87e0",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\FourSeedReplication.tex"
+    },
+    {
+      "artifact_ids": "tab:y0-initial-distribution",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\y0_distribution_paired.csv",
+      "source_csv_sha256": "f98b0153b86509a565fed5bc1313536605f905fddc64cc5fedbe3c27fdc8150b",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\InitialLabelDistribution.tex"
+    },
+    {
+      "artifact_ids": "tab:y0-tail-sensitivity",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\threshold_sweep.csv",
+      "source_csv_sha256": "7b0c081fe652dd0c759f088cc7073401b12008f4a96e33c691c5c6ae3e9af24f",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\TailSensitivity.tex"
+    },
+    {
+      "artifact_ids": "tab:reference-discretizations",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_settings_by_method_and_momentum.csv",
+      "source_csv_sha256": "9035e8e48c6c454c921921d242ef0e9e729b794a4ddab0df82b42d58e1df7ee7",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ReferenceSettingsByMomentum.tex"
+    },
+    {
+      "artifact_ids": "tab:tdse-reference-orders",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_three_level.csv",
+      "source_csv_sha256": "d9cf891d52d069f1c7e12145c480ac8526212b1a98423551e778f5c0ea4f9070",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\TDSEReferenceOrders.tex"
+    },
+    {
+      "artifact_ids": "tab:qcle-reference-orders",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_grid_qcle\\qcle_three_level.csv",
+      "source_csv_sha256": "ac49cdff1bd364ae2c89f5247daa86deac094c928f7d82149e53c5f1dd435896",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\QCLEReferenceOrders.tex"
+    },
+    {
+      "artifact_ids": "tab:density-reference-errors-per-seed",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\density_errors_method_pair_by_seed.csv",
+      "source_csv_sha256": "ff103258fdf3c5696af6fadf1c395bad744d4addd5f650f96c1c45784f796c96",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\DensityReferenceErrorsPerSeed.tex"
+    },
+    {
+      "artifact_ids": "tab:observable-reference-errors-per-seed",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\observable_errors_method_pair_by_seed.csv",
+      "source_csv_sha256": "ae56b5148359da1bdc16be01e5a67337cb5ad85538371e2cb367fe8bc996eaf7",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ObservableReferenceErrorsPerSeed.tex"
+    },
+    {
+      "artifact_ids": "tab:physical-reference-comparison",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\paired_improvement_summary.csv",
+      "source_csv_sha256": "e363f48d8f25484fdfe30fa5d11be846ee52b78fa1a6f67c0975e32924284aff",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\PhysicalReferenceComparison.tex"
+    },
+    {
+      "artifact_ids": "tab:raw-conservation",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "preserved": true,
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\raw_conservation.csv",
+      "source_csv_sha256": "98d3cb5a3aeb597fff05249bc1ee851b3fc6df9308079d6bffb9361311418d3d",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\RawConservation.tex"
+    },
+    {
+      "artifact_ids": "tab:seo-projection-leakage",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "preserved": true,
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\projection_leakage.csv",
+      "source_csv_sha256": "a512fb6f0565d1f3be3dd0f098d9a6a13e6523ceba4b9a994b71168c2169455f",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\ProjectionLeakage.tex"
+    },
+    {
+      "artifact_ids": "tab:identical-support-kde-gp",
+      "crosswalk": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\TABLE_DATA_CROSSWALK.csv",
+      "preserved": true,
+      "source_csv": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\kde_gp_baseline.csv",
+      "source_csv_sha256": "e8a216033e96d48c99c651b691b57ae19b0460803e4ffae9140805cd98e29130",
+      "table": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tables\\IdenticalSupportKDEGP.tex"
+    }
+  ]
+}

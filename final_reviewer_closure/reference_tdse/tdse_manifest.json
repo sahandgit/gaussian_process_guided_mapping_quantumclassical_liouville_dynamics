@@ -1,0 +1,53 @@
+{
+  "P0": [
+    20.0,
+    100.0
+  ],
+  "created_utc": "2026-08-01T17:22:28.725580+00:00",
+  "method": "tdse",
+  "observables": [
+    "P0",
+    "P1",
+    "trace",
+    "energy",
+    "R_mean",
+    "P_mean",
+    "R_var",
+    "P_var"
+  ],
+  "order_rule": "log2(delta12/delta23) with scale-aware roundoff guard; rejected and negative rows retained",
+  "output": {
+    "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_three_level.csv",
+    "sha256": "d9cf891d52d069f1c7e12145c480ac8526212b1a98423551e778f5c0ea4f9070"
+  },
+  "refinement_modes": [
+    "time",
+    "grid"
+  ],
+  "sources": [
+    {
+      "series_file": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_time_P020.npz",
+      "series_sha256": "c892b2f5b3189707246f0f01d16660db04f955b13f272749c63a453435ff343b",
+      "sha256": "eb00384dc3dde2c49e387eec377efe73a9314f5846cde2b334379b45c137a779",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_time_P020.json"
+    },
+    {
+      "series_file": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_time_P0100.npz",
+      "series_sha256": "172710818b027453143c51763b561b9aa645e8aa98a37dd48f5a5403f5d5c5c6",
+      "sha256": "31df468963060c574b363dd3bb5ec9e6b94689326b76ad1037fea9ec7bd81d0b",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_time_P0100.json"
+    },
+    {
+      "series_file": null,
+      "series_sha256": null,
+      "sha256": "1cc776b68b7ad51d358f9e8afa59dd3d59e96e89c9ffd59d6012077b1519b789",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_grid_P020.json"
+    },
+    {
+      "series_file": null,
+      "series_sha256": null,
+      "sha256": "5a5929ffc129f8484db019ec7775221b326044389c7cc3341f80207f105cbc89",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_grid_P0100.json"
+    }
+  ]
+}

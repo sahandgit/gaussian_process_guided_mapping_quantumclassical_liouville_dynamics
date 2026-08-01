@@ -1,0 +1,326 @@
+{
+  "manufactured_rows": 72,
+  "manufactured_groups": 25,
+  "reference_rows": 108,
+  "reference_rows_suppressed_by_roundoff_guard": 53,
+  "suppressed_detail": [
+    {
+      "key": "tdse_P020_both",
+      "observable": "trace",
+      "p_obs_reported": -3.3906408449713763,
+      "verdict": "REJECTED: coarse-to-fine difference 1.821e-14 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_both",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 9.992e-15 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_both",
+      "observable": "P1",
+      "p_obs_reported": 18.360290872569493,
+      "verdict": "REJECTED: fine-to-finer difference 1.021e-14 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_both",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 2.220e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_both",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 8.327e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_both",
+      "observable": "R_mean",
+      "p_obs_reported": 17.778073757048645,
+      "verdict": "REJECTED: fine-to-finer difference 1.048e-13 at or below roundoff floor 2.132e-13"
+    },
+    {
+      "key": "qcle_P020_time",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 3.331e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_time",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 1.402e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_time",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 2.220e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_time",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_time",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 3.553e-15 at or below roundoff floor 2.132e-13"
+    },
+    {
+      "key": "qcle_P020_time",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 3.553e-15 at or below roundoff floor 4.441e-13"
+    },
+    {
+      "key": "tdse_P020_grid",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 3.530e-18 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P020_grid",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 9.812e-15 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P020_grid",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 3.553e-15 at or below roundoff floor 2.132e-13"
+    },
+    {
+      "key": "tdse_P020_grid",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 4.441e-13"
+    },
+    {
+      "key": "qcle_P020_grid",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 9.992e-15 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_grid",
+      "observable": "P1",
+      "p_obs_reported": 18.340604594686223,
+      "verdict": "REJECTED: fine-to-finer difference 1.035e-14 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_grid",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 4.441e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_grid",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 8.465e-16 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P020_grid",
+      "observable": "R_mean",
+      "p_obs_reported": 17.75382642838199,
+      "verdict": "REJECTED: fine-to-finer difference 1.066e-13 at or below roundoff floor 2.132e-13"
+    },
+    {
+      "key": "qcle_P0100_both",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_both",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_both",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_both",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_both",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_both",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_time",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_time",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_time",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_time",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_time",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_time",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 1.110e-14 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 3.361e-18 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 1.110e-14 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 2.798e-14 at or below roundoff floor 5.551e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 1.954e-14 at or below roundoff floor 1.776e-13"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-12"
+    },
+    {
+      "key": "qcle_P0100_grid",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_grid",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_grid",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_grid",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_grid",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "qcle_P0100_grid",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P020_grid",
+      "observable": "P1",
+      "p_obs_reported": 1.078002512001273,
+      "verdict": "REJECTED: fine-to-finer difference 2.123e-14 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P020_grid",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 1.172e-13 at or below roundoff floor 4.377e-13"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "P0",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "P1",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "trace",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.220e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "energy",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 5.551e-14"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "R_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.972e-12"
+    },
+    {
+      "key": "tdse_P0100_grid",
+      "observable": "P_mean",
+      "p_obs_reported": "NOT COMPUTED",
+      "verdict": "REJECTED: fine-to-finer difference 0.000e+00 at or below roundoff floor 2.201e-12"
+    }
+  ]
+}

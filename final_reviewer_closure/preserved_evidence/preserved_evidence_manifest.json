@@ -1,0 +1,41 @@
+{
+  "created_utc": "2026-08-01T17:22:42.952498+00:00",
+  "files": [
+    {
+      "copy_is_byte_identical": true,
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\tables\\raw_conservation.csv",
+      "source_sha256": "98d3cb5a3aeb597fff05249bc1ee851b3fc6df9308079d6bffb9361311418d3d",
+      "target": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\raw_conservation.csv",
+      "target_sha256": "98d3cb5a3aeb597fff05249bc1ee851b3fc6df9308079d6bffb9361311418d3d"
+    },
+    {
+      "copy_is_byte_identical": true,
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\tables\\seo_projection_leakage_all_snapshots.csv",
+      "source_sha256": "a512fb6f0565d1f3be3dd0f098d9a6a13e6523ceba4b9a994b71168c2169455f",
+      "target": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\projection_leakage.csv",
+      "target_sha256": "a512fb6f0565d1f3be3dd0f098d9a6a13e6523ceba4b9a994b71168c2169455f"
+    },
+    {
+      "copy_is_byte_identical": true,
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\thesis_revision_evidence\\tables\\kde_gp_four_seed_three_snapshot.csv",
+      "source_sha256": "e8a216033e96d48c99c651b691b57ae19b0460803e4ffae9140805cd98e29130",
+      "target": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\kde_gp_baseline.csv",
+      "target_sha256": "e8a216033e96d48c99c651b691b57ae19b0460803e4ffae9140805cd98e29130"
+    },
+    {
+      "copy_is_byte_identical": true,
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\numerical_stability_audit.csv",
+      "source_sha256": "59b3741434bc237177fbc7e016978ec6f125c04063724cde9ff205ae007e3849",
+      "target": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\numerical_stability_audit.csv",
+      "target_sha256": "59b3741434bc237177fbc7e016978ec6f125c04063724cde9ff205ae007e3849"
+    },
+    {
+      "copy_is_byte_identical": true,
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\thesis_revision_evidence\\FIGURE_DISPOSITION.csv",
+      "source_sha256": "8848e75d43c8b6f86f924b5560a5a44fdfeaf738ce5dcb391e8ff7adb566fbdf",
+      "target": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\figure_disposition.csv",
+      "target_sha256": "8848e75d43c8b6f86f924b5560a5a44fdfeaf738ce5dcb391e8ff7adb566fbdf"
+    }
+  ],
+  "rule": "existing computations preserved byte-for-byte; not rerun"
+}

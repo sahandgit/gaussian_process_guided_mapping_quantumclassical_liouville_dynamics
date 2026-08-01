@@ -40,7 +40,7 @@ for _s in (_sys.stdout, _sys.stderr):
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import copy
 import time
@@ -71,6 +71,22 @@ from Reproducibility import build_run_metadata
 
 
 FloatArray = NDArray[np.float64]
+
+
+def _effective_labels(state: Any) -> FloatArray:
+    """Return the label vector actually fitted by the current surrogate.
+
+    PBME carries the raw frozen labels.  MIDPOINT retains those raw labels in
+    ``state.y`` and carries the QCLE correction separately as a per-point
+    ``correction_weight``; its effective fit target is therefore ``w * y``.
+    The shape guard preserves the established fallback for legacy states.
+    """
+    raw = np.asarray(state.y, dtype=np.float64).reshape(-1)
+    weight = getattr(state, "correction_weight", None)
+    if weight is None:
+        return raw
+    resolved_weight = np.asarray(weight, dtype=np.float64).reshape(-1)
+    return raw * resolved_weight if resolved_weight.shape == raw.shape else raw
 
 
 def _signed_expectation(values: ArrayLike, weights: ArrayLike, *, name: str) -> float:
@@ -2267,12 +2283,7 @@ class Simulation:
         # while the GP's true residual against what it fit was ~1e-7.  Schemes
         # with no correction (PBME) leave correction_weight=None ⇒ y_eff ≡ y,
         # so their diagnostics are unchanged.
-        _w = s.correction_weight
-        if _w is not None:
-            _w = np.asarray(_w, dtype=np.float64).reshape(-1)
-            y_eff = s.y * _w if _w.shape == np.asarray(s.y).reshape(-1).shape else s.y
-        else:
-            y_eff = s.y
+        y_eff = _effective_labels(s)
 
         # Detect diff-GP and compute fit_rms against the δ-GP's residual.
         is_diff_gp = (hasattr(s.gp, "gp0") and hasattr(s.gp, "gp_delta"))
@@ -2661,12 +2672,7 @@ class Simulation:
             if y0_snap is not None:
                 # δ targets actually fitted by the δ-GP are (w⊙y − y0), not
                 # (y − y0) — same contract as the fit_rms diagnostic above.
-                _w_d = self.state.correction_weight
-                _y_live = (self.state.y * _w_d
-                           if _w_d is not None
-                           and np.asarray(_w_d).shape == np.asarray(self.state.y).shape
-                           else self.state.y)
-                delta_snap = np.asarray(_y_live, dtype=np.float64) - y0_snap
+                delta_snap = _effective_labels(self.state) - y0_snap
 
         # Note: Snapshot.y stores the raw label vector; Snapshot.alpha
         # stores the *correction* alpha when is_density_diff=True (so that
@@ -2693,11 +2699,7 @@ class Simulation:
         # all of which then silently rendered the UNcorrected density for
         # midpoint runs.  The raw sampled labels remain recoverable as
         # snap.y / snap.weight (weight carries w when present).
-        _w_snap = self.state.correction_weight
-        y_snap = (self.state.y * _w_snap
-                  if _w_snap is not None
-                  and np.asarray(_w_snap).shape == np.asarray(self.state.y).shape
-                  else self.state.y)
+        y_snap = _effective_labels(self.state)
         return Snapshot(
             step_index=self.state.step_index, t=self.state.t,
             Z=self.state.Z.copy(), y=np.asarray(y_snap, dtype=np.float64).copy(),

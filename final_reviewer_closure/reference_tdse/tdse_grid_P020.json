@@ -1,0 +1,194 @@
+{
+  "P0": 20.0,
+  "levels": [
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.9519007719769913,
+        "P1": 0.04809922804327558,
+        "P_mean": 19.712015474298116,
+        "P_var": 2.06658957330734,
+        "R_mean": 15.28931530628555,
+        "R_var": 2.412698773848774,
+        "energy": 0.10006250000202589,
+        "trace": 1.000000000020267
+      },
+      "label": "coarse",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 6.164956072895943e-25,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 6.164956072895943e-25,
+        "maximum_negative_momentum_probability": 6.352443343774279e-25,
+        "n_grid_requested": 2048,
+        "n_steps": 60000,
+        "negative_momentum_probability": 6.352443343774279e-25,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 3000.0
+      },
+      "n_grid": 2048,
+      "n_steps": 60000
+    },
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.9519007719723998,
+        "P1": 0.04809922804323075,
+        "P_mean": 19.712015474296685,
+        "P_var": 2.0665895733132515,
+        "R_mean": 15.289315306283761,
+        "R_var": 2.4126987738508774,
+        "energy": 0.10006250000155825,
+        "trace": 1.0000000000156306
+      },
+      "label": "fine",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 2.739902997520042e-25,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 2.739902997520042e-25,
+        "maximum_negative_momentum_probability": 2.7676009001666314e-25,
+        "n_grid_requested": 4096,
+        "n_steps": 60000,
+        "negative_momentum_probability": 2.7676009001666314e-25,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 3000.0
+      },
+      "n_grid": 4096,
+      "n_steps": 60000
+    },
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.9519007719706046,
+        "P1": 0.048099228043251986,
+        "P_mean": 19.712015474296567,
+        "P_var": 2.0665895733168327,
+        "R_mean": 15.289315306283385,
+        "R_var": 2.412698773854032,
+        "energy": 0.1000625000013858,
+        "trace": 1.0000000000138567
+      },
+      "label": "finer",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 3.8209792388540524e-25,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 3.8209792388540524e-25,
+        "maximum_negative_momentum_probability": 1.8364520211270572e-25,
+        "n_grid_requested": 8192,
+        "n_steps": 60000,
+        "negative_momentum_probability": 1.8364520211270572e-25,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 3000.0
+      },
+      "n_grid": 8192,
+      "n_steps": 60000
+    }
+  ],
+  "method": "tdse",
+  "observables": {
+    "P0": {
+      "abs_diff_coarse_fine": 4.59154936294226e-12,
+      "abs_diff_fine_finer": 1.7951196085164156e-12,
+      "coarse": 0.9519007719769913,
+      "fine": 0.9519007719723998,
+      "finer": 0.9519007719706046,
+      "p_obs": 1.3549010820530054,
+      "ratio": 2.557795782052075,
+      "reason": "ok"
+    },
+    "P1": {
+      "abs_diff_coarse_fine": 4.4825254619240695e-14,
+      "abs_diff_fine_finer": 2.123301534595612e-14,
+      "coarse": 0.04809922804327558,
+      "fine": 0.04809922804323075,
+      "finer": 0.048099228043251986,
+      "p_obs": 1.078002512001273,
+      "ratio": 2.111111111111111,
+      "reason": "ok"
+    },
+    "P_mean": {
+      "abs_diff_coarse_fine": 1.4317436125566019e-12,
+      "abs_diff_fine_finer": 1.1723955140041653e-13,
+      "coarse": 19.712015474298116,
+      "fine": 19.712015474296685,
+      "finer": 19.712015474296567,
+      "p_obs": "NOT COMPUTED",
+      "ratio": 12.212121212121213,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "P_var": {
+      "abs_diff_coarse_fine": 5.9117155615240335e-12,
+      "abs_diff_fine_finer": 3.581135388230905e-12,
+      "coarse": 2.06658957330734,
+      "fine": 2.0665895733132515,
+      "finer": 2.0665895733168327,
+      "p_obs": 0.7231597946411756,
+      "ratio": 1.6507936507936507,
+      "reason": "ok"
+    },
+    "R_mean": {
+      "abs_diff_coarse_fine": 1.7887913372760522e-12,
+      "abs_diff_fine_finer": 3.765876499528531e-13,
+      "coarse": 15.28931530628555,
+      "fine": 15.289315306283761,
+      "finer": 15.289315306283385,
+      "p_obs": 2.2479275134435857,
+      "ratio": 4.75,
+      "reason": "ok"
+    },
+    "R_var": {
+      "abs_diff_coarse_fine": 2.1032064978498966e-12,
+      "abs_diff_fine_finer": 3.154809746774845e-12,
+      "coarse": 2.412698773848774,
+      "fine": 2.4126987738508774,
+      "finer": 2.412698773854032,
+      "p_obs": -0.5849625007211563,
+      "ratio": 0.6666666666666666,
+      "reason": "ok"
+    },
+    "energy": {
+      "abs_diff_coarse_fine": 4.676398157599237e-13,
+      "abs_diff_fine_finer": 1.7244539129990244e-13,
+      "coarse": 0.10006250000202589,
+      "fine": 0.10006250000155825,
+      "finer": 0.1000625000013858,
+      "p_obs": 1.4392581964725164,
+      "ratio": 2.711813938516015,
+      "reason": "ok"
+    },
+    "trace": {
+      "abs_diff_coarse_fine": 4.636291350834654e-12,
+      "abs_diff_fine_finer": 1.7739143487460751e-12,
+      "coarse": 1.000000000020267,
+      "fine": 1.0000000000156306,
+      "finer": 1.0000000000138567,
+      "p_obs": 1.3860348775254765,
+      "ratio": 2.6135936913255726,
+      "reason": "ok"
+    }
+  },
+  "refine_mode": "grid",
+  "resolved_configuration": {
+    "P0": 20.0,
+    "R0": -15.0,
+    "dt": 0.2,
+    "edge_mass_tolerance": 1e-06,
+    "n_grid": 2048,
+    "n_steps": 15000,
+    "negative_momentum_tolerance": 1e-06,
+    "sigma_R": 1.0,
+    "t_final": 3000.0
+  },
+  "status": "COMPLETE"
+}

@@ -1,0 +1,196 @@
+{
+  "P0": 20.0,
+  "finest_series_file": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\reference_tdse\\tdse_time_P020.npz",
+  "finest_series_sha256": "c892b2f5b3189707246f0f01d16660db04f955b13f272749c63a453435ff343b",
+  "levels": [
+    {
+      "dt": 0.2,
+      "endpoints": {
+        "P0": 0.9519009219784992,
+        "P1": 0.04809907802499623,
+        "P_mean": 19.712016362287308,
+        "P_var": 2.066584568718042,
+        "R_mean": 15.2893159203032,
+        "R_var": 2.412696455356894,
+        "energy": 0.1000625000003509,
+        "trace": 1.0000000000034954
+      },
+      "label": "coarse",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.2,
+        "edge_mass_5pct": 3.355190290337477e-26,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 3.355190290337477e-26,
+        "maximum_negative_momentum_probability": 1.1046689124324106e-26,
+        "n_grid_requested": 8192,
+        "n_steps": 15000,
+        "negative_momentum_probability": 1.1046689124324106e-26,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 3000.0
+      },
+      "n_grid": 8192,
+      "n_steps": 15000
+    },
+    {
+      "dt": 0.1,
+      "endpoints": {
+        "P0": 0.9519008019682846,
+        "P1": 0.048099198039349075,
+        "P_mean": 19.71201565189527,
+        "P_var": 2.0665885723957444,
+        "R_mean": 15.289315429088154,
+        "R_var": 2.4126983101539565,
+        "energy": 0.100062500000766,
+        "trace": 1.0000000000076337
+      },
+      "label": "fine",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.1,
+        "edge_mass_5pct": 1.2416576247104222e-25,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 1.2416576247104222e-25,
+        "maximum_negative_momentum_probability": 4.174302051338681e-26,
+        "n_grid_requested": 8192,
+        "n_steps": 30000,
+        "negative_momentum_probability": 4.174302051338681e-26,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 3000.0
+      },
+      "n_grid": 8192,
+      "n_steps": 30000
+    },
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.9519007719706046,
+        "P1": 0.048099228043251986,
+        "P_mean": 19.712015474296567,
+        "P_var": 2.0665895733168327,
+        "R_mean": 15.289315306283385,
+        "R_var": 2.412698773854032,
+        "energy": 0.1000625000013858,
+        "trace": 1.0000000000138567
+      },
+      "label": "finer",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 3.8209792388540524e-25,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 1.2238841634033293e-24,
+        "maximum_negative_momentum_probability": 5.526048640615052e-24,
+        "n_grid_requested": 8192,
+        "n_steps": 60000,
+        "negative_momentum_probability": 1.8364520211270572e-25,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 3000.0
+      },
+      "n_grid": 8192,
+      "n_steps": 60000
+    }
+  ],
+  "method": "tdse",
+  "observables": {
+    "P0": {
+      "abs_diff_coarse_fine": 1.2001021454377536e-07,
+      "abs_diff_fine_finer": 2.9997680006665917e-08,
+      "coarse": 0.9519009219784992,
+      "fine": 0.9519008019682846,
+      "finer": 0.9519007719706046,
+      "p_obs": 2.0002343711142103,
+      "ratio": 4.0006498674933315,
+      "reason": "ok"
+    },
+    "P1": {
+      "abs_diff_coarse_fine": 1.200143528445885e-07,
+      "abs_diff_fine_finer": 3.000390291080235e-08,
+      "coarse": 0.04809907802499623,
+      "fine": 0.048099198039349075,
+      "finer": 0.048099228043251986,
+      "p_obs": 1.9999848680348578,
+      "ratio": 3.9999580455041253,
+      "reason": "ok"
+    },
+    "P_mean": {
+      "abs_diff_coarse_fine": 7.103920367512728e-07,
+      "abs_diff_fine_finer": 1.775987037433424e-07,
+      "coarse": 19.712016362287308,
+      "fine": 19.71201565189527,
+      "finer": 19.712015474296567,
+      "p_obs": 1.9999943578767825,
+      "ratio": 3.999984356743387,
+      "reason": "ok"
+    },
+    "P_var": {
+      "abs_diff_coarse_fine": 4.003677702257846e-06,
+      "abs_diff_fine_finer": 1.0009210882344632e-06,
+      "coarse": 2.066584568718042,
+      "fine": 2.0665885723957444,
+      "finer": 2.0665895733168327,
+      "p_obs": 1.9999976034796483,
+      "ratio": 3.999993355440219,
+      "reason": "ok"
+    },
+    "R_mean": {
+      "abs_diff_coarse_fine": 4.912150455282926e-07,
+      "abs_diff_fine_finer": 1.228047690204903e-07,
+      "coarse": 15.2893159203032,
+      "fine": 15.289315429088154,
+      "finer": 15.289315306283385,
+      "p_obs": 1.9999881623415519,
+      "ratio": 3.9999671791763403,
+      "reason": "ok"
+    },
+    "R_var": {
+      "abs_diff_coarse_fine": 1.8547970626059396e-06,
+      "abs_diff_fine_finer": 4.6370007567020366e-07,
+      "coarse": 2.412696455356894,
+      "fine": 2.4126983101539565,
+      "finer": 2.412698773854032,
+      "p_obs": 1.99999747981277,
+      "ratio": 3.999993012563411,
+      "reason": "ok"
+    },
+    "energy": {
+      "abs_diff_coarse_fine": 4.150985111195382e-13,
+      "abs_diff_fine_finer": 6.198097590726093e-13,
+      "coarse": 0.1000625000003509,
+      "fine": 0.100062500000766,
+      "finer": 0.1000625000013858,
+      "p_obs": -0.5783717134528886,
+      "ratio": 0.6697192243965787,
+      "reason": "ok"
+    },
+    "trace": {
+      "abs_diff_coarse_fine": 4.1382453019878085e-12,
+      "abs_diff_fine_finer": 6.2230220976289274e-12,
+      "coarse": 1.0000000000034954,
+      "fine": 1.0000000000076337,
+      "finer": 1.0000000000138567,
+      "p_obs": -0.588596203074672,
+      "ratio": 0.6649896524655677,
+      "reason": "ok"
+    }
+  },
+  "refine_mode": "time",
+  "resolved_configuration": {
+    "P0": 20.0,
+    "R0": -15.0,
+    "dt": 0.2,
+    "edge_mass_tolerance": 1e-06,
+    "n_grid": 2048,
+    "n_steps": 15000,
+    "negative_momentum_tolerance": 1e-06,
+    "sigma_R": 1.0,
+    "t_final": 3000.0
+  },
+  "status": "COMPLETE"
+}

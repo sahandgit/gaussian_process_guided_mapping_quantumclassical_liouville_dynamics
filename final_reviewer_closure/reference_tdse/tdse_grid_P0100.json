@@ -1,0 +1,194 @@
+{
+  "P0": 100.0,
+  "levels": [
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.14297918153503555,
+        "P1": 0.8570208184694124,
+        "P_mean": 99.13864040670138,
+        "P_var": 0.37583404395081743,
+        "R_mean": 14.897078239758613,
+        "R_var": 1.00648179144153,
+        "energy": 2.500062500011138,
+        "trace": 1.000000000004448
+      },
+      "label": "coarse",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 4.825682713202339e-26,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 4.825682713202339e-26,
+        "maximum_negative_momentum_probability": 6.092890634057175e-27,
+        "n_grid_requested": 2048,
+        "n_steps": 12000,
+        "negative_momentum_probability": 6.092890634057175e-27,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 600.0
+      },
+      "n_grid": 2048,
+      "n_steps": 12000
+    },
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.14297918153503555,
+        "P1": 0.8570208184694124,
+        "P_mean": 99.13864040670138,
+        "P_var": 0.37583404395081743,
+        "R_mean": 14.897078239758613,
+        "R_var": 1.00648179144153,
+        "energy": 2.500062500011138,
+        "trace": 1.000000000004448
+      },
+      "label": "fine",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 4.825682713202339e-26,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 4.825682713202339e-26,
+        "maximum_negative_momentum_probability": 6.092890634057175e-27,
+        "n_grid_requested": 4096,
+        "n_steps": 12000,
+        "negative_momentum_probability": 6.092890634057175e-27,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 600.0
+      },
+      "n_grid": 4096,
+      "n_steps": 12000
+    },
+    {
+      "dt": 0.05,
+      "endpoints": {
+        "P0": 0.14297918153503555,
+        "P1": 0.8570208184694124,
+        "P_mean": 99.13864040670138,
+        "P_var": 0.37583404395081743,
+        "R_mean": 14.897078239758613,
+        "R_var": 1.00648179144153,
+        "energy": 2.500062500011138,
+        "trace": 1.000000000004448
+      },
+      "label": "finer",
+      "metadata": {
+        "absorber_policy": "none",
+        "boundary_rule": "periodic (split-operator FFT)",
+        "dt": 0.05,
+        "edge_mass_5pct": 4.825682713202339e-26,
+        "edge_mass_convention": "probability in the two outer 5% spatial bands",
+        "fft_convention": "periodic numpy FFT; P=hbar*2*pi*fftfreq",
+        "maximum_edge_mass_5pct": 4.825682713202339e-26,
+        "maximum_negative_momentum_probability": 6.092890634057175e-27,
+        "n_grid_requested": 8192,
+        "n_steps": 12000,
+        "negative_momentum_probability": 6.092890634057175e-27,
+        "split_operator_composition": "symmetric V/2-T-V/2",
+        "t_final": 600.0
+      },
+      "n_grid": 8192,
+      "n_steps": 12000
+    }
+  ],
+  "method": "tdse",
+  "observables": {
+    "P0": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 0.14297918153503555,
+      "fine": 0.14297918153503555,
+      "finer": 0.14297918153503555,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "P1": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 0.8570208184694124,
+      "fine": 0.8570208184694124,
+      "finer": 0.8570208184694124,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "P_mean": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 99.13864040670138,
+      "fine": 99.13864040670138,
+      "finer": 99.13864040670138,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "P_var": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 0.37583404395081743,
+      "fine": 0.37583404395081743,
+      "finer": 0.37583404395081743,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "R_mean": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 14.897078239758613,
+      "fine": 14.897078239758613,
+      "finer": 14.897078239758613,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "R_var": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 1.00648179144153,
+      "fine": 1.00648179144153,
+      "finer": 1.00648179144153,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "energy": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 2.500062500011138,
+      "fine": 2.500062500011138,
+      "finer": 2.500062500011138,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    },
+    "trace": {
+      "abs_diff_coarse_fine": 0.0,
+      "abs_diff_fine_finer": 0.0,
+      "coarse": 1.000000000004448,
+      "fine": 1.000000000004448,
+      "finer": 1.000000000004448,
+      "p_obs": "NOT COMPUTED",
+      "ratio": null,
+      "reason": "INSUFFICIENT EVIDENCE: finer difference ~0 (denominator underflow)"
+    }
+  },
+  "refine_mode": "grid",
+  "resolved_configuration": {
+    "P0": 100.0,
+    "R0": -15.0,
+    "dt": 0.2,
+    "edge_mass_tolerance": 1e-06,
+    "n_grid": 2048,
+    "n_steps": 3000,
+    "negative_momentum_tolerance": 1e-06,
+    "sigma_R": 1.0,
+    "t_final": 600.0
+  },
+  "status": "COMPLETE"
+}

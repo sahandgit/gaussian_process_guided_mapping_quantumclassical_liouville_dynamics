@@ -1,0 +1,228 @@
+{
+  "checks": [
+    {
+      "detail": "0 missing/invalid jobs",
+      "name": "all_required_jobs_complete",
+      "passed": true
+    },
+    {
+      "detail": "72 rows; expected 72",
+      "name": "manufactured_row_count",
+      "passed": true
+    },
+    {
+      "detail": "72 rows finite",
+      "name": "manufactured_metrics_finite",
+      "passed": true
+    },
+    {
+      "detail": "training/query hashes identical across l2 at fixed N, seed and query",
+      "name": "manufactured_policy_pairing",
+      "passed": true
+    },
+    {
+      "detail": "432 rows; expected 432",
+      "name": "rows_manufactured_summary",
+      "passed": true
+    },
+    {
+      "detail": "864 rows; expected 864",
+      "name": "rows_manufactured_policy_comparison",
+      "passed": true
+    },
+    {
+      "detail": "128 rows; expected 128",
+      "name": "rows_timestep_run_by_run",
+      "passed": true
+    },
+    {
+      "detail": "288 rows; expected 288",
+      "name": "rows_independent_cloud_run_by_run",
+      "passed": true
+    },
+    {
+      "detail": "128 rows; expected 128",
+      "name": "rows_four_seed_values",
+      "passed": true
+    },
+    {
+      "detail": "160 rows; expected 160",
+      "name": "rows_threshold_sweep",
+      "passed": true
+    },
+    {
+      "detail": "32 rows; expected 32",
+      "name": "rows_tdse_three_level",
+      "passed": true
+    },
+    {
+      "detail": "32 rows; expected 32",
+      "name": "rows_qcle_three_level",
+      "passed": true
+    },
+    {
+      "detail": "256 rows; expected 256",
+      "name": "rows_observable_errors_by_seed",
+      "passed": true
+    },
+    {
+      "detail": "32 rows; expected 32",
+      "name": "rows_density_errors_by_seed",
+      "passed": true
+    },
+    {
+      "detail": "32 rows; expected 32",
+      "name": "rows_observable_errors_method_pair_by_seed",
+      "passed": true
+    },
+    {
+      "detail": "16 rows; expected 16",
+      "name": "rows_density_errors_method_pair_by_seed",
+      "passed": true
+    },
+    {
+      "detail": "8 rows; expected 8",
+      "name": "rows_y0_distribution_paired",
+      "passed": true
+    },
+    {
+      "detail": "8 rows; expected 8",
+      "name": "rows_reference_settings_by_method_and_momentum",
+      "passed": true
+    },
+    {
+      "detail": "unique cells=72; expected=72",
+      "name": "manufactured_every_seed_cell_present_once",
+      "passed": true
+    },
+    {
+      "detail": "unique cells=128; expected=128",
+      "name": "timestep_every_method_momentum_seed_observable_present_once",
+      "passed": true
+    },
+    {
+      "detail": "16 rows finite; unique cells=16",
+      "name": "density_absolute_L1_L2_every_seed",
+      "passed": true
+    },
+    {
+      "detail": "32 rows finite; unique cells=32",
+      "name": "observable_absolute_errors_every_seed",
+      "passed": true
+    },
+    {
+      "detail": "8 rows finite; ordered=True",
+      "name": "initial_label_distribution_complete_and_ordered",
+      "passed": true
+    },
+    {
+      "detail": "threshold=eta*max|y0| and included+excluded=N for every row",
+      "name": "tail_inclusion_rule_and_affected_fraction_reconstructible",
+      "passed": true
+    },
+    {
+      "detail": "cells=8; qcle_domains_ok=True; high_momentum_tdse_grid_ok=True",
+      "name": "reference_settings_split_and_consistent",
+      "passed": true
+    },
+    {
+      "detail": "432 rows finite",
+      "name": "manufactured_summary_policy_statistics_finite",
+      "passed": true
+    },
+    {
+      "detail": "all regularization comparisons use identical training/query clouds",
+      "name": "manufactured_summary_policy_cloud_pairing",
+      "passed": true
+    },
+    {
+      "detail": "0 forbidden verdicts",
+      "name": "timestep_no_missing_or_nonfinite_verdict",
+      "passed": true
+    },
+    {
+      "detail": "128 rows finite",
+      "name": "timestep_reconstruction_fields_finite",
+      "passed": true
+    },
+    {
+      "detail": "all support rows explicitly identify independent clouds",
+      "name": "support_declared_independent",
+      "passed": true
+    },
+    {
+      "detail": "every threshold mask has SHA-256",
+      "name": "tail_masks_hashed",
+      "passed": true
+    },
+    {
+      "detail": "raw normalization and energy present at every threshold",
+      "name": "tail_raw_not_self_normalized",
+      "passed": true
+    },
+    {
+      "detail": "modes found: [('100.0', 'grid'), ('100.0', 'time'), ('20.0', 'grid'), ('20.0', 'time')]",
+      "name": "tdse_separate_time_grid",
+      "passed": true
+    },
+    {
+      "detail": "32 rows finite",
+      "name": "tdse_values_differences_finite",
+      "passed": true
+    },
+    {
+      "detail": "32 rows finite",
+      "name": "tdse_exact_grid_settings_finite",
+      "passed": true
+    },
+    {
+      "detail": "maximum=1.2238841634033293e-24; levels checked=(1, 2, 3); declared tolerance recorded per row",
+      "name": "tdse_edge_mass_within_declared_tolerance",
+      "passed": true
+    },
+    {
+      "detail": "finest TDSE maximum negative-momentum probability=6.092890634057175e-27; tolerance=1e-06",
+      "name": "high_momentum_positive_qcle_box_admissible",
+      "passed": true
+    },
+    {
+      "detail": "modes found: [('100.0', 'grid'), ('100.0', 'time'), ('20.0', 'grid'), ('20.0', 'time')]",
+      "name": "grid_qcle_separate_time_grid",
+      "passed": true
+    },
+    {
+      "detail": "32 rows finite",
+      "name": "grid_qcle_values_differences_finite",
+      "passed": true
+    },
+    {
+      "detail": "32 rows finite",
+      "name": "grid_qcle_exact_grid_settings_finite",
+      "passed": true
+    },
+    {
+      "detail": "maximum=0.0005915682182902651; levels checked=(3,); declared tolerance recorded per row",
+      "name": "grid_qcle_edge_mass_within_declared_tolerance",
+      "passed": true
+    },
+    {
+      "detail": "18 table files and 20 unique artifact IDs traced to hash-verified CSVs",
+      "name": "table_crosswalk_complete",
+      "passed": true
+    },
+    {
+      "detail": "5 figures traced to hash-verified CSVs",
+      "name": "figure_crosswalk_complete",
+      "passed": true
+    },
+    {
+      "detail": "included=['../final_reviewer_closure/figures/manufactured_operator_regularization.png', '../final_reviewer_closure/figures/seo_projection_leakage_verified.png', '../final_reviewer_closure/figures/replication_and_raw_conservation.png', '../final_reviewer_closure/figures/initial_label_tail_sensitivity.png', '../final_reviewer_closure/figures/paired_physical_reference_differences.png']",
+      "name": "thesis_verified_figures_only",
+      "passed": true
+    }
+  ],
+  "created_utc": "2026-08-01T17:23:33.513832+00:00",
+  "permanent_archive_note": "A real DOI or permanent release identifier requires author login to a repository; no identifier is invented.",
+  "permanent_archive_status": "BLOCKED_EXTERNAL_PUBLICATION",
+  "status": "PASSED"
+}

@@ -172,6 +172,37 @@ def main() -> int:
     for name in ("Reviewer_Response.tex", "Reviewer_Response.pdf"):
         copy_file(ROOT / name, STAGE / name)
 
+    release_metadata = STAGE / "release"
+    reset_dir(release_metadata)
+    for source, target in (
+        (
+            ROOT / "reviewer_data_audit"
+            / "frozen_numerical_evidence_payload_manifest.json",
+            release_metadata / "frozen_numerical_evidence_payload_manifest.json",
+        ),
+        (
+            ROOT / "reviewer_data_audit"
+            / "final_submission_document_manifest.json",
+            release_metadata / "final_submission_document_manifest.json",
+        ),
+        (
+            ROOT / "reviewer_data_audit" / "pdf_qa"
+            / "pdf_compile_render_manifest.json",
+            release_metadata / "pdf_qa" / "pdf_compile_render_manifest.json",
+        ),
+        (
+            ROOT / "reviewer_data_audit" / "pdf_qa"
+            / "pdf_compile_render_manifest.csv",
+            release_metadata / "pdf_qa" / "pdf_compile_render_manifest.csv",
+        ),
+        (
+            ROOT / "reviewer_data_audit" / "pdf_qa"
+            / "MANUAL_VISUAL_QA_PASSED.md",
+            release_metadata / "pdf_qa" / "MANUAL_VISUAL_QA_PASSED.md",
+        ),
+    ):
+        copy_file(source, target)
+
     evidence_target = STAGE / "final_reviewer_closure"
     reset_dir(evidence_target)
     evidence_source = ROOT / "final_reviewer_closure"

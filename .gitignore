@@ -11,10 +11,7 @@ runs/
 results/
 *.npz
 *.npy
-*.pdf
-*.png
 .DS_Store
 
 artifacts/*
 !artifacts/.gitkeep
-*.json

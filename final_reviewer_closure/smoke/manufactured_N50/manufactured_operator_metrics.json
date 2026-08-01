@@ -1,0 +1,114 @@
+{
+  "cholesky_adaptive_jitter": 0.0,
+  "cholesky_attempts": 1,
+  "cholesky_jitter": 1e-06,
+  "dtype": "float64",
+  "hyperparameter_policy": "optimized once, then frozen",
+  "input_scaling": {
+    "feature_mean": [
+      0.18699928945494787,
+      8.005597885240823,
+      -0.05355140339353893,
+      0.08877428843373368,
+      0.09645243193999599,
+      -0.0792397045182396
+    ],
+    "feature_std": [
+      1.182632263938929,
+      0.5511203593237417,
+      0.6929476198816112,
+      0.699460597782095,
+      0.5784818833317027,
+      0.8216009697363076
+    ],
+    "feature_zscore": false
+  },
+  "l2_regularization": 0.05,
+  "lengthscales": [
+    1.4974856903034541,
+    0.8781582984461374,
+    7.38905609893065,
+    7.38905609893065,
+    7.38905609893065,
+    7.38905609893065
+  ],
+  "metrics": {
+    "off_support": {
+      "density": {
+        "denominator_floor": 1e-30,
+        "denominator_floor_used": false,
+        "linf": 0.001462005157623647,
+        "mae": 0.00017092415148112133,
+        "relative_l1": 0.021539416335087838,
+        "relative_l2": 0.02470831161409724,
+        "relative_linf": 0.03108146950219694,
+        "rmse": 0.0002893813191948673
+      },
+      "gradient": {
+        "denominator_floor": 1e-30,
+        "denominator_floor_used": false,
+        "linf": 0.005486333013459568,
+        "mae": 0.00025034064846423147,
+        "relative_l1": 0.026985430964116094,
+        "relative_l2": 0.02753075826482944,
+        "relative_linf": 0.033092919870288326,
+        "rmse": 0.0005024713597012361
+      },
+      "operator_Q": {
+        "denominator_floor": 1e-30,
+        "denominator_floor_used": false,
+        "linf": 8.270077137525849e-05,
+        "mae": 4.36686734317157e-06,
+        "relative_l1": 0.05663053768403169,
+        "relative_l2": 0.07566287979038161,
+        "relative_linf": 0.12045099261970066,
+        "rmse": 1.0594764586018056e-05
+      },
+      "query_count": 100,
+      "query_sha256": "f0149267c8a318d77e54b069f4b0f9a942bbfa3e6cb83a48aaaed22001465191"
+    },
+    "on_support": {
+      "density": {
+        "denominator_floor": 1e-30,
+        "denominator_floor_used": false,
+        "linf": 0.00011843828927260436,
+        "mae": 4.2339682085610834e-06,
+        "relative_l1": 0.00040656541705771785,
+        "relative_l2": 0.0009297090910011727,
+        "relative_linf": 0.0013451619172283457,
+        "rmse": 1.7521811129207004e-05
+      },
+      "gradient": {
+        "denominator_floor": 1e-30,
+        "denominator_floor_used": false,
+        "linf": 0.0019705188569733925,
+        "mae": 0.00014773111405171288,
+        "relative_l1": 0.01328225644029903,
+        "relative_l2": 0.015109245720461033,
+        "relative_linf": 0.014697711157791882,
+        "rmse": 0.0003137576371449353
+      },
+      "operator_Q": {
+        "denominator_floor": 1e-30,
+        "denominator_floor_used": false,
+        "linf": 4.4579181496711535e-05,
+        "mae": 5.910121726845864e-06,
+        "relative_l1": 0.05485125522522954,
+        "relative_l2": 0.04992794675724544,
+        "relative_linf": 0.04222070902760025,
+        "rmse": 1.0455913880342918e-05
+      },
+      "query_count": 50,
+      "query_sha256": "f658584488b82d6814ebc87cf62529e58a05f75c075ad8cbf635df1ac75b40b2"
+    }
+  },
+  "minimum_eigenvalue_estimate": -1.9825366382255598,
+  "minimum_eigenvalue_estimate_method": "Gershgorin lower bound",
+  "n_query_off_support": 100,
+  "n_query_on_support": 50,
+  "n_train": 50,
+  "seed": 123,
+  "sigma_f": 0.2589045984506743,
+  "sigma_n": 0.0012911117892974032,
+  "training_cloud_sha256": "f658584488b82d6814ebc87cf62529e58a05f75c075ad8cbf635df1ac75b40b2"
+}

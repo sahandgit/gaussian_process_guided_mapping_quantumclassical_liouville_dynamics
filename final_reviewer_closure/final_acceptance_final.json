@@ -1,0 +1,336 @@
+{
+  "stage": "final",
+  "passed": true,
+  "checks": [
+    {
+      "name": "manufactured_72_rows",
+      "passed": true,
+      "detail": "72 rows"
+    },
+    {
+      "name": "manufactured_metadata",
+      "passed": true,
+      "detail": "l2/seed/N/query/hashes/policy/jitter present"
+    },
+    {
+      "name": "manufactured_finite",
+      "passed": true,
+      "detail": "all 18 metrics finite per row"
+    },
+    {
+      "name": "manufactured_policy_summary",
+      "passed": true,
+      "detail": "432 mean/spread/paired-policy rows"
+    },
+    {
+      "name": "timestep_128_rows",
+      "passed": true,
+      "detail": "128 rows"
+    },
+    {
+      "name": "timestep_reconstructible",
+      "passed": true,
+      "detail": "three values, two differences, spread, threshold, verdict and manifests"
+    },
+    {
+      "name": "timestep_guarded_verdicts",
+      "passed": true,
+      "detail": "verdict_counts={'REJECT_SEED_VARIABILITY': 102, 'REJECT_NUMERICAL_NOISE': 15, 'COMPUTED_POSITIVE': 8, 'COMPUTED_ZERO_OR_NEGATIVE': 3}"
+    },
+    {
+      "name": "replication_four_seed",
+      "passed": true,
+      "detail": "32 method/momentum/observable rows"
+    },
+    {
+      "name": "tail_complete",
+      "passed": true,
+      "detail": "16 distributions, 160 sweep rows"
+    },
+    {
+      "name": "TDSE_three_level",
+      "passed": true,
+      "detail": "32 rows; cases=[('100.0', 'grid'), ('100.0', 'time'), ('20.0', 'grid'), ('20.0', 'time')]"
+    },
+    {
+      "name": "TDSE_noise_and_asymptotic_guards",
+      "passed": true,
+      "detail": "accepted and rejected rows satisfy the declared hierarchy"
+    },
+    {
+      "name": "grid-QCLE_three_level",
+      "passed": true,
+      "detail": "32 rows; cases=[('100.0', 'grid'), ('100.0', 'time'), ('20.0', 'grid'), ('20.0', 'time')]"
+    },
+    {
+      "name": "grid-QCLE_noise_and_asymptotic_guards",
+      "passed": true,
+      "detail": "accepted and rejected rows satisfy the declared hierarchy"
+    },
+    {
+      "name": "paired_physical_comparison",
+      "passed": true,
+      "detail": "256 rows with paired support hashes"
+    },
+    {
+      "name": "raw_conservation",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\raw_conservation.csv"
+    },
+    {
+      "name": "projection_leakage",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\projection_leakage.csv"
+    },
+    {
+      "name": "kde_gp_baseline",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\preserved_evidence\\kde_gp_baseline.csv"
+    },
+    {
+      "name": "reference_settings_eight_exact_cases",
+      "passed": true,
+      "detail": "rows=8; cases=[('TDSE', '100.0', 'grid'), ('TDSE', '100.0', 'time'), ('TDSE', '20.0', 'grid'), ('TDSE', '20.0', 'time'), ('grid QCLE', '100.0', 'grid'), ('grid QCLE', '100.0', 'time'), ('grid QCLE', '20.0', 'grid'), ('grid QCLE', '20.0', 'time')]"
+    },
+    {
+      "name": "thesis_forbidden_TODO",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_TBD",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_FIXME",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_NOT COMPUTED",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_\\textbf{NOT COMPUTED}",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_full-density prototype",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_corrected method",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_corrected evolution",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_automatic-relevance-",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_\\input{Chapter6",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_\\input{Chapter7",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_\\input{ReviewerEvidenceTables",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_Grid QCLE was not rerun",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_NOT_IDENTIFIABLE_UNTIL_FINAL_SNAPSHOT",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_BLOCKED_UNTIL_FINAL_NUMERICAL_VERIFICATION",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_12 time-step runs",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_comparison with converged solutions",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_approximately second-order behaviour for the TDSE and grid-QCLE",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_step-size change exceeds seed spread",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_fail to converge for this manufactured operator",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "abstract_max_150",
+      "passed": true,
+      "detail": "word_count=150"
+    },
+    {
+      "name": "title_matches_pdftitle",
+      "passed": true,
+      "detail": "title='Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis'; pdftitle='Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis'"
+    },
+    {
+      "name": "duplicate_labels",
+      "passed": true,
+      "detail": "duplicates=[]"
+    },
+    {
+      "name": "source_references_resolve",
+      "passed": true,
+      "detail": "missing=[]"
+    },
+    {
+      "name": "cited_keys_exist",
+      "passed": true,
+      "detail": "missing=[]"
+    },
+    {
+      "name": "table_crosswalk_present",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\table_data_crosswalk.csv"
+    },
+    {
+      "name": "table_sources_exist",
+      "passed": true,
+      "detail": "18 crosswalk rows"
+    },
+    {
+      "name": "figure_crosswalk_present",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\figures\\FIGURE_DATA_CROSSWALK.csv"
+    },
+    {
+      "name": "figure_sources_and_hashes",
+      "passed": true,
+      "detail": "5 crosswalk rows"
+    },
+    {
+      "name": "thesis_verified_figures_only",
+      "passed": true,
+      "detail": "included=['../final_reviewer_closure/figures/manufactured_operator_regularization.png', '../final_reviewer_closure/figures/seo_projection_leakage_verified.png', '../final_reviewer_closure/figures/replication_and_raw_conservation.png', '../final_reviewer_closure/figures/initial_label_tail_sensitivity.png', '../final_reviewer_closure/figures/paired_physical_reference_differences.png']"
+    },
+    {
+      "name": "reference_appendix_generated_from_final_csvs",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\thesis_sources\\reference_appendix_update_manifest.json"
+    },
+    {
+      "name": "mandatory_corrections_present",
+      "passed": true,
+      "detail": "missing=[]"
+    },
+    {
+      "name": "appendix_physics_facing",
+      "passed": true,
+      "detail": "forbidden_terms=[]"
+    },
+    {
+      "name": "internal_frozen_payload_integrity",
+      "passed": true,
+      "detail": "archive=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\frozen_numerical_evidence_payload.zip; expected SHA-256=0c679c3bd51ec1c97da81b6342a21ed53b012070de9d78196f0231d330d94179"
+    },
+    {
+      "name": "chapter_contract_cohesive_prose",
+      "passed": true,
+      "detail": "chapters=7; closing_anchors=6; paragraph_commands=0"
+    },
+    {
+      "name": "chapter_6_7_physics_evidence",
+      "passed": true,
+      "detail": "explicit source marker required for every Chapter 6\u20137 numerical block"
+    },
+    {
+      "name": "response_all_items",
+      "passed": true,
+      "detail": "missing=[]"
+    },
+    {
+      "name": "response_nine_mandatory_corrections",
+      "passed": true,
+      "detail": "nine final corrections have location and archive crosswalks"
+    },
+    {
+      "name": "response_no_open_language",
+      "passed": true,
+      "detail": "present=[]"
+    },
+    {
+      "name": "response_item_statuses",
+      "passed": true,
+      "detail": "addressed=58; external_pending=0; expected>=58"
+    },
+    {
+      "name": "response_locations_and_evidence",
+      "passed": true,
+      "detail": "each item identifies its thesis revision and scientific evidence"
+    },
+    {
+      "name": "response_availability_statement",
+      "passed": true,
+      "detail": "public release/DOI recorded or external deposition status stated explicitly"
+    },
+    {
+      "name": "log_Thesis",
+      "passed": true,
+      "detail": "forbidden=[]"
+    },
+    {
+      "name": "log_Reviewer_Response",
+      "passed": true,
+      "detail": "forbidden=[]"
+    },
+    {
+      "name": "thesis_pdf",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.pdf"
+    },
+    {
+      "name": "thesis_pdf_pages",
+      "passed": true,
+      "detail": "192 pages (pypdfium2)"
+    },
+    {
+      "name": "response_pdf",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.pdf"
+    },
+    {
+      "name": "response_pdf_pages",
+      "passed": true,
+      "detail": "16 pages (pypdfium2)"
+    }
+  ]
+}

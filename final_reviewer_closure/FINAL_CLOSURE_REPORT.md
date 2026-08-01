@@ -1,6 +1,6 @@
 Overall status: FAIL
 Scientific result: no validated improvement
-Thesis compile: PASS
+Thesis compile: FAIL
 Reviewer response compile: FAIL
 Evidence archive: PASS
 Permanent archive identifier: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01
@@ -14,7 +14,7 @@ Archive SHA-256: 9b6e98221f61993dc8022785295ebe80db2a3f71595ea1349269d7db0627cfb
 
 Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis
 
-Abstract word count: 149.
+Abstract word count: 148.
 
 ## Environment
 
@@ -42,7 +42,7 @@ I-items: 16/16 closed; M-items: 25/25 closed; L-items: 7/7 closed.
 - Time step: 128 run/observable rows across four seeds. Of the tested orders, 8 are positive, 3 are zero or negative, and 102 are rejected because the refinement signal does not exceed seed variability. A further 15 rows are roundoff- or saturation-limited under the declared absolute-plus-relative numerical-noise rule. Orders rejected by either guard are not promoted.
 - Replication: P0=20: PBME SD=0.0078824, MIDPOINT SD=0.794912, ratio=100.846; P0=100: PBME SD=0.0153607, MIDPOINT SD=0.956375, ratio=62.261. The independent-seed sample size is four, not the trajectory count.
 - Tail sensitivity: 16 method/momentum/seed distributions and 160 threshold rows; MIDPOINT max |y/y0|=7.61012e+23, minimum signed ESS=0.0247143. No nontrivial threshold satisfies the negligible-mass rule in 16 distributions.
-- References: The controlled-reference evidence contains 32 identified TDSE observable/mode/momentum rows and 32 grid-QCLE rows. Each row prints three values, two successive differences, exact domains and resolved steps; temporal and grid refinement are separated. TDSE P0=20 time orders P0=2.00023, P1=1.99998, R_mean=1.99999, P_mean=1.99999; TDSE P0=100 time orders P0=1.99999, P1=2, R_mean=2, P_mean=2; grid-QCLE P0=20 time orders P0=4.01476, P1=4.01487, R_mean=3.98176, P_mean=3.41716; grid-QCLE P0=100 time orders P0=4.14354, P1=4.14351, R_mean=not computed, P_mean=4.00419. Maximum recorded TDSE spatial-edge mass=1.22388e-24; maximum accepted finest-level grid-QCLE physical-marginal edge mass=0.000591568 (declared tolerance 1e-3).
+- References: The controlled-reference evidence contains 32 identified TDSE observable/mode/momentum rows and 32 grid-QCLE rows. Each row prints three values, two successive differences, exact domains and resolved steps; temporal and grid refinement are separated. TDSE P0=20 time orders P0=2.00023, P1=1.99998, R_mean=1.99999, P_mean=1.99999; TDSE P0=100 time orders P0=1.99999, P1=2, R_mean=2, P_mean=2; grid-QCLE P0=20 time orders P0=4.01476, P1=4.01487, R_mean=not computed, P_mean=not computed; grid-QCLE P0=100 time orders P0=4.14354, P1=4.14351, R_mean=not computed, P_mean=not computed. Maximum recorded TDSE spatial-edge mass=1.22388e-24; maximum accepted finest-level grid-QCLE physical-marginal edge mass=0.000591568 (declared tolerance 1e-3).
 - PBME/MIDPOINT comparison: 88 paired seed-aggregate error rows; MIDPOINT has a larger error in 6 rows and no resolved difference occurs in 82 rows. Regardless of isolated smaller errors, systematic improvement is not demonstrated unless refinement, seed, conservation, projection, and appreciable-source gates also pass.
 
 ## Table-data crosswalk
@@ -55,7 +55,7 @@ Thesis PDF: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_
 
 ## Archive
 
-Frozen numerical-evidence payload SHA-256: `24e447e113f3de723d63d0e8969c7c6eccf8124ddf8cee262c80defc047364eb`
+Frozen numerical-evidence payload SHA-256: `0c679c3bd51ec1c97da81b6342a21ed53b012070de9d78196f0231d330d94179`
 
 Archive: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\MSC-THESIS-FINAL-CLOSURE-2026-08-01T111722.zip`
 

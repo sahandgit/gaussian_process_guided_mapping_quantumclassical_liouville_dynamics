@@ -1,0 +1,127 @@
+{
+  "created_utc": "2026-08-01T17:22:28.680036+00:00",
+  "estimator_contract": {
+    "cloud_measure": "saved frozen omega_i times saved effective label y_i(t)",
+    "cloud_weighted_population": "sum mask_i omega_i y_i(t) mapping_population_i",
+    "live_weight_population": "cloud_weighted population divided by raw normalization when |raw normalization| > 1e-15; otherwise production fallback denominator 1.0",
+    "ratio": "saved final effective density label divided by the separately saved initial target density, y_i(t)/y_i^0",
+    "raw_energy": "sum mask_i omega_i y_i(t) H_i, not self-normalized",
+    "raw_normalization": "sum mask_i omega_i y_i(t), not self-normalized",
+    "threshold": "post-processing only; propagated dynamics unchanged"
+  },
+  "eta_levels": [
+    0.0,
+    1e-14,
+    1e-12,
+    1e-10,
+    1e-08,
+    1e-06,
+    1e-05,
+    0.0001,
+    0.001,
+    0.01
+  ],
+  "outputs": {
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\tail_summary.csv": "48c04ad1ea6152374e6a2df99ddbe39c4e37bf127fbf63efb9fd30f01cc4e6cb",
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\threshold_sweep.csv": "7b0c081fe652dd0c759f088cc7073401b12008f4a96e33c691c5c6ae3e9af24f",
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\tail_sensitivity\\y0_distribution.csv": "2e08d2a157157d7949f466119b8b84e32a36c76b48cb0297e26f514bb8279acb"
+  },
+  "sources": [
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed11\\run_manifest.json",
+      "run_manifest_sha256": "e5cb17d4242096540044d0a8e9e4aeb4183d7f25d564c9bf8a8bd300dbf9cd89",
+      "sha256": "e45f0483d534c9082953ce9169c099546a8d8207c450a774087cb367fe108477",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed11\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed11\\run_manifest.json",
+      "run_manifest_sha256": "e5cb17d4242096540044d0a8e9e4aeb4183d7f25d564c9bf8a8bd300dbf9cd89",
+      "sha256": "cfb91353b9500b30fd6ef2ec47bb002784848270ef04a9163c089625384da34b",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed11\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed29\\run_manifest.json",
+      "run_manifest_sha256": "f62ad06e5fb31571ad8336e45317ddbf9d33281c79cbeb70a77aaf26f87ec6d5",
+      "sha256": "7225e3403534f40d99951b29ea9afdf6910ff7e964e18c5221a89a06bd61d4e1",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed29\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed29\\run_manifest.json",
+      "run_manifest_sha256": "f62ad06e5fb31571ad8336e45317ddbf9d33281c79cbeb70a77aaf26f87ec6d5",
+      "sha256": "a2c9343f0fa5de893ffec111dfc00a25343d5d238e3783d939abe67ab5714c21",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed29\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed47\\run_manifest.json",
+      "run_manifest_sha256": "4ec36cf258aaf70d4e4632e981bf664327eabc61045e54f064e1faee27f1e564",
+      "sha256": "c138d939312fa1ffa1bf9c01774b34795de84f209dc83b34292eed1e08302442",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed47\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed47\\run_manifest.json",
+      "run_manifest_sha256": "4ec36cf258aaf70d4e4632e981bf664327eabc61045e54f064e1faee27f1e564",
+      "sha256": "caf0b7fc25001e70a305e011c4d53aa30b6536b7e2669eeb45b485458f9bb06a",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed47\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed73\\run_manifest.json",
+      "run_manifest_sha256": "b7a5f75fb4d4ef170be4033c01f6387a2272a54a1a72ecc9eef5647ef3d7123c",
+      "sha256": "491dbc403621d3e7008cb3e2befc4a410fd401d78c82526e585913dbd118db3d",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed73\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed73\\run_manifest.json",
+      "run_manifest_sha256": "b7a5f75fb4d4ef170be4033c01f6387a2272a54a1a72ecc9eef5647ef3d7123c",
+      "sha256": "8111a580f5940c400b8260ef5a97255a534bb5dc695104c6f1ce0fe618f20134",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P020\\seed73\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed11\\run_manifest.json",
+      "run_manifest_sha256": "2cad1d6655985a287d18694f5e50535e11834272bfaadb6e4a6bd118158f6bba",
+      "sha256": "d79068bd3024f28fa1456932cd7298771a4930f1361c5e1ca33d467d58b8f5a1",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed11\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed11\\run_manifest.json",
+      "run_manifest_sha256": "2cad1d6655985a287d18694f5e50535e11834272bfaadb6e4a6bd118158f6bba",
+      "sha256": "bff90a8a6fe05c48e8fddb6427e64b3082c2e8ecf6df2d99bd53cf0ccf5bb668",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed11\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed29\\run_manifest.json",
+      "run_manifest_sha256": "82ef8f75a7ec42796b60b814c386187444a3662e8dacebb51226ae8ca17dd0f9",
+      "sha256": "fff3317ba4b3c06e9fb4749310af333a8812efa11c0a0f2aeaae364c3e358ebb",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed29\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed29\\run_manifest.json",
+      "run_manifest_sha256": "82ef8f75a7ec42796b60b814c386187444a3662e8dacebb51226ae8ca17dd0f9",
+      "sha256": "69ff8b8fdced0f2a04ec8120a393569595e1bbec077c3019193c05bc6955df3e",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed29\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed47\\run_manifest.json",
+      "run_manifest_sha256": "ad8b9eae6a5c14a13be2bffabd24953a308567e759501428377be9961d5480ba",
+      "sha256": "263b2d15cd77e49b0945f9d4399b9b945d7deef82ba00899f9336ed99e95ae65",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed47\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed47\\run_manifest.json",
+      "run_manifest_sha256": "ad8b9eae6a5c14a13be2bffabd24953a308567e759501428377be9961d5480ba",
+      "sha256": "4c60132263a9cf9e17f2ab3be254e249041a7f77b1ed877f9b4ccd164b9ac2e2",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed47\\midpoint.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed73\\run_manifest.json",
+      "run_manifest_sha256": "3c442001649680ec8d18fdde8485383259a9b2584a573a36680aba48daa5aebb",
+      "sha256": "7f86b02fc7ebcf4e6d862aa6d6986ea0a646931f80a9d8dcd7744f3427fb4853",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed73\\pbme.npz"
+    },
+    {
+      "run_manifest": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed73\\run_manifest.json",
+      "run_manifest_sha256": "3c442001649680ec8d18fdde8485383259a9b2584a573a36680aba48daa5aebb",
+      "sha256": "6a0a85a43fffc7ba77a8e938f644754fbf0c843297d8f2d40a42a305a6d397af",
+      "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_closure_20260726_174927\\step9_repl_P0100\\seed73\\midpoint.npz"
+    }
+  ]
+}

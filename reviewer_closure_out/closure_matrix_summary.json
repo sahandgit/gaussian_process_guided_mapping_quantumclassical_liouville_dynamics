@@ -1,0 +1,16 @@
+{
+  "total_items": 48,
+  "by_status": {
+    "EVIDENCE ON DISK - EXTRACTION REQUIRED": 9,
+    "NO EVIDENCE REQUIRED - THESIS EDIT": 33,
+    "CLOSABLE BY REVIEWER-SANCTIONED NARROWING": 2,
+    "EVIDENCE MISSING - COMPUTATION REQUIRED": 3,
+    "ARCHIVAL ACTION REQUIRED": 1
+  },
+  "computation_blocked_items": [
+    "I-10",
+    "M-12",
+    "M-24"
+  ],
+  "n_text_only": 33
+}

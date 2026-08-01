@@ -1,0 +1,30 @@
+[
+  {
+    "name": "thesis",
+    "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.tex",
+    "source_sha256": "d85a0c86de9b6a6c07dbdea069dcda460e51a951a491a1f72a385b53fbd492eb",
+    "pdf": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.pdf",
+    "pdf_sha256": "3b199460aa7f303faaf9ba47f7c89c3b8af6723687ed9369b41349417ae96069",
+    "latex_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.log",
+    "latex_log_sha256": "78b2257a12b318ace855e2e4b39dccc74398ea97a85610bd6a4e97739e4ee34f",
+    "console_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\pdf_qa\\Thesis_tectonic_console.log",
+    "page_count": 192,
+    "rendered_page_count": 192,
+    "contact_sheet_count": 12,
+    "visual_status": "PASS_ALL_192_PAGES_INSPECTED"
+  },
+  {
+    "name": "reviewer_response",
+    "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.tex",
+    "source_sha256": "cecedc3a220a771266bf463d955f32fecd5ee6fb47f91e3fec11f6e2a53d21d5",
+    "pdf": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.pdf",
+    "pdf_sha256": "141eebdeef32365942edd43d1d85717a56d06131267113e8d5528198aa18a726",
+    "latex_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.log",
+    "latex_log_sha256": "6c1a7df950a0f3db2623bb1419a0fc1f2389fbc249b7a1c6b05ed7f6602d137e",
+    "console_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\pdf_qa\\Reviewer_Response_tectonic_console.log",
+    "page_count": 16,
+    "rendered_page_count": 16,
+    "contact_sheet_count": 1,
+    "visual_status": "PASS_ALL_16_PAGES_INSPECTED"
+  }
+]
