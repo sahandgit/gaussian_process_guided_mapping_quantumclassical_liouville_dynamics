@@ -410,7 +410,7 @@
     {
       "name": "clean_room_release_verification",
       "passed": true,
-      "detail": "path=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\CLEAN_ROOM_VERIFICATION.json; tag=thesis-final-2026-08-01-r2; sources=['Reviewer_Response.tex', 'Thesis.tex']; embedded_rows=329"
+      "detail": "path=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\CLEAN_ROOM_VERIFICATION.json; tag=thesis-final-2026-08-01-r3; sources=['Reviewer_Response.tex', 'Thesis.tex']; embedded_rows=332"
     }
   ]
 }
