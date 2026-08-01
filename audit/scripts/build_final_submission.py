@@ -1679,7 +1679,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         "M-17": "The negative conclusion is restricted to the tested product-GP moving-cloud MIDPOINT discretization, not the continuum QCLE excess term.",
         "M-18": "The identical-cloud control isolates value reconstruction and is not generalized to derivative or propagation accuracy.",
         "M-19": "The thesis presents a compatible failure pathway but explicitly avoids claiming a unique causal mechanism.",
-        "M-20": "Appendix F gives a retrievable release record while the scientific chapters retain only the numerical methods and parameter scope needed to interpret the calculations.",
+        "M-20": "Appendix G, Section G.5 gives a retrievable release record while the scientific chapters retain only the numerical methods and parameter scope needed to interpret the calculations.",
         "M-21": "The objective is restricted to one product-GP moving-cloud construction on a one-dimensional two-state benchmark.",
         "M-22": "Chapter 6 opens with the decisive physical reliability question and its controlled negative answer.",
         "M-24": "Complete manufactured density, gradient, and excess-action evidence is summarized over three independent cloud pairs for every tested regularization and cloud size.",
@@ -1698,7 +1698,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         "I-7": "Chapter 6, Figures 6.1--6.5 and Tables 6.1--6.15",
         "I-8": "Chapters 5--6 and Appendix F--G, relevant captions and table notes",
         "I-11": "Chapters 6--7, physical-comparison and claim-boundary sections",
-        "I-15": "Response availability note; Appendix F archive and reproducibility record",
+        "I-15": "Response availability note; Appendix G, Section G.5 archive and reproducibility record",
         "M-25": "Chapter 6, numerical design and hierarchy of evidence",
     }
 
@@ -1799,8 +1799,8 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "The final release identifies the archive filename, public release "
             "URL, source commit, archive SHA-256, checksum-index SHA-256, "
             "environment, manifests, and reproduction instructions.",
-            f"Thesis p. {thesis_page('app:reference-and-reproducibility')}, "
-            "Appendix F archive record.",
+            f"Thesis p. {thesis_page('appsec:versioned-release')}, "
+            "Appendix G, Section G.5 archive record.",
             "frozen_numerical_evidence_payload.zip; " + archive_id,
         ),
         (
@@ -1855,7 +1855,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         6: "Chapter 6, independent-cloud enlargement section, Table 6.8",
         7: "Chapter 6, Table 6.15 and Figure 6.5; Appendix G, "
            "Tables G.7--G.8",
-        8: "Availability note of this response; Appendix F archive record "
+        8: "Availability note of this response; Appendix G, Section G.5 archive record "
            "(release commit and payload SHA-256)",
         9: "Title page, hypersetup/PDF metadata, and this response document",
         10: "The itemized I-, M-, and L-rows of this response, each with "

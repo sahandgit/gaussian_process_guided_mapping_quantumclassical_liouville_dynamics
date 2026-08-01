@@ -2065,6 +2065,11 @@ def analyze_references(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                         and p_value > MAX_INTERPRETABLE_ORDER
                     ):
                         order_reason = "rapid_contraction_not_asymptotic"
+                    interpreted_order: Any = (
+                        metric["p_obs"]
+                        if order_reason == "ok"
+                        else "NOT COMPUTED"
+                    )
                     row: Dict[str, Any] = {
                         "method": method.upper(), "P0": P0,
                         "refinement_mode": mode, "observable": observable,
@@ -2072,7 +2077,10 @@ def analyze_references(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                         "value3": metric["finer"],
                         "delta12": metric["abs_diff_coarse_fine"],
                         "delta23": metric["abs_diff_fine_finer"],
-                        "p_observed": metric["p_obs"],
+                        # Preserve the raw ratio-derived number for auditability,
+                        # but expose an interpreted order only after every guard.
+                        "raw_ratio_order": metric["p_obs"],
+                        "p_observed": interpreted_order,
                         "order_reason": order_reason,
                         "numerical_noise_abs_tolerance": NUMERICAL_NOISE_ABS_TOL,
                         "numerical_noise_rel_tolerance": NUMERICAL_NOISE_REL_TOL,

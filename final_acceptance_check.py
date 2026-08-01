@@ -246,17 +246,22 @@ def check_numerical(c: Checker, evidence: Path) -> None:
         for row in rows:
             d12, d23 = float(row["delta12"]), float(row["delta23"])
             tau = float(row["numerical_noise_threshold"])
-            p = float(row["p_observed"])
             reason = row["order_reason"]
             if reason == "ok":
+                p = float(row["p_observed"])
                 guarded = guarded and d12 > tau and d23 > tau and d23 < d12
                 guarded = guarded and 0.0 < p <= 6.0
             elif reason == "roundoff_or_saturation_limited":
                 guarded = guarded and min(d12, d23) <= tau
+                guarded = guarded and row["p_observed"] == "NOT COMPUTED"
             elif reason == "nonmonotone_difference_retained":
                 guarded = guarded and d23 >= d12 and min(d12, d23) > tau
+                guarded = guarded and row["p_observed"] == "NOT COMPUTED"
+                guarded = guarded and float(row["raw_ratio_order"]) <= 0.0
             elif reason == "rapid_contraction_not_asymptotic":
-                guarded = guarded and p > 6.0 and d23 < d12
+                raw_p = float(row["raw_ratio_order"])
+                guarded = guarded and raw_p > 6.0 and d23 < d12
+                guarded = guarded and row["p_observed"] == "NOT COMPUTED"
             else:
                 guarded = False
         c.check(
@@ -441,6 +446,13 @@ def check_thesis(c: Checker, thesis: Path, bibliography: Path,
         re.S,
     )
     appendix_text = appendix.group(1) if appendix else ""
+    release_record = re.search(
+        r"\\section\{Versioned reproducibility release\}"
+        r"(.*?)(?=\\section|\\chapter|\\end\{document\})",
+        text,
+        re.S,
+    )
+    release_text = release_record.group(1) if release_record else ""
     appendix_forbidden_terms = [
         term for term in (
             "BLOCKED_EXTERNAL_PUBLICATION", "expected=", "verified=",
@@ -454,8 +466,9 @@ def check_thesis(c: Checker, thesis: Path, bibliography: Path,
         and "Reference TDSE and grid-QCLE calculations" in appendix_text
         and "Numerical parameters of the reported calculations" in appendix_text
         and "Controlled approximations and interpretation" in appendix_text
-        and "Frozen numerical-evidence archive SHA-256" in appendix_text
-        and "Public release asset" in appendix_text
+        and bool(release_record)
+        and "Frozen numerical-evidence archive SHA-256" in release_text
+        and "Public release asset" in release_text
         and not appendix_forbidden_terms,
         f"forbidden_terms={appendix_forbidden_terms}",
     )
@@ -606,10 +619,11 @@ def check_response(c: Checker, response: Path) -> None:
         "each item identifies its thesis revision and scientific evidence",
     )
     has_doi = bool(re.search(r"10\.\d{4,9}/[-._;()/:\w]+", text))
+    normalized_text = text.replace(r"\_", "_")
     public_release = (
-        "https://github.com/" in text
-        and "/releases/tag/" in text
-        and "frozen_numerical_evidence_payload.zip" in text
+        "https://github.com/" in normalized_text
+        and "/releases/tag/" in normalized_text
+        and "frozen_numerical_evidence_payload.zip" in normalized_text
     )
     honest_pending = (
         "A permanent DOI has not yet been assigned" in text

@@ -54,12 +54,13 @@ def update_thesis_release_block(
         breakable_hash(archive_sha) + r".\\",
         "Embedded checksum-index SHA-256:",
         breakable_hash(index_sha) + ".",
-        "The archive contains final_reviewer_closure/README.md (reproduction "
-        "instructions), environment.json and environment/pip_freeze.txt "
-        "(environment), FINAL_RUN_MANIFEST.json and the table/figure and "
-        "per-run manifests, plus PAYLOAD_SHA256SUMS.csv for every archived "
-        "file. The public release asset and cited source commit make this "
-        "record independently retrievable and checksum-verifiable.",
+        r"The archive contains \path{final_reviewer_closure/README.md} "
+        r"(reproduction instructions), \path{environment.json} and "
+        r"\path{environment/pip_freeze.txt} (environment), "
+        r"\path{FINAL_RUN_MANIFEST.json} and the table/figure and per-run "
+        r"manifests, plus \path{PAYLOAD_SHA256SUMS.csv} for every archived "
+        r"file. The public release asset and cited source commit make this "
+        r"record independently retrievable and checksum-verifiable.",
         RELEASE_END,
     ])
     text = THESIS.read_text(encoding="utf-8")
@@ -184,8 +185,8 @@ def main() -> int:
         "excluded": ["release/**", "*.zip"],
         "scope_note": (
             "This checksum identifies the frozen numerical evidence payload. "
-            "It belongs to the archival record and is intentionally not "
-            "printed in the scientific thesis narrative."
+            "It is printed in the thesis release record together with the "
+            "embedded checksum-index digest and public asset URL."
         ),
     }
     MANIFEST.write_text(json.dumps(record, indent=2), encoding="utf-8")

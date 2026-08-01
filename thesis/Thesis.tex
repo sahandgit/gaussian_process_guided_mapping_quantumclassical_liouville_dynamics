@@ -84,7 +84,7 @@
 \begin{abstract}
 \label{sec:abstract}
 \begin{onehalfspace}
-Nonadiabatic molecular dynamics requires coupled treatment of electronic transitions and nuclear motion. The mapping-basis quantum--classical Liouville equation supplies this treatment, but its density-dependent correction requires costly mixed phase-space derivatives on multidimensional grids. This thesis tests whether a Gaussian-process model can recover the density and these derivatives from a moving trajectory cloud. A Hamiltonian scheme transports the cloud, while an explicit midpoint update applies the correction. For a one-dimensional, two-state avoided-crossing model, validation uses analytic operator tests, refinement and conservation checks, random replicates, and comparison with numerically controlled reference solutions of the time-dependent Schrödinger equation and grid-based quantum--classical Liouville equation. Density values are reconstructed accurately, but derivative errors do not decrease consistently; the model violates electronic-state constraints, exhibits normalization and energy drift, and varies across replicates. Consequently, the formulation does not reliably improve the Poisson-bracket mapping equation, but establishes derivative-fidelity, structural, and conservation requirements for a viable successor.
+Nonadiabatic molecular dynamics requires coupled treatment of electronic transitions and nuclear motion. The mapping-basis quantum--classical Liouville equation supplies this treatment, but its density-dependent correction requires costly mixed phase-space derivatives on multidimensional grids. This thesis tests whether a Gaussian-process model can recover the density and these derivatives from a moving trajectory cloud. A Hamiltonian scheme transports the cloud, while an explicit midpoint update applies the correction. For a one-dimensional, two-state avoided-crossing model, validation uses analytic operator tests, refinement and conservation checks, replicates, and comparison with numerically controlled reference solutions of the time-dependent Schrödinger equation and grid-based quantum--classical Liouville equation. Density values are reconstructed accurately, but derivative errors do not decrease consistently; the model violates electronic-state constraints, exhibits normalization and energy drift, and varies across replicates. Consequently, the formulation does not reliably improve the Poisson-bracket mapping equation, but establishes derivative-fidelity, structural, and conservation requirements for a viable successor.
 
 \end{onehalfspace}
 \end{abstract}
@@ -10988,17 +10988,17 @@ paths in the scientific narrative.
 % BEGIN VERSIONED RELEASE IDENTIFIERS
 Public source repository:
 \url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics}.\\
+Public release asset:
+\url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/download/thesis-final-2026-08-01/frozen_numerical_evidence_payload.zip}.\\
+Archive filename:
+\path{frozen_numerical_evidence_payload.zip}.\\
 Source-release commit (retrievable at the repository above):
-\texttt{38164f0f\allowbreak{}b0de1e38\allowbreak{}97a01cf5\allowbreak{}6c90d539\allowbreak{}01bc75d6}.\\
+\texttt{82ab72a7\allowbreak{}40adad61\allowbreak{}30e492d5\allowbreak{}bf4745d7\allowbreak{}cbaba45e}.\\
 Frozen numerical-evidence archive SHA-256:
-\texttt{61e318e9\allowbreak{}4858104c\allowbreak{}51b510c5\allowbreak{}4a5f5ba1\allowbreak{}ebefcb1b\allowbreak{}8bfc0383\allowbreak{}2d797113\allowbreak{}e82abb2b}.\\
+\texttt{24e447e1\allowbreak{}13f3de72\allowbreak{}3d63d0e8\allowbreak{}969c7c6e\allowbreak{}ccf8124d\allowbreak{}df8cee26\allowbreak{}2c80defc\allowbreak{}047364eb}.\\
 Embedded checksum-index SHA-256:
-\texttt{7aff1e5f\allowbreak{}acba04ae\allowbreak{}f282b058\allowbreak{}08c9a959\allowbreak{}7890cc65\allowbreak{}76263f25\allowbreak{}3039d867\allowbreak{}b72ff088}.
-The table/figure manifest and per-run manifests are embedded in the frozen
-archive, and the dependency record is versioned in the repository at the
-cited commit. The archive is therefore immutable and locally identifiable;
-assignment of a public DOI remains an external repository-deposition step and
-no DOI is invented here.
+\texttt{b0890b75\allowbreak{}1bd55519\allowbreak{}45cac32d\allowbreak{}b3a64fd3\allowbreak{}01380a23\allowbreak{}8d0d85cb\allowbreak{}11f9ac36\allowbreak{}76688b23}.
+The archive contains \path{final_reviewer_closure/README.md} (reproduction instructions), \path{environment.json} and \path{environment/pip_freeze.txt} (environment), \path{FINAL_RUN_MANIFEST.json} and the table/figure and per-run manifests, plus \path{PAYLOAD_SHA256SUMS.csv} for every archived file. The public release asset and cited source commit make this record independently retrievable and checksum-verifiable.
 % END VERSIONED RELEASE IDENTIFIERS
 
 
