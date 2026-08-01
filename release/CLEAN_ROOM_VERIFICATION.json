@@ -1,0 +1,77 @@
+{
+  "created_utc": "2026-08-01T18:59:16.788808+00:00",
+  "status": "PASSED",
+  "release_page": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r2",
+  "release_tag": "thesis-final-2026-08-01-r2",
+  "evidence_download_url": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/download/thesis-final-2026-08-01-r2/frozen_numerical_evidence_payload.zip",
+  "evidence_expected_sha256": "9752f3e16a305225ed30796d799d5a9795d09d8cdebd1ee74648054cf84af87e",
+  "evidence_download_sha256": "9752f3e16a305225ed30796d799d5a9795d09d8cdebd1ee74648054cf84af87e",
+  "evidence_size_bytes": 327562193,
+  "source_download_url": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/archive/refs/tags/thesis-final-2026-08-01-r2.zip",
+  "source_download_sha256": "a7afdbed6261745dc063065a11efcfc3e97780e64eccb6016c4ee76595d7e352",
+  "source_size_bytes": 4169044,
+  "fresh_temporary_directory_used": true,
+  "required_evidence_files": [
+    "final_reviewer_closure/PAYLOAD_SHA256SUMS.csv",
+    "final_reviewer_closure/FINAL_RUN_MANIFEST.json",
+    "final_reviewer_closure/figures/FIGURE_DATA_CROSSWALK.csv",
+    "final_reviewer_closure/table_data_crosswalk.csv",
+    "final_reviewer_closure/environment.json",
+    "final_reviewer_closure/environment/pip_freeze.txt",
+    "final_reviewer_closure/README.md"
+  ],
+  "required_source_files": [
+    "thesis/Thesis.tex",
+    "thesis/References.bib",
+    "thesis/ut-thesis.cls",
+    "Reviewer_Response.tex",
+    "final_reviewer_closure/figures/FIGURE_DATA_CROSSWALK.csv",
+    "final_reviewer_closure/table_data_crosswalk.csv",
+    "README.md"
+  ],
+  "embedded_index_rows_verified": 329,
+  "compiler": {
+    "version": "Tectonic 0.17.0",
+    "sha256": "99ffcfdbf1ebf8bdda9e791942e3d06aedb12463fddc33f07de6f5211c8bf08d",
+    "external_to_extracted_source": true
+  },
+  "clean_compilations": [
+    {
+      "source": "Thesis.tex",
+      "command": [
+        "-X",
+        "compile",
+        "Thesis.tex",
+        "--reruns",
+        "2",
+        "--keep-logs",
+        "--only-cached"
+      ],
+      "returncode": 0,
+      "pdf_sha256": "7206688ad39ae7210bf7fb560ef4796b9ea73922cbb8d204bc6654e7fb3c6c8a",
+      "pdf_size_bytes": 1297923,
+      "page_count": 192,
+      "page_counter": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\thesis_revision_evidence\\tools\\poppler-24.08.0\\Library\\bin\\pdfinfo.exe",
+      "forbidden_log_diagnostics": []
+    },
+    {
+      "source": "Reviewer_Response.tex",
+      "command": [
+        "-X",
+        "compile",
+        "Reviewer_Response.tex",
+        "--reruns",
+        "2",
+        "--keep-logs",
+        "--only-cached"
+      ],
+      "returncode": 0,
+      "pdf_sha256": "a80672b72db58950f321314343d9cae500c958015ee4d637b9442f8de2df6b89",
+      "pdf_size_bytes": 54948,
+      "page_count": 17,
+      "page_counter": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\thesis_revision_evidence\\tools\\poppler-24.08.0\\Library\\bin\\pdfinfo.exe",
+      "forbidden_log_diagnostics": []
+    }
+  ],
+  "cleanup": "temporary downloads and extractions removed after verification"
+}

@@ -193,6 +193,11 @@
       "detail": "occurrences=0"
     },
     {
+      "name": "thesis_forbidden_MIDPOINT additionally requires",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
       "name": "abstract_max_150",
       "passed": true,
       "detail": "word_count=150"
@@ -260,7 +265,7 @@
     {
       "name": "internal_frozen_payload_integrity",
       "passed": true,
-      "detail": "archive=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\frozen_numerical_evidence_payload.zip; expected SHA-256=3c934504819654143b06ec2db313380cbeece83ca3c204361889bf51e5971e94"
+      "detail": "archive=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\frozen_numerical_evidence_payload.zip; expected SHA-256=9752f3e16a305225ed30796d799d5a9795d09d8cdebd1ee74648054cf84af87e"
     },
     {
       "name": "chapter_contract_cohesive_prose",
@@ -293,14 +298,34 @@
       "detail": "addressed=58; external_pending=0; expected>=58"
     },
     {
+      "name": "response_item_specific_language",
+      "passed": true,
+      "detail": "generic_phrases_present=[]"
+    },
+    {
       "name": "response_locations_and_evidence",
       "passed": true,
-      "detail": "each item identifies its thesis revision and scientific evidence"
+      "detail": "all 58 gates/items have exact correction, locator, and evidence fields"
+    },
+    {
+      "name": "response_58_row_audit_matrix",
+      "passed": true,
+      "detail": "path=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\response_item_audit.csv; rows=58; unique_corrections=58"
+    },
+    {
+      "name": "response_I15_archive_evidence",
+      "passed": true,
+      "detail": "missing=[]"
+    },
+    {
+      "name": "response_I16_title_evidence",
+      "passed": true,
+      "detail": "missing=[]"
     },
     {
       "name": "response_availability_statement",
       "passed": true,
-      "detail": "public release/DOI recorded or external deposition status stated explicitly"
+      "detail": "versioned public release is distinguished from a DOI/persistent identifier"
     },
     {
       "name": "log_Thesis",
@@ -330,7 +355,12 @@
     {
       "name": "response_pdf_pages",
       "passed": true,
-      "detail": "16 pages (pypdfium2)"
+      "detail": "17 pages (pypdfium2)"
+    },
+    {
+      "name": "clean_room_release_verification",
+      "passed": true,
+      "detail": "path=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\CLEAN_ROOM_VERIFICATION.json; tag=thesis-final-2026-08-01-r2; sources=['Reviewer_Response.tex', 'Thesis.tex']; embedded_rows=329"
     }
   ]
 }

@@ -7,6 +7,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -107,11 +108,27 @@ def compile_tex(compiler: Path, source: Path) -> dict[str, object]:
     forbidden = [token for token in FORBIDDEN_LOG if token in log_text]
     if forbidden:
         raise RuntimeError(f"{source.name} log contains {forbidden}")
-    try:
-        from pypdf import PdfReader
-        pages = len(PdfReader(str(pdf)).pages)
-    except Exception:
-        pages = None
+    pages = None
+    page_counter = None
+    candidates = list(
+        (ROOT / "thesis_revision_evidence" / "tools").glob(
+            "poppler*/Library/bin/pdfinfo.exe"
+        )
+    )
+    discovered = shutil.which("pdfinfo")
+    if discovered:
+        candidates.append(Path(discovered))
+    for pdfinfo in candidates:
+        counter = subprocess.run(
+            [str(pdfinfo), str(pdf)], capture_output=True, text=True, check=False
+        )
+        match = re.search(r"(?m)^Pages:\s+(\d+)\s*$", counter.stdout)
+        if counter.returncode == 0 and match:
+            pages = int(match.group(1))
+            page_counter = str(pdfinfo.resolve())
+            break
+    if pages is None:
+        raise RuntimeError(f"Could not count pages in clean-room PDF {pdf}")
     return {
         "source": source.name,
         "command": command[1:],
@@ -119,6 +136,7 @@ def compile_tex(compiler: Path, source: Path) -> dict[str, object]:
         "pdf_sha256": sha256(pdf),
         "pdf_size_bytes": pdf.stat().st_size,
         "page_count": pages,
+        "page_counter": page_counter,
         "forbidden_log_diagnostics": forbidden,
     }
 
@@ -161,7 +179,9 @@ def main() -> int:
         [str(compiler), "--version"], capture_output=True, text=True, check=True
     ).stdout.strip()
 
-    with tempfile.TemporaryDirectory(prefix="thesis-clean-room-", dir=AUDIT) as temp:
+    # Use the system temporary root so the extracted GitHub repository name
+    # does not exceed Windows' legacy working-directory path limit.
+    with tempfile.TemporaryDirectory(prefix="thesis-clean-room-") as temp:
         work = Path(temp)
         evidence_zip = work / "evidence.zip"
         source_zip = work / "source.zip"
