@@ -1,13 +1,13 @@
 Overall status: FAIL
 Scientific result: no validated improvement
-Thesis compile: PASS
+Thesis compile: FAIL
 Reviewer response compile: FAIL
 Evidence archive: PASS
 Versioned public release URL: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r4
 Persistent identifier note: no DOI or institutional persistent identifier has been assigned.
 Frozen source/evidence commit: 38164f0fb0de1e3897a01cf56c90d53901bc75d6
 Originating development commit: NOT IDENTIFIABLE
-Archive SHA-256: 9b6e98221f61993dc8022785295ebe80db2a3f71595ea1349269d7db0627cfb7
+Archive SHA-256: 784602ab6e17ac465183588b0a6d2e5d1e5db366297be34c2a919c03e3b5558f
 
 # Final Closure Report
 
@@ -56,10 +56,10 @@ Thesis PDF: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_
 
 ## Archive
 
-Frozen numerical-evidence payload SHA-256: `46f16f57852d7b4d8524e965475979880984b9c0a1502eb929b16fee148a20e2`
+Frozen numerical-evidence payload SHA-256: `bc6dc03330c11a379d4c49030e88e7bdae1aa696873c6a52e9fd9dd8e2300d0b`
 
-Archive: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\MSC-THESIS-FINAL-CLOSURE-2026-08-01T111722.zip`
+Archive: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\MSC-THESIS-FINAL-CLOSURE-2026-08-01T175836.zip`
 
-SHA-256: `9b6e98221f61993dc8022785295ebe80db2a3f71595ea1349269d7db0627cfb7`
+SHA-256: `784602ab6e17ac465183588b0a6d2e5d1e5db366297be34c2a919c03e3b5558f`
 
 The ZIP checksum is recorded in this external post-package report; embedding a ZIP's own checksum inside itself would be self-referential.

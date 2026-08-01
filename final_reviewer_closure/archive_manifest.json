@@ -1,10 +1,11 @@
 {
-  "archive": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\MSC-THESIS-FINAL-CLOSURE-2026-08-01T111722.zip",
-  "archive_sha256": "9b6e98221f61993dc8022785295ebe80db2a3f71595ea1349269d7db0627cfb7",
-  "archive_size_bytes": 1973229056,
+  "archive": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\MSC-THESIS-FINAL-CLOSURE-2026-08-01T175836.zip",
+  "archive_sha256": "784602ab6e17ac465183588b0a6d2e5d1e5db366297be34c2a919c03e3b5558f",
+  "archive_size_bytes": 1974337068,
   "audit_created_release_commit": "38164f0fb0de1e3897a01cf56c90d53901bc75d6",
-  "created_utc": "2026-08-01T15:19:47.893416+00:00",
-  "files_hashed": 654,
+  "created_utc": "2026-08-01T22:01:23.131285+00:00",
+  "files_hashed": 687,
   "originating_development_commit": "NOT IDENTIFIABLE",
-  "permanent_identifier_status": "BLOCKED_EXTERNAL_PUBLICATION"
+  "persistent_identifier_note": "The versioned GitHub release is not a DOI or institutional persistent identifier.",
+  "public_release_record": "final_reviewer_closure/PUBLIC_RELEASE.json"
 }
