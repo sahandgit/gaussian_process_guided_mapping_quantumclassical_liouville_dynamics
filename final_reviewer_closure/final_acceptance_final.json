@@ -30,12 +30,27 @@
     {
       "name": "timestep_reconstructible",
       "passed": true,
-      "detail": "three values, two differences, spread, threshold, verdict and manifests"
+      "detail": "three values, paired differences/ratios, descriptive raw spread, threshold, verdict and manifests"
     },
     {
       "name": "timestep_guarded_verdicts",
       "passed": true,
-      "detail": "verdict_counts={'REJECT_SEED_VARIABILITY': 102, 'REJECT_NUMERICAL_NOISE': 15, 'COMPUTED_POSITIVE': 8, 'COMPUTED_ZERO_OR_NEGATIVE': 3}"
+      "detail": "verdict_counts={'COMPUTED_POSITIVE': 56, 'REJECT_NUMERICAL_NOISE': 15, 'REJECT_PHYSICAL_INADMISSIBILITY': 57}"
+    },
+    {
+      "name": "timestep_paired_summary",
+      "passed": true,
+      "detail": "rows=32; verdict_counts={'REJECT_PHYSICAL_INADMISSIBILITY': 14, 'REJECT_NUMERICAL_NOISE': 4, 'PAIRED_CONTRACTION_ALL_SEEDS': 14}"
+    },
+    {
+      "name": "manufactured_sampling_geometry",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_sampling_geometry.json"
+    },
+    {
+      "name": "mint_implementation_controls",
+      "passed": true,
+      "detail": "4 deterministic controls"
     },
     {
       "name": "replication_four_seed",
@@ -315,7 +330,7 @@
     {
       "name": "internal_frozen_payload_integrity",
       "passed": true,
-      "detail": "archive=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\frozen_numerical_evidence_payload.zip; expected SHA-256=46f16f57852d7b4d8524e965475979880984b9c0a1502eb929b16fee148a20e2"
+      "detail": "archive=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\frozen_numerical_evidence_payload.zip; expected SHA-256=bc6dc03330c11a379d4c49030e88e7bdae1aa696873c6a52e9fd9dd8e2300d0b"
     },
     {
       "name": "chapter_contract_cohesive_prose",
@@ -333,9 +348,9 @@
       "detail": "missing=[]"
     },
     {
-      "name": "response_seventeen_final_corrections",
+      "name": "response_twenty_four_final_corrections",
       "passed": true,
-      "detail": "seventeen final corrections have location and archive crosswalks"
+      "detail": "twenty-four final corrections have location and archive crosswalks"
     },
     {
       "name": "response_no_open_language",
@@ -395,7 +410,7 @@
     {
       "name": "thesis_pdf_pages",
       "passed": true,
-      "detail": "197 pages (pypdfium2)"
+      "detail": "199 pages (pypdfium2)"
     },
     {
       "name": "response_pdf",
@@ -405,12 +420,12 @@
     {
       "name": "response_pdf_pages",
       "passed": true,
-      "detail": "19 pages (pypdfium2)"
+      "detail": "21 pages (pypdfium2)"
     },
     {
       "name": "clean_room_release_verification",
       "passed": true,
-      "detail": "path=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\CLEAN_ROOM_VERIFICATION.json; tag=thesis-final-2026-08-01-r3; sources=['Reviewer_Response.tex', 'Thesis.tex']; embedded_rows=332"
+      "detail": "path=D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\CLEAN_ROOM_VERIFICATION.json; tag=thesis-final-2026-08-01-r4; sources=['Reviewer_Response.tex', 'Thesis.tex']; embedded_rows=337"
     }
   ]
 }
