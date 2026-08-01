@@ -1,6 +1,8 @@
 """Synchronize the verified flat pipeline into the public GitHub worktree."""
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import shutil
 from pathlib import Path
@@ -8,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGE = ROOT / "reviewer_data_audit" / "github_main_staging"
-RELEASE_TAG = "thesis-final-2026-08-01-r2"
+RELEASE_TAG = "thesis-final-2026-08-01-r3"
 REPO_URL = (
     "https://github.com/sahandgit/"
     "gaussian_process_guided_mapping_quantumclassical_liouville_dynamics"
@@ -45,6 +47,37 @@ def reset_dir(path: Path) -> None:
 def copy_file(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(4 * 1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def validated_pdf(name: str) -> Path:
+    """Return the current PDF only when the QA manifest proves its provenance."""
+    manifest_path = (
+        ROOT / "reviewer_data_audit" / "pdf_qa"
+        / "pdf_compile_render_manifest.json"
+    )
+    records = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record = next((item for item in records if item.get("name") == name), None)
+    if record is None:
+        raise RuntimeError(f"QA manifest has no PDF record named {name!r}")
+    source = Path(record["source"])
+    pdf = Path(record["pdf"])
+    if not source.is_file() or not pdf.is_file():
+        raise FileNotFoundError(f"QA-recorded source/PDF is absent for {name}")
+    if sha256(source) != record["source_sha256"]:
+        raise RuntimeError(f"QA PDF for {name} is stale relative to its source")
+    if sha256(pdf) != record["pdf_sha256"]:
+        raise RuntimeError(f"QA PDF hash mismatch for {name}")
+    if record.get("rendered_page_count") != record.get("page_count"):
+        raise RuntimeError(f"Not every page was rendered for {name}")
+    return pdf
 
 
 def package_text(path: Path, local_modules: set[str]) -> str:
@@ -124,6 +157,14 @@ stored in the time-step and reference CSVs. For both stochastic moving-cloud
 methods, PBME and MIDPOINT, both refinement differences must also exceed pooled
 independent-seed dispersion before an order is interpreted.
 
+Cloud-size decisions are hierarchical: numerical resolution is checked first,
+then physical admissibility (including negative signed central second moments),
+and only then seed dispersion. The low-momentum grid-QCLE results fail the
+stated three-level reference-tolerance screen for six observables and are used
+only as numerical-sensitivity references. The decisive controlled negative
+conclusion instead rests on TDSE benchmarking, raw-versus-projected diagnostics,
+and independent replication.
+
 ## Environment
 
 Python 3.10+ is recommended. Exact captured versions are in
@@ -148,7 +189,7 @@ def main() -> int:
         copy_file(ROOT / name, STAGE / name)
     for name in (
         "acceptance_contract.yaml", "l2_selection.json",
-        "requirements.txt", "CLOSURE_PHASE1_RUNBOOK.md",
+        "requirements.txt", "pytest.ini", "CLOSURE_PHASE1_RUNBOOK.md",
         "PIPELINE_REVISION_LOG.md", "REVIEWER_ACTION_REGISTER.md",
     ):
         if (ROOT / name).exists():
@@ -174,6 +215,7 @@ def main() -> int:
         "sys.path.insert(0, str(ROOT / 'src'))\n",
         encoding="utf-8",
     )
+    copy_file(ROOT / "pytest.ini", STAGE / "pytest.ini")
 
     audit = STAGE / "audit"
     reset_dir(audit)
@@ -190,11 +232,14 @@ def main() -> int:
     reset_dir(thesis)
     for source in (ROOT / "Thesis").iterdir():
         if source.is_file() and source.suffix.lower() in {
-            ".tex", ".bib", ".cls", ".pdf"
+            ".tex", ".bib", ".cls"
         }:
             copy_file(source, thesis / source.name)
-    for name in ("Reviewer_Response.tex", "Reviewer_Response.pdf"):
-        copy_file(ROOT / name, STAGE / name)
+    copy_file(validated_pdf("thesis"), thesis / "Thesis.pdf")
+    copy_file(ROOT / "Reviewer_Response.tex", STAGE / "Reviewer_Response.tex")
+    copy_file(
+        validated_pdf("reviewer_response"), STAGE / "Reviewer_Response.pdf"
+    )
 
     release_metadata = STAGE / "release"
     reset_dir(release_metadata)

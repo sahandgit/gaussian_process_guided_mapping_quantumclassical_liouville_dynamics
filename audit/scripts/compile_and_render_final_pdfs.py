@@ -210,6 +210,20 @@ def unlock_output(target: Path) -> None:
 def compile_tex(source: Path) -> Tuple[Path, Path, str]:
     if not TECTONIC.exists():
         raise FileNotFoundError(TECTONIC)
+    output_dir = source.parent
+    try:
+        for produced in (
+            source.with_suffix(".pdf"), source.with_suffix(".log")
+        ):
+            unlock_output(produced)
+    except RuntimeError as exc:
+        # A PDF displayed by the desktop app or Explorer can be locked against
+        # both replacement and rename. Compile to a fresh QA-owned directory
+        # instead; the manifest records the actual validated output path.
+        output_dir = QA / "compiled" / source.stem
+        clean_owned_directory(output_dir)
+        print(f"warning: {exc}")
+        print(f"Compiling {source.name} to fresh output directory {output_dir}")
     command = [
         str(TECTONIC),
         "-X", "compile", source.name,
@@ -218,8 +232,8 @@ def compile_tex(source: Path) -> Tuple[Path, Path, str]:
         "--keep-intermediates",
         "--only-cached",
     ]
-    for produced in (source.with_suffix(".pdf"), source.with_suffix(".log")):
-        unlock_output(produced)
+    if output_dir != source.parent:
+        command.extend(["--outdir", str(output_dir)])
     result = subprocess.run(
         command,
         cwd=source.parent,
@@ -231,7 +245,8 @@ def compile_tex(source: Path) -> Tuple[Path, Path, str]:
         print("Output file locked during compile; retrying once in 3 s ...")
         time.sleep(3)
         for produced in (
-            source.with_suffix(".pdf"), source.with_suffix(".log")
+            output_dir / source.with_suffix(".pdf").name,
+            output_dir / source.with_suffix(".log").name,
         ):
             unlock_output(produced)
         result = subprocess.run(
@@ -253,8 +268,8 @@ def compile_tex(source: Path) -> Tuple[Path, Path, str]:
             f"Tectonic failed for {source}: exit={result.returncode}; "
             f"console={build_log}"
         )
-    pdf = source.with_suffix(".pdf")
-    log = source.with_suffix(".log")
+    pdf = output_dir / source.with_suffix(".pdf").name
+    log = output_dir / source.with_suffix(".log").name
     if not pdf.exists() or not log.exists():
         raise FileNotFoundError(f"Expected PDF/log absent for {source}")
     log_text = log.read_text(encoding="utf-8", errors="replace").lower()

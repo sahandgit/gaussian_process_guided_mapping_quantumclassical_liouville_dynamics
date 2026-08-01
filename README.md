@@ -20,7 +20,7 @@ the tested discretization, not the continuum QCLE excess term.
 - audit/ -- evidence generation, verification, and document-build scripts.
 - final_reviewer_closure/ -- compact generated CSV/table/figure evidence.
 - release/response_item_audit.csv -- exact 58-row gate and I/M/L crosswalk.
-- [Release thesis-final-2026-08-01-r2](https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r2) -- frozen numerical-evidence archive,
+- [Release thesis-final-2026-08-01-r3](https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r3) -- frozen numerical-evidence archive,
   checksums, manifests, clean-room verification, environment, and complete
   downloadable closure.
 
@@ -62,6 +62,14 @@ The absolute-plus-relative numerical-noise rule and all rejection reasons are
 stored in the time-step and reference CSVs. For both stochastic moving-cloud
 methods, PBME and MIDPOINT, both refinement differences must also exceed pooled
 independent-seed dispersion before an order is interpreted.
+
+Cloud-size decisions are hierarchical: numerical resolution is checked first,
+then physical admissibility (including negative signed central second moments),
+and only then seed dispersion. The low-momentum grid-QCLE results fail the
+stated three-level reference-tolerance screen for six observables and are used
+only as numerical-sensitivity references. The decisive controlled negative
+conclusion instead rests on TDSE benchmarking, raw-versus-projected diagnostics,
+and independent replication.
 
 ## Environment
 

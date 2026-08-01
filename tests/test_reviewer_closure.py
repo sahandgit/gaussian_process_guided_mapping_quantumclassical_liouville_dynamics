@@ -24,13 +24,31 @@ import reviewer_closure_campaign as rcc
 import reviewer_final_closure as rfc
 
 
+def repository_root() -> Path:
+    """Resolve both the flat working tree and the public ``tests/`` layout."""
+    here = Path(__file__).resolve().parent
+    return here if (here / "reviewer_final_closure.py").is_file() else here.parent
+
+
+def first_existing(root: Path, *candidates: str) -> Path:
+    for candidate in candidates:
+        path = root / candidate
+        if path.is_file():
+            return path
+    raise FileNotFoundError(f"None of the required files exists: {candidates}")
+
+
 def test_shared_seed_dispersion_policy_is_documented_for_both_methods():
     """The declared convergence guard must match the implementation for both methods."""
-    root = Path(__file__).resolve().parent
+    root = repository_root()
     sources = [
         root / "reviewer_final_closure.py",
-        root / "reviewer_data_audit" / "scripts" / "build_physics_thesis_tables.py",
-        root / "Thesis" / "Thesis.tex",
+        first_existing(
+            root,
+            "reviewer_data_audit/scripts/build_physics_thesis_tables.py",
+            "audit/scripts/build_physics_thesis_tables.py",
+        ),
+        first_existing(root, "Thesis/Thesis.tex", "thesis/Thesis.tex"),
     ]
     combined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
     assert "For both stochastic moving-cloud methods" in combined
@@ -41,8 +59,12 @@ def test_shared_seed_dispersion_policy_is_documented_for_both_methods():
 
 def test_response_audit_matrix_is_complete_and_item_specific():
     """Every gate and I/M/L item must carry distinct, auditable evidence."""
-    root = Path(__file__).resolve().parent
-    audit_path = root / "reviewer_data_audit" / "response_item_audit.csv"
+    root = repository_root()
+    audit_path = first_existing(
+        root,
+        "reviewer_data_audit/response_item_audit.csv",
+        "release/response_item_audit.csv",
+    )
     assert audit_path.is_file(), "generate final submission documents before testing"
     with audit_path.open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
@@ -66,6 +88,75 @@ def test_response_audit_matrix_is_complete_and_item_specific():
     )
     joined = "\n".join(corrections).lower()
     assert not any(phrase in joined for phrase in boilerplate)
+
+
+def test_cloud_size_verdicts_follow_noise_admissibility_seed_hierarchy():
+    root = repository_root()
+    path = (
+        root / "final_reviewer_closure" / "support"
+        / "cloud_size_verdict_audit.csv"
+    )
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 32
+    midpoint = [row for row in rows if row["method"] == "MIDPOINT"]
+    assert len(midpoint) == 16
+    assert all(
+        row["hierarchy_stage"] == "physical-admissibility rejection"
+        and row["final_verdict"]
+        == "physically inadmissible output; cloud-size comparison not meaningful"
+        and "population positivity violation" in row["admissibility_reason"]
+        and "negative signed central second moment" in row["admissibility_reason"]
+        for row in midpoint
+        if row["observable"] != "trace"
+    )
+    assert all(
+        row["hierarchy_stage"] == "numerical-noise rejection"
+        for row in rows
+        if row["observable"] == "trace"
+    )
+
+
+def test_final_scientific_qualifications_are_materialized():
+    root = repository_root()
+    accuracy = (
+        root / "final_reviewer_closure" / "reference_grid_qcle"
+        / "qcle_reference_accuracy.csv"
+    )
+    with accuracy.open(newline="", encoding="utf-8-sig") as handle:
+        rows = list(csv.DictReader(handle))
+    p20 = [row for row in rows if row["P0"] == "20"]
+    assert len(rows) == 16 and len(p20) == 8
+    assert sum(
+        row["finest_change_and_usable_estimate_within_tolerance"] == "false"
+        for row in p20
+    ) == 6
+    assert all(
+        row["case_role"]
+        == "numerical sensitivity reference; declared tolerance not met"
+        for row in p20
+    )
+
+    thesis = first_existing(
+        root, "Thesis/Thesis.tex", "thesis/Thesis.tex"
+    ).read_text(encoding="utf-8")
+    required = (
+        r"M^{\rm signed}_{2,R}",
+        "three-level effective contraction exponent",
+        "numerical-sensitivity reference",
+        "no consistent sign across",
+        "moving-support refit and safe-profile assumptions",
+    )
+    assert all(phrase in thesis for phrase in required)
+    forbidden = (
+        r"$\operatorname{var}(R)$",
+        r"$\operatorname{var}(P)$",
+        "interval includes zero",
+        "cloud-size change exceeds seed spread",
+        "change remains within seed spread",
+        "plausibility bound",
+    )
+    assert all(phrase not in thesis for phrase in forbidden)
 
 
 def test_case_compatible_crosswalk_copy(tmp_path):

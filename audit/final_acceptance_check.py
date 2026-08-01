@@ -37,6 +37,14 @@ FORBIDDEN_THESIS = (
     "step-size change exceeds seed spread",
     "fail to converge for this manufactured operator",
     "MIDPOINT additionally requires",
+    "For MIDPOINT,\nboth differences must additionally",
+    "cloud-size change exceeds seed spread",
+    "change remains within seed spread",
+    "interval includes zero",
+    "plausibility bound",
+    r"$\operatorname{var}(R)$",
+    r"$\operatorname{var}(P)$",
+    "reported update is therefore formally second order",
 )
 FORBIDDEN_LOG = (
     "undefined", "multiply defined", "LaTeX Error", "Fatal error",
@@ -317,6 +325,70 @@ def check_numerical(c: Checker, evidence: Path) -> None:
     else:
         c.check("reference_settings_eight_exact_cases", False, str(settings))
 
+    cloud_audit = evidence / "support" / "cloud_size_verdict_audit.csv"
+    if cloud_audit.exists():
+        rows = csv_rows(cloud_audit)
+        allowed = {
+            "roundoff-limited; cloud-size effect not interpreted",
+            "physically inadmissible output; cloud-size comparison not meaningful",
+            "resolvable change exceeds seed dispersion",
+            "resolvable change remains within seed dispersion",
+        }
+        midpoint = [row for row in rows if row["method"] == "MIDPOINT"]
+        trace_rows = [row for row in rows if row["observable"] == "trace"]
+        c.check(
+            "cloud_size_hierarchical_verdicts",
+            len(rows) == 32
+            and all(row["final_verdict"] in allowed for row in rows)
+            and all(
+                row["final_verdict"]
+                == "physically inadmissible output; cloud-size comparison not meaningful"
+                for row in midpoint
+                if row["observable"] != "trace"
+            )
+            and all(
+                row["final_verdict"]
+                == "roundoff-limited; cloud-size effect not interpreted"
+                for row in trace_rows
+            ),
+            f"rows={len(rows)}; midpoint={len(midpoint)}; trace={len(trace_rows)}",
+        )
+    else:
+        c.check("cloud_size_hierarchical_verdicts", False, str(cloud_audit))
+
+    qcle_accuracy = (
+        evidence / "reference_grid_qcle" / "qcle_reference_accuracy.csv"
+    )
+    if qcle_accuracy.exists():
+        rows = csv_rows(qcle_accuracy)
+        p20 = [row for row in rows if row["P0"] == "20"]
+        failed = [
+            row for row in p20
+            if row["finest_change_and_usable_estimate_within_tolerance"] == "false"
+        ]
+        c.check(
+            "qcle_low_momentum_sensitivity_reference",
+            len(rows) == 16
+            and len(p20) == 8
+            and len(failed) == 6
+            and all(
+                row["case_role"]
+                == "numerical sensitivity reference; declared tolerance not met"
+                for row in p20
+            )
+            and all(
+                float(row["declared_finest_error_tolerance"]) > 0
+                for row in rows
+            ),
+            f"rows={len(rows)}; P20_failed={len(failed)}",
+        )
+    else:
+        c.check(
+            "qcle_low_momentum_sensitivity_reference",
+            False,
+            str(qcle_accuracy),
+        )
+
 
 def check_thesis(c: Checker, thesis: Path, bibliography: Path,
                  evidence: Path) -> None:
@@ -433,6 +505,14 @@ def check_thesis(c: Checker, thesis: Path, bibliography: Path,
         "numerically controlled reference solutions",
         r"\input{../final_reviewer_closure/tables/ReferenceSettingsByMomentum.tex}",
         "deterministic support convergence was not assessed",
+        r"M^{\rm signed}_{2,R}",
+        "physically inadmissible output; cloud-size comparison not meaningful",
+        "three-level effective contraction exponent",
+        "numerical-sensitivity reference",
+        "no consistent sign across",
+        "moving-support refit and safe-profile assumptions",
+        r"cloud\_size\_verdict\_audit.csv",
+        r"qcle\_reference\_accuracy.csv",
     )
     c.check(
         "mandatory_corrections_present",
@@ -584,15 +664,15 @@ def check_response(c: Checker, response: Path) -> None:
     missing = [item for item in expected if item not in text]
     c.check("response_all_items", not missing, f"missing={missing}")
     c.check(
-        "response_nine_mandatory_corrections",
-        "Final mandatory corrections" in text
+        "response_seventeen_final_corrections",
+        "Final mandatory and requested corrections" in text
         and sum(
             f"{index} ---" in text
-            for index in range(1, 10)
-        ) == 9
-        and text.count("Archive evidence") >= 9
-        and text.count("Final location") >= 9,
-        "nine final corrections have location and archive crosswalks",
+            for index in range(1, 18)
+        ) == 17
+        and text.count("Archive evidence") >= 17
+        and text.count("Final location") >= 17,
+        "seventeen final corrections have location and archive crosswalks",
     )
     forbidden = ("Partial", "Open", "placeholder",
                  "future action", "NOT COMPUTED", "TBD", "TODO")
@@ -659,7 +739,7 @@ def check_response(c: Checker, response: Path) -> None:
     )
     normalized_text = text.replace(r"\_", "_")
     i15_markers = (
-        "Appendix G.5", "printed p. 165", "frozen_numerical_evidence_payload.zip",
+        "Appendix G.5", "printed p. 170", "frozen_numerical_evidence_payload.zip",
         "frozen source/evidence commit", "archive SHA-256",
         "checksum-index SHA-256", "FINAL_RUN_MANIFEST.json",
         "FIGURE_DATA_CROSSWALK.csv", "table_data_crosswalk.csv",

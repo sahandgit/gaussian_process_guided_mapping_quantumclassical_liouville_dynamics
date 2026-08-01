@@ -1,0 +1,17 @@
+P0,observable,delta23,declared_finest_error_tolerance,three_level_effective_contraction_exponent,richardson_finest_error_estimate,richardson_estimate_usable,finest_change_and_usable_estimate_within_tolerance,case_role
+20,P0,0.10204488993464478,0.010502115542833599,2.6448520634363741,0.019421156653641247,true,false,numerical sensitivity reference; declared tolerance not met
+20,P1,0.10204476698667539,0.0059519548856868942,2.6610068455144322,0.01916426165027316,true,false,numerical sensitivity reference; declared tolerance not met
+20,trace,1.2294796936096475e-07,0.010071860771314436,,,false,true,numerical sensitivity reference; declared tolerance not met
+20,energy,3.7628719901816599e-05,0.0010138907999416209,5.0981968251295378,1.131557717182573e-06,true,true,numerical sensitivity reference; declared tolerance not met
+20,R_mean,0.24174477741448719,0.15521145582582899,2.4989565790405455,0.051957235419190353,true,false,numerical sensitivity reference; declared tolerance not met
+20,P_mean,0.37044078768859734,0.20068783350661634,3.847587243766728,0.027653272028199064,true,false,numerical sensitivity reference; declared tolerance not met
+20,R_var,0.87405948114627563,0.10729426669037281,3.4370207578551031,0.088913511715906002,true,false,numerical sensitivity reference; declared tolerance not met
+20,P_var,0.5945663197662725,0.37005596945778763,5.942077379026669,0.0098305698423335024,true,false,numerical sensitivity reference; declared tolerance not met
+100,P0,6.5437328136186412e-05,0.0014297124312994721,,,false,true,controlled numerical reference
+100,P1,5.8912829550505919e-05,0.0085708766969960371,,,false,true,controlled numerical reference
+100,trace,6.5244985857360049e-06,0.010000000000000005,,,false,true,controlled numerical reference
+100,energy,1.5584927928191661e-05,0.025000624841914384,,,false,true,controlled numerical reference
+100,R_mean,0.00017144260300128167,0.14897245686721475,2.9834345226889543,2.4815584065169644e-05,true,true,controlled numerical reference
+100,P_mean,2.6100764941361376e-05,0.99138601479011945,,,false,true,controlled numerical reference
+100,R_var,0.00059846132936058893,0.010071803633646539,,,false,true,controlled numerical reference
+100,P_var,0.001064477119143703,0.0050992981941999464,,,false,true,controlled numerical reference

@@ -1,6 +1,6 @@
 {
   "stage": "final",
-  "passed": true,
+  "passed": false,
   "checks": [
     {
       "name": "manufactured_72_rows",
@@ -91,6 +91,16 @@
       "name": "reference_settings_eight_exact_cases",
       "passed": true,
       "detail": "rows=8; cases=[('TDSE', '100.0', 'grid'), ('TDSE', '100.0', 'time'), ('TDSE', '20.0', 'grid'), ('TDSE', '20.0', 'time'), ('grid QCLE', '100.0', 'grid'), ('grid QCLE', '100.0', 'time'), ('grid QCLE', '20.0', 'grid'), ('grid QCLE', '20.0', 'time')]"
+    },
+    {
+      "name": "cloud_size_hierarchical_verdicts",
+      "passed": true,
+      "detail": "rows=32; midpoint=16; trace=4"
+    },
+    {
+      "name": "qcle_low_momentum_sensitivity_reference",
+      "passed": true,
+      "detail": "rows=16; P20_failed=6"
     },
     {
       "name": "thesis_forbidden_TODO",
@@ -198,6 +208,46 @@
       "detail": "occurrences=0"
     },
     {
+      "name": "thesis_forbidden_For MIDPOINT,\nboth differences must additionally",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_cloud-size change exceeds seed spread",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_change remains within seed spread",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_interval includes zero",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_plausibility bound",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_$\\operatorname{var}(R)$",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_$\\operatorname{var}(P)$",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
+      "name": "thesis_forbidden_reported update is therefore formally second order",
+      "passed": true,
+      "detail": "occurrences=0"
+    },
+    {
       "name": "abstract_max_150",
       "passed": true,
       "detail": "word_count=150"
@@ -283,9 +333,9 @@
       "detail": "missing=[]"
     },
     {
-      "name": "response_nine_mandatory_corrections",
+      "name": "response_seventeen_final_corrections",
       "passed": true,
-      "detail": "nine final corrections have location and archive crosswalks"
+      "detail": "seventeen final corrections have location and archive crosswalks"
     },
     {
       "name": "response_no_open_language",
@@ -314,8 +364,8 @@
     },
     {
       "name": "response_I15_archive_evidence",
-      "passed": true,
-      "detail": "missing=[]"
+      "passed": false,
+      "detail": "missing=['printed p. 165']"
     },
     {
       "name": "response_I16_title_evidence",
@@ -345,7 +395,7 @@
     {
       "name": "thesis_pdf_pages",
       "passed": true,
-      "detail": "192 pages (pypdfium2)"
+      "detail": "197 pages (pypdfium2)"
     },
     {
       "name": "response_pdf",
@@ -355,7 +405,7 @@
     {
       "name": "response_pdf_pages",
       "passed": true,
-      "detail": "17 pages (pypdfium2)"
+      "detail": "19 pages (pypdfium2)"
     },
     {
       "name": "clean_room_release_verification",

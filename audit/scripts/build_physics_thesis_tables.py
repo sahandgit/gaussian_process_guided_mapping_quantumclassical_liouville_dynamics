@@ -8,6 +8,7 @@ interpretation, without software paths or execution metadata.
 from __future__ import annotations
 
 import csv
+import json
 import math
 import statistics
 from collections import defaultdict
@@ -54,10 +55,9 @@ def fmt(x: float, digits: int = 3) -> str:
     return f"{x:.{digits}g}"
 
 
-# Largest observed order accepted as interpretable convergence evidence.
-# Declared formal orders of the reference schemes do not exceed four; observed
-# values far above this bound indicate that the finer difference has entered a
-# cancellation- or roundoff-limited regime and the sequence is not asymptotic.
+# Largest three-level contraction exponent accepted by the predeclared
+# conservative screening rule.  This is a diagnostic ceiling, not a
+# theoretical order asserted for either reference method.
 MAX_PLAUSIBLE_ORDER = 6.0
 
 
@@ -77,8 +77,8 @@ def obs(name: str) -> str:
         "energy": r"energy",
         "R_mean": r"$\langle R\rangle$",
         "P_mean": r"$\langle P\rangle$",
-        "R_var": r"$\operatorname{var}(R)$",
-        "P_var": r"$\operatorname{var}(P)$",
+        "R_var": r"$M^{\rm signed}_{2,R}$",
+        "P_var": r"$M^{\rm signed}_{2,P}$",
         "mapping-integrated R-P density": r"$R$--$P$ density",
         "nuclear R marginal": r"nuclear $R$ marginal",
     }
@@ -232,22 +232,84 @@ def timestep_table() -> str:
 
 def cloud_size_table() -> str:
     data = read_csv(EVIDENCE / "support" / "independent_cloud_summary.csv")
+    run_data = read_csv(EVIDENCE / "support" / "independent_cloud_run_by_run.csv")
     grouped: dict[tuple[str, float, str], dict[int, dict[str, str]]] = defaultdict(dict)
     for row in data:
         grouped[(row["method"], value(row, "P0"), row["observable"])][int(value(row, "N"))] = row
     order = ["P0", "P1", "trace", "energy", "R_mean", "P_mean", "R_var", "P_var"]
     rows: list[str] = []
+    audit_rows: list[dict[str, str]] = []
     for m in ("PBME", "MIDPOINT"):
         for p0 in (20.0, 100.0):
+            case_runs = [
+                row for row in run_data
+                if row["method"] == m and value(row, "P0") == p0
+            ]
+            nonfinite = any(not math.isfinite(value(row, "endpoint_value")) for row in case_runs)
+            population_violation = any(
+                row["observable"] in {"P0", "P1"}
+                and not (-1.0e-10 <= value(row, "endpoint_value") <= 1.0 + 1.0e-10)
+                for row in case_runs
+            )
+            moment_violation = any(
+                row["observable"] in {"R_var", "P_var"}
+                and value(row, "endpoint_value") < -1.0e-10
+                for row in case_runs
+            )
+            failed_checks = []
+            if nonfinite:
+                failed_checks.append("nonfinite output")
+            if population_violation:
+                failed_checks.append("population positivity violation")
+            if moment_violation:
+                failed_checks.append("negative signed central second moment")
+            admissibility_reason = (
+                "; ".join(failed_checks)
+                if failed_checks
+                else "passed finite/population/central-moment checks"
+            )
             for observable in order:
                 levels = grouped[(m, p0, observable)]
                 cells = [pm(value(levels[n], "mean"), value(levels[n], "sample_sd")) for n in (500, 1000, 2000)]
+                means = [value(levels[n], "mean") for n in (500, 1000, 2000)]
+                numerical_floor = 1.0e-12 + 1.0e-12 * max(abs(x) for x in means)
+                largest_change = max(abs(means[0] - means[1]), abs(means[1] - means[2]))
                 flagged = any(levels[n]["change_exceeds_seed_variability"].lower() == "true" for n in (500, 1000))
-                interpretation = "cloud-size change exceeds seed spread" if flagged else "change remains within seed spread"
+                if largest_change <= numerical_floor:
+                    interpretation = "roundoff-limited; cloud-size effect not interpreted"
+                    hierarchy_stage = "numerical-noise rejection"
+                elif nonfinite or population_violation or moment_violation:
+                    interpretation = "physically inadmissible output; cloud-size comparison not meaningful"
+                    hierarchy_stage = "physical-admissibility rejection"
+                elif flagged:
+                    interpretation = "resolvable change exceeds seed dispersion"
+                    hierarchy_stage = "seed-dispersion comparison"
+                else:
+                    interpretation = "resolvable change remains within seed dispersion"
+                    hierarchy_stage = "seed-dispersion comparison"
+                audit_rows.append(
+                    {
+                        "method": m,
+                        "P0": f"{p0:g}",
+                        "observable": observable,
+                        "numerical_floor": f"{numerical_floor:.17g}",
+                        "largest_successive_mean_change": f"{largest_change:.17g}",
+                        "finite_population_moment_admissible": str(not (nonfinite or population_violation or moment_violation)).lower(),
+                        "admissibility_reason": admissibility_reason,
+                        "change_exceeds_seed_variability": str(flagged).lower(),
+                        "hierarchy_stage": hierarchy_stage,
+                        "final_verdict": interpretation,
+                    }
+                )
                 rows.append(rf"{m} & {int(p0)} & {obs(observable)} & " + " & ".join(cells) + rf" & {interpretation}")
+    audit_path = EVIDENCE / "support" / "cloud_size_verdict_audit.csv"
+    with audit_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(audit_rows[0]))
+        writer.writeheader()
+        writer.writerows(audit_rows)
     return longtable(
         "tab:independent-cloud-size",
-        r"Sensitivity to enlarging independently sampled trajectory clouds.  Each entry is mean $\pm$ sample standard deviation over seeds 11, 29, and 47.  Because the clouds are independently sampled rather than nested, this is a stochastic cloud-size test, not a deterministic convergence order.",
+        r"Sensitivity to enlarging independently sampled trajectory clouds.  Each entry is mean $\pm$ sample standard deviation over seeds 11, 29, and 47.  Verdicts follow a fixed hierarchy: reject changes below the declared numerical floor; reject any case with nonfinite values, population-positivity violations, or negative signed central second moments; only then compare resolvable changes with seed dispersion.  Because the clouds are independently sampled rather than nested, this is a stochastic cloud-size test, not a deterministic convergence order.  The archived field names \texttt{R\_var} and \texttt{P\_var} store the signed central second moments displayed here, not guaranteed nonnegative variances.",
         r"l r l r r r L{0.24\textwidth}",
         r"Method & $P_{\rm init}$ & Observable & $N=500$ & $N=1000$ & $N=2000$ & Interpretation",
         rows,
@@ -335,6 +397,7 @@ def tail_table() -> str:
 def reference_tables() -> str:
     blocks: list[str] = []
     parameter_rows: list[str] = []
+    qcle_accuracy_rows: list[dict[str, str]] = []
     for name, relpath, label in (
         ("TDSE", "reference_tdse/tdse_three_level.csv", "tdse"),
         ("grid QCLE", "reference_grid_qcle/qcle_three_level.csv", "qcle"),
@@ -369,15 +432,14 @@ def reference_tables() -> str:
                 for observable in ("P0", "P1", "trace", "energy", "R_mean", "P_mean", "R_var", "P_var"):
                     row = next(r for r in group if r["observable"] == observable)
                     reason = row["order_reason"]
-                    # Observed orders far above every declared formal order
-                    # indicate a non-asymptotic sequence (the finer difference
-                    # has entered a cancellation- or roundoff-limited regime)
-                    # and are not interpreted as convergence orders.
                     if (
                         reason == "ok"
                         and 0 < value(row, "p_observed") <= MAX_PLAUSIBLE_ORDER
                     ):
-                        interpretation = rf"$p={fmt(value(row, 'p_observed'))}$"
+                        if mode == "grid":
+                            interpretation = rf"three-level $p_{{\rm eff}}={fmt(value(row, 'p_observed'))}$"
+                        else:
+                            interpretation = rf"observed temporal $p={fmt(value(row, 'p_observed'))}$"
                     elif reason == "ok" and value(row, "p_observed") > MAX_PLAUSIBLE_ORDER:
                         interpretation = (
                             "rapid contraction; order not interpreted "
@@ -397,16 +459,50 @@ def reference_tables() -> str:
                     rows.append(
                         rf"{mode} & {int(p0)} & {obs(observable)} & {mathnum(value(row, 'value1'))} & {mathnum(value(row, 'value2'))} & {mathnum(value(row, 'value3'))} & {mathnum(value(row, 'delta12'))} & {mathnum(value(row, 'delta23'))} & {interpretation}"
                     )
+                    if name == "grid QCLE" and mode == "grid":
+                        p_eff = value(row, "p_observed")
+                        estimate_usable = (
+                            reason == "ok" and 0 < p_eff <= MAX_PLAUSIBLE_ORDER
+                            and value(row, "delta23") > value(row, "numerical_noise_threshold")
+                        )
+                        richardson = value(row, "delta23") / (2.0 ** p_eff - 1.0) if estimate_usable else math.nan
+                        tolerance = max(1.0e-3, 0.01 * max(abs(value(row, key)) for key in ("value1", "value2", "value3")))
+                        within = value(row, "delta23") <= tolerance and (
+                            not estimate_usable or richardson <= tolerance
+                        )
+                        case_role = (
+                            "numerical sensitivity reference; declared tolerance not met"
+                            if p0 == 20.0
+                            else "controlled numerical reference"
+                        )
+                        qcle_accuracy_rows.append(
+                            {
+                                "P0": f"{p0:g}",
+                                "observable": observable,
+                                "delta23": f"{value(row, 'delta23'):.17g}",
+                                "declared_finest_error_tolerance": f"{tolerance:.17g}",
+                                "three_level_effective_contraction_exponent": f"{p_eff:.17g}" if math.isfinite(p_eff) else "",
+                                "richardson_finest_error_estimate": f"{richardson:.17g}" if math.isfinite(richardson) else "",
+                                "richardson_estimate_usable": str(estimate_usable).lower(),
+                                "finest_change_and_usable_estimate_within_tolerance": str(within).lower(),
+                                "case_role": case_role,
+                            }
+                        )
         blocks.append(
             longtable(
                 f"tab:{label}-reference-refinement",
-                rf"Three-level {name} reference study. Time and spatial/grid refinement are performed separately. $\delta_{{12}}$ and $\delta_{{23}}$ are successive absolute differences. Both must exceed $\tau_{{\rm noise}}=10^{{-12}}+10^{{-12}}\max_k|O_k|$; nonmonotone rows and values above the plausibility bound $p\le{MAX_PLAUSIBLE_ORDER:g}$ are retained but not interpreted as convergence orders.",
+                rf"Three-level {name} reference study. Time and spatial/grid refinement are performed separately. $\delta_{{12}}$ and $\delta_{{23}}$ are successive absolute differences. Both must exceed $\tau_{{\rm noise}}=10^{{-12}}+10^{{-12}}\max_k|O_k|$.  Retained time-refinement exponents are observed temporal orders.  Retained spatial/grid values are descriptive three-level effective contraction exponents, not demonstrated method orders.  The predeclared $p\le{MAX_PLAUSIBLE_ORDER:g}$ ceiling is a conservative screening rule rather than a theoretical expected order; nonmonotone and more rapidly contracting rows are retained but not interpreted.",
                 r"l r l r r r r r L{0.18\textwidth}",
                 r"Refinement & $P_{\rm init}$ & Observable & Level 1 & Level 2 & Level 3 & $\delta_{12}$ & $\delta_{23}$ & Interpretation",
                 rows,
                 landscape=True,
             )
         )
+    qcle_accuracy_path = EVIDENCE / "reference_grid_qcle" / "qcle_reference_accuracy.csv"
+    with qcle_accuracy_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(qcle_accuracy_rows[0]))
+        writer.writeheader()
+        writer.writerows(qcle_accuracy_rows)
     # This table is generated directly from the same full-precision reference
     # CSVs as Appendix F. Keeping it as an input eliminates the former
     # hand-copied P_init=20-only summary that could drift from Table F.1.
@@ -440,18 +536,19 @@ def physical_comparison_table() -> str:
     rows: list[str] = []
     for row in sorted(selected, key=lambda r: (r["reference"], float(r["P0"]), r["comparison_kind"], r["observable"], r["metric"])):
         lo, hi = value(row, "ci95_low"), value(row, "ci95_high")
-        if hi < 0:
-            interpretation = "MIDPOINT smaller for this metric"
-        elif lo > 0:
-            interpretation = "PBME smaller for this metric"
+        differences = [float(x) for x in json.loads(row["paired_differences_midpoint_minus_pbme"])]
+        if all(x < 0 for x in differences):
+            interpretation = "same negative sign across four paired seeds"
+        elif all(x > 0 for x in differences):
+            interpretation = "same positive sign across four paired seeds"
         else:
-            interpretation = "interval includes zero"
+            interpretation = "no consistent sign across the four paired seeds"
         rows.append(
             rf"{row['reference']} & {int(value(row, 'P0'))} & {obs(row['observable'])} & {metric_labels[row['metric']]} & {mathnum(value(row, 'mean_paired_difference'))} & $[{fmt(lo)},{fmt(hi)}]$ & {interpretation}"
         )
     return longtable(
         "tab:paired-physical-errors",
-        r"Paired physical-error comparison against common references.  The reported difference is $\Delta E=E_{\mathrm{MIDPOINT}}-E_{\mathrm{PBME}}$ over the same four independent seeds; negative values favour MIDPOINT for that metric.  Intervals are paired Student-$t$ 95\% intervals with three degrees of freedom.  Raw and unit-mass density errors are distinguished so that shape normalization cannot hide normalization error.",
+        r"Paired physical-error comparison against common references.  The reported difference is $\Delta E=E_{\mathrm{MIDPOINT}}-E_{\mathrm{PBME}}$ over the same four independent seeds; negative values favour MIDPOINT for that metric.  Intervals are paired Student-$t$ 95\% intervals with three degrees of freedom.  With only four paired seeds these intervals are descriptive sensitivity summaries, not strong inferential uncertainty statements; the individual paired signs in Appendix~\ref{app:complete-seed-evidence} are primary.  Raw and unit-mass density errors are distinguished so that shape normalization cannot hide normalization error.",
         r"l r l l r r L{0.23\textwidth}",
         r"Reference & $P_{\rm init}$ & Quantity & Error measure & $\langle\Delta E\rangle$ & 95\% interval & Interpretation",
         rows,

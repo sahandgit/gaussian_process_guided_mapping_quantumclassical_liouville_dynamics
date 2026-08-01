@@ -1174,9 +1174,10 @@ interpolation without extrapolation. Both successive time-normalized
 differences must first exceed
 \(\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)\).
 Rows below that floor are labelled roundoff- or saturation-limited; rows with
-nondecreasing successive differences are labelled nonmonotone. For MIDPOINT,
-both differences must additionally exceed the pooled dispersion over four
-independently sampled clouds. The 128 run/observable rows comprise 15
+nondecreasing successive differences are labelled nonmonotone. For both
+stochastic moving-cloud methods, PBME and MIDPOINT, both differences must
+additionally exceed the pooled dispersion over four independently sampled
+clouds. The 128 run/observable rows comprise 15
 noise-limited rejections, 102 seed-variability rejections, three nonpositive
 orders, and eight positive orders. The latter do not repair the simultaneous
 failures in replication and raw conservation, so the formal order of the
@@ -1192,8 +1193,17 @@ The cloud-size study in Table~\ref{tab:independent-cloud-size} compares
 \(N=500,1000,2000\) using three independently sampled clouds at each size.
 These clouds are not nested; the results therefore measure sensitivity to
 enlarging a stochastic representation rather than deterministic convergence.
-Several MIDPOINT changes remain comparable to, or larger than, the seed
-dispersion, while PBME is generally much more stable.
+The verdict is assigned in a fixed hierarchy. A change below the declared
+numerical floor is not interpreted; an output with a nonfinite value,
+population-positivity violation, or negative signed central second moment is
+then rejected as physically inadmissible; only an otherwise admissible,
+resolvable change is compared with seed dispersion. Every resolvable MIDPOINT
+row is rejected at the physical-admissibility stage, so its cloud-size
+comparison is not meaningful; the two MIDPOINT trace rows stop earlier at the
+numerical-noise stage. The PBME rows pass the admissibility stage, apart from
+trace changes that are roundoff limited, and are then classified relative to seed
+dispersion. The complete decisions are archived in
+\texttt{cloud\_size\_verdict\_audit.csv}.
 
 Table~\ref{tab:four-seed-replication-physics} makes that contrast explicit at
 \(N=1000\) and \(\Delta t=0.25\). For the endpoint \(\rho_{11}^{\mathrm{SN}}\) estimator, the
@@ -1203,6 +1213,14 @@ The MIDPOINT mean and interval can also extend outside the physical population
 range \([0,1]\). Four seeds provide a sensitive instability diagnostic but
 not a precise uncertainty distribution, so the intervals are interpreted
 descriptively.
+
+The quantities stored in the archive as \texttt{R\_var} and
+\texttt{P\_var} are the signed central second moments
+\(M^{\rm signed}_{2,R}\) and \(M^{\rm signed}_{2,P}\) defined in
+Appendix~\ref{appsubsec:mapping-observables}. They are not guaranteed
+nonnegative variances. A negative reported value is therefore a direct
+physical-admissibility failure of the signed output, not an unusual negative
+variance.
 
 @@TABLE_CLOUD_SIZE@@
 
@@ -1301,11 +1319,41 @@ convergence rate.
 The expected temporal scaling is approximately second order for the TDSE
 split-operator calculation and approximately fourth order for the grid-QCLE
 classical RK4 calculation. Spatial or phase-space-grid behaviour is assessed
-separately and is not assigned either temporal order. An observed order is
-reported only when both successive differences exceed the same declared
-absolute-plus-relative noise floor, decrease monotonically, and give
-\(0<p\leq6\); more rapid contractions are retained as nonasymptotic rather
-than promoted as convergence evidence.
+separately and is not assigned either temporal order. For spatial/grid rows,
+the reported \(p_{\rm eff}\) is only a three-level effective contraction
+exponent. The predeclared \(0<p_{\rm eff}\leq6\) rule is a conservative
+screen for describable contraction, not a theoretical method order; more
+rapid contractions are retained as nonasymptotic rather than promoted as
+convergence evidence.
+
+The low-momentum grid-QCLE sequence does not satisfy a declared finest-grid
+accuracy tolerance
+\(\tau_{\rm ref}(O)=\max[10^{-3},0.01\max_k|O_k|]\) for six of eight
+observables. When the screened three-level exponent is usable, the
+Richardson-style estimate
+\(\widehat e_3=\delta_{23}/(2^{p_{\rm eff}}-1)\) is reported. The six
+failed \(P_{\rm init}=20\) rows are
+\begin{center}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Observable & \(\delta_{23}\) & \(\tau_{\rm ref}\) & \(\widehat e_3\)\\
+\midrule
+\(\rho_{11}^{\rm SN}\) & 0.1020 & 0.0105 & 0.0194\\
+\(\rho_{22}^{\rm SN}\) & 0.1020 & 0.00595 & 0.0192\\
+\(\langle R\rangle\) & 0.2417 & 0.1552 & 0.0520\\
+\(\langle P\rangle\) & 0.3704 & 0.2007 & 0.0277\\
+\(M^{\rm signed}_{2,R}\) & 0.8741 & 0.1073 & 0.0889\\
+\(M^{\rm signed}_{2,P}\) & 0.5946 & 0.3701 & 0.00983\\
+\bottomrule
+\end{tabular}
+\end{center}
+The absolute-\(|W|\) edge diagnostic reaches \(7.94\times10^{-2}\), and an
+intermediate grid gives a negative population. Consequently the
+\(P_{\rm init}=20\) grid-QCLE output is used only as a numerical-sensitivity
+reference, not as a resolved accuracy standard. The rule, estimates, and
+case role are archived in \texttt{qcle\_reference\_accuracy.csv}; no new run
+is needed for this classification.
 
 @@TABLE_REFERENCES@@
 
@@ -1316,9 +1364,11 @@ Each paired difference is
 \(E_{\mathrm{MIDPOINT,ref}}-E_{\mathrm{PBME,ref}}\), so a negative value
 favours MIDPOINT for that particular metric. Isolated negative differences do
 not establish systematic improvement. Table~\ref{tab:paired-physical-errors}
-reports the paired mean and Student-\(t\) interval for raw and unit-mass density
-errors and for the principal time-dependent observables. Several intervals
-include zero, and resolved comparisons are not consistently in favour of
+reports the paired mean and descriptive Student-\(t\) interval for raw and
+unit-mass density errors and for the principal time-dependent observables.
+With four paired seeds, sign consistency in the individual Appendix~G values
+is primary; where those signs vary, the table says ``no consistent sign across
+the four paired seeds.'' The comparisons are not consistently in favour of
 MIDPOINT. More fundamentally, a physical success claim also requires
 seed-stable dynamics, raw conservation, and controlled discretization
 sensitivity. Those conditions are not met, so systematic improvement over
@@ -1336,7 +1386,10 @@ normalization cannot conceal a failed raw integral.
 \caption{Four-seed paired MIDPOINT-minus-PBME differences for density
 \(E_1\) errors against the matched TDSE and grid-QCLE references. Points are
 paired means and bars are two-sided Student-\(t\) 95\% intervals with three
-degrees of freedom. Positive values mean that MIDPOINT has the larger error.
+degrees of freedom. With only four paired seeds, these bars are descriptive
+sensitivity summaries rather than strong inferential uncertainty statements;
+the per-seed paired signs in Appendix~G are primary. Positive values mean that
+MIDPOINT has the larger error.
 The raw-density panel uses the signed display transform
 \(\operatorname{sgn}(\Delta E)\log_{10}(1+\lvert\Delta E\rvert)\), whose tick
 labels show the corresponding untransformed magnitude; the shape panel uses
@@ -1357,8 +1410,12 @@ calculation. The manufactured derivative operator is non-monotone with cloud
 size; the fitted density has substantial SEO-image leakage; the dynamical
 response is dominated by cloud-to-cloud variation; and the raw MIDPOINT
 normalization, trace, and energy can drift catastrophically. Controlled TDSE
-and grid-QCLE references do not reveal a consistent physical-error reduction
-relative to PBME. The failure is therefore not inferred from one diagnostic:
+evidence and the high-momentum grid-QCLE control do not reveal a consistent
+physical-error reduction relative to PBME; the low-momentum grid-QCLE output
+is retained only as a numerical-sensitivity reference. The decisive negative
+conclusion rests primarily on the TDSE comparisons, raw conservation, SEO
+projection, and independent replication. The failure is therefore not
+inferred from one diagnostic:
 it is the common conclusion of independent operator, representation,
 refinement, replication, conservation, and reference tests.
 
@@ -1415,9 +1472,11 @@ proof that one is the sole cause of the others. The manufactured operator
 study, SEO projection diagnostic, signed-label analysis, and conservation
 test deliberately isolate different links in the chain. Their agreement
 supports the method-level conclusion without overstating causal identification.
-The controlled TDSE and grid-QCLE studies then ensure that the absence of a
-systematic physical improvement is not an artefact of an uncontrolled
-reference calculation.
+The controlled TDSE study and high-momentum grid-QCLE control support the
+physical comparison. The low-momentum grid-QCLE sequence is not claimed to be
+resolved and is retained only as a numerical-sensitivity reference; the
+method-level conclusion does not depend on treating that sequence as an
+accuracy standard.
 
 \section{Claim boundary}
 \label{sec:discussion-limitations}
@@ -1756,7 +1815,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/figures/FIGURE_DATA_CROSSWALK.csv; table_data_crosswalk.csv",
         ),
         "I-8": (
-            "Every acceptance/display threshold is stated numerically at use: the E1 gate, absolute-plus-relative order floor, edge-mass criterion, plausibility bound, and tail-mass rule.",
+            "Every acceptance/display threshold is stated numerically at use: the E1 gate, absolute-plus-relative order floor, edge-mass criterion, conservative effective-exponent screen, and tail-mass rule. The p<=6 screen is explicitly not a theoretical method order.",
             "Sections 5.9.5 and 6.3--6.7, printed pp. 80 and 86--108; Tables 6.6--6.7 and 6.11--6.14.",
             "final_reviewer_closure/preserved_evidence/kde_gp_baseline.csv; timestep/timestep_run_by_run.csv; reference_tdse/tdse_three_level.csv; reference_grid_qcle/qcle_three_level.csv; tail_sensitivity/threshold_sweep.csv",
         ),
@@ -1781,14 +1840,14 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/replication/four_seed_values.csv; four_seed_summary.csv",
         ),
         "I-13": (
-            "High-momentum agreement is reported as per-seed absolute field/observable errors and paired MIDPOINT-minus-PBME differences, not as an adjective.",
+            "Physical comparisons are reported as per-seed absolute errors and paired MIDPOINT-minus-PBME differences. Four-seed Student-t intervals are descriptive only, and raw per-seed sign consistency is stated explicitly.",
             "Section 6.8, printed pp. 109--111; Table 6.15 and Figure 6.5; Appendix G, Tables G.7--G.8, printed pp. 163--164.",
             "final_reviewer_closure/physical_comparison/density_errors_method_pair_by_seed.csv; observable_errors_method_pair_by_seed.csv; paired_improvement_summary.csv",
         ),
         "I-14": (
-            "The thesis prints every reference method, momentum, final time, time/grid ladder, domain ladder, edge statistic, boundary rule, and CFL definition.",
+            "The thesis prints every reference setting and now gives an explicit finest-grid tolerance and usable Richardson-style estimate. The P_init=20 grid-QCLE case is classified only as a numerical-sensitivity reference because six of eight observables miss tolerance.",
             "Section 6.7, printed pp. 100--108; Tables 6.12--6.14; Appendix F.1--F.3, printed pp. 140--145.",
-            "final_reviewer_closure/reference_settings_by_method_and_momentum.csv; reference_tdse/tdse_three_level.csv; reference_grid_qcle/qcle_three_level.csv",
+            "final_reviewer_closure/reference_settings_by_method_and_momentum.csv; reference_tdse/tdse_three_level.csv; reference_grid_qcle/qcle_three_level.csv; reference_grid_qcle/qcle_reference_accuracy.csv",
         ),
         "I-15": (
             "The archive record distinguishes the final release tag, which identifies the tagged document commit, from the frozen source/evidence commit and states that the GitHub release is versioned public access, not a DOI or institutional persistent identifier.",
@@ -1826,9 +1885,9 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "Thesis/Chapter7_Conclusions.tex; Tables 6.2--6.15",
         ),
         "M-6": (
-            "N=500, 1000, and 2000 use independent nonnested clouds and are labelled stochastic cloud-size sensitivity, never deterministic convergence.",
+            "N=500, 1000, and 2000 use independent nonnested clouds. Verdicts apply numerical-noise rejection, then physical-admissibility rejection, and only then a seed-dispersion comparison; no deterministic convergence is claimed.",
             "Section 4.7.5, printed p. 62; Section 6.5, printed pp. 93--97; Table 6.8.",
-            "final_reviewer_closure/support/independent_cloud_summary.csv",
+            "final_reviewer_closure/support/independent_cloud_summary.csv; support/cloud_size_verdict_audit.csv",
         ),
         "M-7": (
             "The 0.01 result is restricted to its pilot policy and tested cells; all three regularizations are compared without claiming that regularization globally cures instability.",
@@ -1836,7 +1895,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/manufactured/manufactured_complete.csv; manufactured_summary.csv",
         ),
         "M-8": (
-            "Formal midpoint order is separated from observed order; no observed production order is reported unless numerical-noise and pooled seed-dispersion guards both pass.",
+            "The formal statement is restricted to a smooth fixed-representation semi-discrete midpoint system; moving-support refit and safe-profile assumptions are not established. Neither PBME nor MIDPOINT receives an observed production order unless both numerical-noise and pooled seed-dispersion guards pass.",
             "Sections 5.5 and 5.9.5, printed pp. 75 and 80; Section 6.4, printed pp. 89--93; Table 6.7 and Table G.4.",
             "final_reviewer_closure/timestep/timestep_run_by_run.csv",
         ),
@@ -1846,7 +1905,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/figures/FIGURE_DATA_CROSSWALK.csv",
         ),
         "M-10": (
-            "Unit-mass shape comparisons are labelled shape-only and are interpreted only after raw normalization, trace, and energy have been shown.",
+            "Unit-mass shape comparisons are labelled shape-only and are interpreted only after raw normalization, trace, and energy. Signed central second moments are explicitly defined and negative values are physical-admissibility failures, not variances.",
             "Section 6.6, printed pp. 97--100; Table 6.10 and Figure 6.3; Section 6.8, printed pp. 109--111.",
             "final_reviewer_closure/preserved_evidence/raw_conservation.csv; physical_comparison/paired_improvement_summary.csv",
         ),
@@ -1861,7 +1920,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/tail_sensitivity/y0_distribution_paired.csv; threshold_sweep.csv",
         ),
         "M-13": (
-            "Self-normalized unity is identified as tautological and is excluded from conservation evidence; raw integral, trace, and energy are primary.",
+            "Self-normalized unity is identified as tautological and excluded from conservation evidence; raw integral, trace, energy, population positivity, and signed central-second-moment admissibility are primary.",
             "Section 6.6, printed pp. 97--100; Table 6.10 and Figure 6.3.",
             "final_reviewer_closure/preserved_evidence/raw_conservation.csv",
         ),
@@ -1876,7 +1935,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/tail_sensitivity/threshold_sweep.csv; preserved_evidence/raw_conservation.csv",
         ),
         "M-16": (
-            "Reference proximity is defined only by printed absolute field and observable errors; unsupported words such as close or agreement are not acceptance criteria.",
+            "Reference proximity is defined only by printed absolute errors. The low-momentum grid-QCLE result is not treated as a resolved accuracy standard, and the decisive conclusion relies primarily on TDSE, raw conservation, SEO projection, and replication.",
             "Sections 6.7--6.8, printed pp. 100--111; Table 6.15; Tables G.7--G.8, printed pp. 163--164.",
             "final_reviewer_closure/physical_comparison/density_errors_method_pair_by_seed.csv; observable_errors_method_pair_by_seed.csv",
         ),
@@ -1960,6 +2019,60 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "This response, Ten acceptance gates and I/M/L sections.",
             "reviewer_data_audit/response_item_audit.csv",
         ),
+    }
+
+    # Page ranges below were inherited from the pre-conditional-acceptance
+    # response. Refresh them after the new scientific material changes the
+    # pagination; section/table identifiers remain the stable primary locator.
+    def current_pages(locator: str) -> str:
+        replacements = (
+            (
+                "printed pp. 27, 39, 49, 65, 83, and 112--114",
+                "printed pp. 27, 39, 49, 65, 83, and 117--119",
+            ),
+            ("printed pp. 65--114", "printed pp. 65--119"),
+            ("printed pp. 109--113", "printed pp. 111--118"),
+            ("printed pp. 112--114", "printed pp. 117--119"),
+            ("printed pp. 112--113", "printed pp. 117--118"),
+            ("printed pp. 113--114", "printed pp. 118--119"),
+            ("printed pp. 109--111", "printed pp. 111--115"),
+            ("printed pp. 100--111", "printed pp. 101--115"),
+            ("printed pp. 100--108", "printed pp. 101--110"),
+            ("printed pp. 97--100", "printed pp. 98--102"),
+            ("printed pp. 86--108", "printed pp. 86--110"),
+            ("printed pp. 84--111", "printed pp. 84--115"),
+            ("printed pp. 89--111", "printed pp. 89--116"),
+            (
+                "printed pp. 87, 88, 98, 101, and 111",
+                "printed pp. 87, 88, 99, 102, and 115",
+            ),
+            ("printed pp. 146--152", "printed pp. 151--156"),
+            ("printed pp. 153--157", "printed pp. 158--160"),
+            ("printed pp. 157--162", "printed pp. 162--166"),
+            ("printed pp. 163--164", "printed pp. 167--168"),
+            ("printed pp. 140--145", "printed pp. 145--149"),
+            ("printed pp. 140--142", "printed pp. 145--147"),
+            ("printed pp. 137--139", "printed pp. 142--144"),
+            ("and 100--108", "and 101--110"),
+            ("and 86--108", "and 86--110"),
+            ("80 and 97--100", "80 and 98--102"),
+            ("Table 6.10, printed p. 97", "Table 6.10, printed p. 98"),
+            ("printed p. 165", "printed p. 170"),
+            ("printed p. 112", "printed p. 117"),
+            ("printed p. 113", "printed p. 118"),
+            ("printed p. 114", "printed p. 119"),
+            (
+                "Eqs. (E.24)--(E.31) and the signed-KDE equation",
+                "Eqs. (E.17)--(E.33), including the signed central moments and KDE equation",
+            ),
+        )
+        for old, new in replacements:
+            locator = locator.replace(old, new)
+        return locator
+
+    item_audit = {
+        key: (correction, current_pages(locator), evidence)
+        for key, (correction, locator, evidence) in item_audit.items()
     }
 
     def displayed_evidence(text_value: str) -> str:
@@ -2081,8 +2194,84 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "This response, Ten acceptance gates and I/M/L sections.",
             "reviewer_data_audit/response_item_audit.csv",
         ),
+        (
+            "10 --- Shared stochastic refinement rule made consistent",
+            "Section 6.4 now states that both PBME and MIDPOINT must clear "
+            "the same numerical-noise and pooled independent-seed-dispersion "
+            "guards before any time-step contraction is interpreted.",
+            f"Thesis p. {thesis_page('sec:results-timestep')}, Section 6.4; "
+            "Table 6.7.",
+            "final_reviewer_closure/timestep/timestep_run_by_run.csv",
+        ),
+        (
+            "11 --- Signed central second moments defined and relabelled",
+            "The archived R_var and P_var fields are defined mathematically as "
+            "signed central second moments and displayed as M2,signed rather "
+            "than variances. Negative values are classified as physical-"
+            "admissibility failures.",
+            f"Thesis p. {thesis_page('appsubsec:mapping-observables')}, "
+            "Appendix E physical observables; Tables 6.7--6.9 and 6.13--6.14.",
+            "final_reviewer_closure/support/independent_cloud_run_by_run.csv; "
+            "replication/four_seed_summary.csv",
+        ),
+        (
+            "12 --- Cloud-size verdict hierarchy enforced",
+            "Cloud-size verdicts now reject numerical-noise-limited changes "
+            "first, reject nonfinite or physically inadmissible outputs second, "
+            "and compare only remaining resolvable changes with seed dispersion.",
+            f"Thesis p. {thesis_page('sec:results-support-replication')}, "
+            "Section 6.5 and Table 6.8.",
+            "final_reviewer_closure/support/cloud_size_verdict_audit.csv",
+        ),
+        (
+            "13 --- Low-momentum grid-QCLE role reclassified",
+            "A declared observable-specific finest-grid tolerance and usable "
+            "Richardson-style error estimate are now reported. Because six of "
+            "eight P_init=20 rows fail the tolerance, that case is a numerical-"
+            "sensitivity reference rather than a resolved accuracy standard.",
+            f"Thesis p. {thesis_page('sec:results-reference-controls')}, "
+            "Section 6.7 and Table 6.14.",
+            "final_reviewer_closure/reference_grid_qcle/qcle_reference_accuracy.csv",
+        ),
+        (
+            "14 --- Spatial exponents no longer called method orders",
+            "Spatial/grid values are labelled three-level effective contraction "
+            "exponents. The p<=6 ceiling is identified as a conservative "
+            "predeclared screen, not a theoretical expected method order.",
+            f"Thesis p. {thesis_page('sec:results-reference-controls')}, "
+            "Section 6.7; Tables 6.13--6.14.",
+            "final_reviewer_closure/reference_tdse/tdse_three_level.csv; "
+            "reference_grid_qcle/qcle_three_level.csv",
+        ),
+        (
+            "15 --- Four-seed interval interpretation qualified",
+            "The paired Student-t intervals are described as sensitivity "
+            "summaries only. Table 6.15 reports whether the four raw paired "
+            "signs are consistent, with the individual Appendix G values primary.",
+            f"Thesis p. {thesis_page('tab:paired-physical-errors')}, Table 6.15 "
+            "and Figure 6.5; Appendix G per-seed tables.",
+            "final_reviewer_closure/physical_comparison/paired_improvement_summary.csv; "
+            "observable_errors_method_pair_by_seed.csv; density_errors_method_pair_by_seed.csv",
+        ),
+        (
+            "16 --- Formal-order scope narrowed",
+            "The formal statement is restricted to a smooth fixed-representation "
+            "semi-discrete midpoint system; the moving-support refit and safe-"
+            "profile regularity assumptions are explicitly not established.",
+            f"Thesis p. {thesis_page('sec:ch5-order-analysis')}, Section 5.5 "
+            "and Chapter 5 summary.",
+            "Thesis/Thesis.tex",
+        ),
+        (
+            "17 --- Current response included in the immutable release",
+            "The newly compiled response PDF, source, and updated crosswalk are "
+            "release assets alongside the thesis, rather than being omitted from "
+            "the reviewer-delivery package.",
+            "This response and the release asset manifest.",
+            "Reviewer_Response.pdf; Reviewer_Response.tex; GitHub release manifest",
+        ),
     ]
-    lines.append(r"\section*{Final mandatory corrections}")
+    lines.append(r"\section*{Final mandatory and requested corrections}")
     for heading, action, location, evidence in mandatory:
         lines += [
             rf"\subsection*{{{tex(heading)}}}",
@@ -2120,6 +2309,10 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         8: item_audit["I-15"],
         9: item_audit["I-16"],
         10: item_audit["L-7"],
+    }
+    gate_audit = {
+        key: (correction, current_pages(locator), evidence)
+        for key, (correction, locator, evidence) in gate_audit.items()
     }
     audit_rows: List[Dict[str, str]] = []
     for gate in range(1, 11):
