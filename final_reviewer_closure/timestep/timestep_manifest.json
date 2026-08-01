@@ -5,7 +5,13 @@
     100.0
   ],
   "alignment": "common coarse saved times, linear interpolation, no extrapolation",
-  "created_utc": "2026-08-01T19:51:39.238609+00:00",
+  "created_utc": "2026-08-01T21:31:40.391547+00:00",
+  "decision_hierarchy": [
+    "numerical floor",
+    "finite output",
+    "physical admissibility",
+    "paired within-seed contraction and descriptive paired uncertainty"
+  ],
   "dt_levels": [
     0.5,
     0.25,
@@ -15,11 +21,14 @@
     "PBME",
     "MIDPOINT"
   ],
-  "order_guard": "both D12 and D23 exceed scale-aware roundoff and pooled pairwise seed RMS",
+  "order_guard": "D12 and D23 must exceed the scale-aware numerical floor; raw cross-seed observable spread is descriptive only and is not an order gate",
   "outputs": {
-    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_run_by_run.csv": "973c4aeaff0275cb17ea0459dc337cacaf7803f529bc50d557fa5980bd5f48c2",
-    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_summary.csv": "7a2b3552f987d0d8ce3d1132bdb9e34bde86bc3c12a053d06e4a5ef23b0ee15b"
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_paired_differences_by_seed.csv": "e6a948b642c6e3e7388fe47c0814739e2426b59335cc46840da6bd6c4f16498c",
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_paired_summary.csv": "8be0cf4b8c7809c5c54143a125e422da924ebb835fa0594886efc63967a91ad3",
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_run_by_run.csv": "e6a948b642c6e3e7388fe47c0814739e2426b59335cc46840da6bd6c4f16498c",
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\timestep\\timestep_summary.csv": "91b1a22d8cb8c6fa121ddb913924ff69618185cae85aa89aeb092d12a00f52cc"
   },
+  "physical_admissibility": "endpoint populations in [0,1] within 1e-10; norm/trace within 1e-8 of unity; finite energy; signed central second moments >= -1e-10",
   "seeds": [
     11,
     29,

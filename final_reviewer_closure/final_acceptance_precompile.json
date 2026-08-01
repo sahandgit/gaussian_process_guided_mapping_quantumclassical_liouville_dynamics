@@ -30,12 +30,27 @@
     {
       "name": "timestep_reconstructible",
       "passed": true,
-      "detail": "three values, two differences, spread, threshold, verdict and manifests"
+      "detail": "three values, paired differences/ratios, descriptive raw spread, threshold, verdict and manifests"
     },
     {
       "name": "timestep_guarded_verdicts",
       "passed": true,
-      "detail": "verdict_counts={'REJECT_SEED_VARIABILITY': 102, 'REJECT_NUMERICAL_NOISE': 15, 'COMPUTED_POSITIVE': 8, 'COMPUTED_ZERO_OR_NEGATIVE': 3}"
+      "detail": "verdict_counts={'COMPUTED_POSITIVE': 56, 'REJECT_NUMERICAL_NOISE': 15, 'REJECT_PHYSICAL_INADMISSIBILITY': 57}"
+    },
+    {
+      "name": "timestep_paired_summary",
+      "passed": true,
+      "detail": "rows=32; verdict_counts={'REJECT_PHYSICAL_INADMISSIBILITY': 14, 'REJECT_NUMERICAL_NOISE': 4, 'PAIRED_CONTRACTION_ALL_SEEDS': 14}"
+    },
+    {
+      "name": "manufactured_sampling_geometry",
+      "passed": true,
+      "detail": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_sampling_geometry.json"
+    },
+    {
+      "name": "mint_implementation_controls",
+      "passed": true,
+      "detail": "4 deterministic controls"
     },
     {
       "name": "replication_four_seed",
@@ -333,9 +348,9 @@
       "detail": "missing=[]"
     },
     {
-      "name": "response_seventeen_final_corrections",
+      "name": "response_twenty_four_final_corrections",
       "passed": true,
-      "detail": "seventeen final corrections have location and archive crosswalks"
+      "detail": "twenty-four final corrections have location and archive crosswalks"
     },
     {
       "name": "response_no_open_language",

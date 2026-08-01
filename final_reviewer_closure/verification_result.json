@@ -36,6 +36,21 @@
       "passed": true
     },
     {
+      "detail": "128 rows; expected 128",
+      "name": "rows_timestep_paired_differences_by_seed",
+      "passed": true
+    },
+    {
+      "detail": "32 rows; expected 32",
+      "name": "rows_timestep_paired_summary",
+      "passed": true
+    },
+    {
+      "detail": "4 rows; expected 4",
+      "name": "rows_mint_implementation_controls",
+      "passed": true
+    },
+    {
       "detail": "288 rows; expected 288",
       "name": "rows_independent_cloud_run_by_run",
       "passed": true
@@ -146,6 +161,36 @@
       "passed": true
     },
     {
+      "detail": "raw cross-seed spread is descriptive only; legacy seed-spread veto absent",
+      "name": "timestep_raw_seed_spread_not_used_as_gate",
+      "passed": true
+    },
+    {
+      "detail": "32 rows finite",
+      "name": "timestep_paired_statistics_finite",
+      "passed": true
+    },
+    {
+      "detail": "all 32 summaries report the numerical/finite/physical/paired hierarchy",
+      "name": "timestep_paired_hierarchy_reported",
+      "passed": true
+    },
+    {
+      "detail": "fully dimensional independent Gaussian geometry recorded; no focused shell",
+      "name": "manufactured_geometry_exact",
+      "passed": true
+    },
+    {
+      "detail": "4 rows finite",
+      "name": "mint_control_values_finite",
+      "passed": true
+    },
+    {
+      "detail": "symplectic, round-trip, mapping-radius and energy controls pass",
+      "name": "mint_implementation_controls_pass",
+      "passed": true
+    },
+    {
       "detail": "all support rows explicitly identify independent clouds",
       "name": "support_declared_independent",
       "passed": true
@@ -221,7 +266,7 @@
       "passed": true
     }
   ],
-  "created_utc": "2026-08-01T19:52:55.458826+00:00",
+  "created_utc": "2026-08-01T21:48:10.368469+00:00",
   "persistent_identifier_note": "The versioned GitHub release is a public retrieval record, not a DOI or institutional persistent identifier; no DOI is invented.",
   "public_release_record": "final_reviewer_closure/PUBLIC_RELEASE.json",
   "status": "PASSED"

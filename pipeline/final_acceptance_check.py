@@ -168,8 +168,9 @@ def check_numerical(c: Checker, evidence: Path) -> None:
     else:
         rows = csv_rows(timestep)
         required = (
-            "value1", "value2", "value3", "D12", "D23", "seed_spread",
-            "roundoff_threshold",
+            "value1", "value2", "value3", "D12", "D23",
+            "D12_over_D23", "paired_difference_D12_minus_D23",
+            "raw_observable_seed_spread", "roundoff_threshold",
         )
         metadata = (
             "verdict", "run1_manifest", "run2_manifest", "run3_manifest",
@@ -180,20 +181,79 @@ def check_numerical(c: Checker, evidence: Path) -> None:
             and all(row.get(field, "") for field in metadata)
             and row["verdict"] not in ("MISSING_RUN", "NONFINITE_RUN")
             for row in rows
-        ), "three values, two differences, spread, threshold, verdict and manifests")
+        ), "three values, paired differences/ratios, descriptive raw spread, threshold, verdict and manifests")
         counts: Dict[str, int] = {}
         for row in rows:
             counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
         c.check(
             "timestep_guarded_verdicts",
             counts == {
-                "COMPUTED_POSITIVE": 8,
-                "COMPUTED_ZERO_OR_NEGATIVE": 3,
+                "COMPUTED_POSITIVE": 56,
                 "REJECT_NUMERICAL_NOISE": 15,
-                "REJECT_SEED_VARIABILITY": 102,
+                "REJECT_PHYSICAL_INADMISSIBILITY": 57,
             }
-            and all(float(row["roundoff_threshold"]) >= 1.0e-12 for row in rows),
+            and all(float(row["roundoff_threshold"]) >= 1.0e-12 for row in rows)
+            and all(row.get("verdict") != "REJECT_SEED_VARIABILITY" for row in rows)
+            and all(
+                row.get("raw_seed_spread_role", "").startswith("descriptive")
+                for row in rows
+            ),
             f"verdict_counts={counts}",
+        )
+
+    paired_timestep = evidence / "timestep" / "timestep_paired_summary.csv"
+    if not paired_timestep.exists():
+        c.check("timestep_paired_summary", False, f"absent: {paired_timestep}")
+    else:
+        rows = csv_rows(paired_timestep)
+        counts: Dict[str, int] = {}
+        for row in rows:
+            counts[row["final_verdict"]] = counts.get(row["final_verdict"], 0) + 1
+        paired_fields = (
+            "mean_D12", "sample_sd_D12", "mean_D23", "sample_sd_D23",
+            "mean_paired_difference_D12_minus_D23",
+            "paired_difference_sample_sd", "paired_difference_standard_error",
+            "paired_difference_ci95_low", "paired_difference_ci95_high",
+            "seed_11_D12_over_D23", "seed_29_D12_over_D23",
+            "seed_47_D12_over_D23", "seed_73_D12_over_D23",
+        )
+        c.check(
+            "timestep_paired_summary",
+            len(rows) == 32
+            and all(finite(row, paired_fields) for row in rows)
+            and counts == {
+                "PAIRED_CONTRACTION_ALL_SEEDS": 14,
+                "REJECT_PHYSICAL_INADMISSIBILITY": 14,
+                "REJECT_NUMERICAL_NOISE": 4,
+            },
+            f"rows={len(rows)}; verdict_counts={counts}",
+        )
+
+    geometry = evidence / "manufactured" / "manufactured_sampling_geometry.json"
+    c.check(
+        "manufactured_sampling_geometry",
+        geometry.exists()
+        and '"dimension": 6' in geometry.read_text(encoding="utf-8")
+        and '"focused_mapping_shell": false' in geometry.read_text(encoding="utf-8")
+        and '"mapping_coordinates_independent": true' in geometry.read_text(encoding="utf-8"),
+        str(geometry),
+    )
+
+    mint_controls = evidence / "implementation_controls" / "mint_implementation_controls.csv"
+    if not mint_controls.exists():
+        c.check("mint_implementation_controls", False, f"absent: {mint_controls}")
+    else:
+        rows = csv_rows(mint_controls)
+        c.check(
+            "mint_implementation_controls",
+            len(rows) == 4
+            and all(finite(row, ("value", "tolerance")) for row in rows)
+            and all(
+                row.get("status") == "PASS"
+                and float(row["value"]) < float(row["tolerance"])
+                for row in rows
+            ),
+            f"{len(rows)} deterministic controls",
         )
 
     replication = evidence / "replication" / "four_seed_summary.csv"
@@ -509,10 +569,15 @@ def check_thesis(c: Checker, thesis: Path, bibliography: Path,
         "physically inadmissible output; cloud-size comparison not meaningful",
         "three-level effective contraction exponent",
         "numerical-sensitivity reference",
-        "no consistent sign across",
+        "PBME has the lower error for every reported paired seed and metric",
         "moving-support refit and safe-profile assumptions",
         r"cloud\_size\_verdict\_audit.csv",
         r"qcle\_reference\_accuracy.csv",
+        r"\frac{2\delta_{de}}{\hbar}",
+        "Raw between-seed observable spread is archived",
+        "fully dimensional Gaussian design, not a focused mapping shell",
+        "MInt implementation diagnostic",
+        r"manufactured\_sampling\_geometry.json",
     )
     c.check(
         "mandatory_corrections_present",
@@ -664,15 +729,15 @@ def check_response(c: Checker, response: Path) -> None:
     missing = [item for item in expected if item not in text]
     c.check("response_all_items", not missing, f"missing={missing}")
     c.check(
-        "response_seventeen_final_corrections",
+        "response_twenty_four_final_corrections",
         "Final mandatory and requested corrections" in text
         and sum(
             f"{index} ---" in text
-            for index in range(1, 18)
-        ) == 17
-        and text.count("Archive evidence") >= 17
-        and text.count("Final location") >= 17,
-        "seventeen final corrections have location and archive crosswalks",
+            for index in range(1, 25)
+        ) == 24
+        and text.count("Archive evidence") >= 24
+        and text.count("Final location") >= 24,
+        "twenty-four final corrections have location and archive crosswalks",
     )
     forbidden = ("Partial", "Open", "placeholder",
                  "future action", "NOT COMPUTED", "TBD", "TODO")
@@ -739,7 +804,7 @@ def check_response(c: Checker, response: Path) -> None:
     )
     normalized_text = text.replace(r"\_", "_")
     i15_markers = (
-        "Appendix G.5", "printed p. 170", "frozen_numerical_evidence_payload.zip",
+        "Appendix G.5", "printed p. 172", "frozen_numerical_evidence_payload.zip",
         "frozen source/evidence commit", "archive SHA-256",
         "checksum-index SHA-256", "FINAL_RUN_MANIFEST.json",
         "FIGURE_DATA_CROSSWALK.csv", "table_data_crosswalk.csv",

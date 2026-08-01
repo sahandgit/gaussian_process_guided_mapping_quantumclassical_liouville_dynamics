@@ -38,8 +38,8 @@ def first_existing(root: Path, *candidates: str) -> Path:
     raise FileNotFoundError(f"None of the required files exists: {candidates}")
 
 
-def test_shared_seed_dispersion_policy_is_documented_for_both_methods():
-    """The declared convergence guard must match the implementation for both methods."""
+def test_paired_timestep_hierarchy_is_documented_for_both_methods():
+    """The declared paired hierarchy must match the implementation for both methods."""
     root = repository_root()
     sources = [
         root / "reviewer_final_closure.py",
@@ -51,10 +51,11 @@ def test_shared_seed_dispersion_policy_is_documented_for_both_methods():
         first_existing(root, "Thesis/Thesis.tex", "thesis/Thesis.tex"),
     ]
     combined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
-    assert "For both stochastic moving-cloud methods" in combined
     assert "PBME and MIDPOINT" in combined
-    assert "pooled independent-seed variation" in combined
-    assert "MIDPOINT additionally" not in combined
+    assert "numerical floor, finite output, endpoint physical admissibility" in combined
+    assert "paired contraction" in combined
+    assert "Raw cross-seed observable spread" in combined
+    assert "not an order gate" in combined
 
 
 def test_response_audit_matrix_is_complete_and_item_specific():
@@ -142,9 +143,9 @@ def test_final_scientific_qualifications_are_materialized():
     ).read_text(encoding="utf-8")
     required = (
         r"M^{\rm signed}_{2,R}",
-        "three-level effective contraction exponent",
+        "paired differences contract in all four seeds",
         "numerical-sensitivity reference",
-        "no consistent sign across",
+        "positive MIDPOINT-minus-PBME",
         "moving-support refit and safe-profile assumptions",
     )
     assert all(phrase in thesis for phrase in required)
@@ -155,6 +156,8 @@ def test_final_scientific_qualifications_are_materialized():
         "cloud-size change exceeds seed spread",
         "change remains within seed spread",
         "plausibility bound",
+        "no consistent sign across",
+        "pooled independent-seed variation",
     )
     assert all(phrase not in thesis for phrase in forbidden)
 

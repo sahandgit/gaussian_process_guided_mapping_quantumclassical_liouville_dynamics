@@ -1,0 +1,28 @@
+{
+  "Mint.py_sha256": "a2b88cfc3b4796726622b3f538e5abee4c5231f3d367e1e088a6e0d59a313167",
+  "coordinate_order": [
+    "R",
+    "P",
+    "r0",
+    "r1",
+    "p0",
+    "p1"
+  ],
+  "created_utc": "2026-08-01T21:31:18.217376+00:00",
+  "dt": 0.5,
+  "finite_difference_epsilon": 1e-07,
+  "initial_state": [
+    -1.3,
+    18.0,
+    0.9,
+    -0.4,
+    0.3,
+    0.6
+  ],
+  "n_steps": 200,
+  "output": {
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\implementation_controls\\mint_implementation_controls.csv": "2c9c75fc969d699ea8b05bce4c0196026a1415fdf4202b846575f197bb5268f4"
+  },
+  "purpose": "deterministic numerical implementation control; not a production simulation",
+  "test_math_expressions.py_sha256": "8ab1699a50a04470caca713241d99954167ba2f89fc79c62726eaf990328a111"
+}

@@ -22,7 +22,7 @@ AUDIT = ROOT / "reviewer_data_audit"
 OUTPUT = AUDIT / "CLEAN_ROOM_VERIFICATION.json"
 OWNER = "sahandgit"
 REPOSITORY = "gaussian_process_guided_mapping_quantumclassical_liouville_dynamics"
-DEFAULT_TAG = "thesis-final-2026-08-01-r3"
+DEFAULT_TAG = "thesis-final-2026-08-01-r4"
 REQUIRED_EVIDENCE = (
     "final_reviewer_closure/PAYLOAD_SHA256SUMS.csv",
     "final_reviewer_closure/FINAL_RUN_MANIFEST.json",

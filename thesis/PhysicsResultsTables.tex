@@ -20,7 +20,7 @@ Question & Quantity examined & Controlled variation & Evidence reported \\
 \bottomrule
 \endlastfoot
 Manufactured operator & $\rho$, $\nabla\rho$, and $Q[\rho]$ on and away from the training cloud & $\ell_2=10^{-6},0.01,0.05$; $N=300,600,1200,2400$; seeds 123--125 & Relative $L_1$, $L_2$, and $L_\infty$ errors \\
-Time-step refinement & Dynamical observables at three common physical-time grids & $\Delta t=0.5,0.25,0.125$; $P_{\rm init}=20,100$; four independent seeds & Successive differences compared with seed dispersion \\
+Time-step refinement & Dynamical observables at three common physical-time grids & $\Delta t=0.5,0.25,0.125$; $P_{\rm init}=20,100$; four paired seeds & Within-seed successive differences, ratios, contraction count, and descriptive paired interval \\
 Cloud-size sensitivity & Effect of enlarging independently sampled phase-space clouds & $N=500,1000,2000$; three independent seeds & Mean, sample standard deviation, and change relative to seed dispersion \\
 Replication & Sensitivity of endpoint observables to independently sampled initial clouds & Seeds 11, 29, 47, and 73; $N=1000$; $\Delta t=0.25$ & Mean, sample standard deviation, and Student-$t$ interval \\
 Estimator structure & SEO leakage, raw invariants, and signed-label conditioning & Three collision-time snapshots and threshold sweep & Projection residual, raw drift, effective sample sizes, and excluded physical mass \\
@@ -227,56 +227,56 @@ $P_{\rm init}$ & Cases & $\max E_1$ & $\max E_2$ & $\max E_\infty$ & Declared re
 
 \begin{landscape}
 \begingroup
-\scriptsize
+\tiny
 \setlength{\tabcolsep}{3.5pt}
-\begin{longtable}{l r l r r r r r L{0.20\textwidth}}
-\caption{Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)$ before an order is interpreted. For both stochastic moving-cloud methods, PBME and MIDPOINT, both differences must also exceed pooled independent-seed dispersion.}\label{tab:timestep-refinement-physics}\\
+\begin{longtable}{l r l r r r r r r r L{0.15\textwidth}}
+\caption{Paired time-step sensitivity. Endpoint values and time-normalized successive differences are averages over the same seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. The decision hierarchy is numerical floor, finite output, endpoint physical admissibility (populations in $[0,1]$, unit norm, finite energy, and nonnegative signed central second moments), then within-seed contraction. The final numeric column gives the mean paired difference $D_{12}-D_{23}$ and its descriptive two-sided paired Student-$t$ 95\% interval ($df=3$). Raw cross-seed observable spread remains archived as a cloud-variability diagnostic and is not an order gate.}\label{tab:timestep-refinement-physics}\\
 \toprule
-Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation \\
+Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Contract & $\overline{D_{12}-D_{23}}$ [95\%] & Interpretation \\
 \midrule
 \endfirsthead
-\multicolumn{9}{l}{\tablename\ \thetable\ (continued)}\\
+\multicolumn{11}{l}{\tablename\ \thetable\ (continued)}\\
 \toprule
-Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation \\
+Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Contract & $\overline{D_{12}-D_{23}}$ [95\%] & Interpretation \\
 \midrule
 \endhead
 \midrule
-\multicolumn{9}{r}{Continued on next page}\\
+\multicolumn{11}{r}{Continued on next page}\\
 \endfoot
 \bottomrule
 \endlastfoot
-PBME & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.964$ & $0.964$ & $0.964$ & $7.02\times10^{-7}$ & $1.75\times10^{-7}$ & step-size signal is not resolved above seed spread \\
-PBME & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0357$ & $0.0357$ & $0.0357$ & $7.02\times10^{-7}$ & $1.75\times10^{-7}$ & step-size signal is not resolved above seed spread \\
-PBME & 20 & electronic trace & $1$ & $1$ & $1$ & $2.90\times10^{-13}$ & $5.91\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
-PBME & 20 & energy & $0.1$ & $0.1$ & $0.1$ & $4.93\times10^{-9}$ & $1.23\times10^{-9}$ & step-size signal is not resolved above seed spread \\
-PBME & 20 & $\langle R\rangle$ & $15.3$ & $15.3$ & $15.3$ & $1.48\times10^{-6}$ & $3.69\times10^{-7}$ & step-size signal is not resolved above seed spread \\
-PBME & 20 & $\langle P\rangle$ & $19.8$ & $19.8$ & $19.8$ & $3.50\times10^{-6}$ & $8.74\times10^{-7}$ & step-size signal is not resolved above seed spread \\
-PBME & 20 & $M^{\rm signed}_{2,R}$ & $2.31$ & $2.31$ & $2.31$ & $4.89\times10^{-7}$ & $1.22\times10^{-7}$ & step-size signal is not resolved above seed spread \\
-PBME & 20 & $M^{\rm signed}_{2,P}$ & $1.66$ & $1.66$ & $1.66$ & $3.00\times10^{-6}$ & $7.49\times10^{-7}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.137$ & $0.137$ & $0.137$ & $6.74\times10^{-6}$ & $1.69\times10^{-6}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.863$ & $0.863$ & $0.863$ & $6.74\times10^{-6}$ & $1.69\times10^{-6}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & electronic trace & $1$ & $1$ & $1$ & $5.64\times10^{-14}$ & $1.16\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
-PBME & 100 & energy & $2.5$ & $2.5$ & $2.5$ & $5.98\times10^{-8}$ & $1.50\times10^{-8}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $3.94\times10^{-7}$ & $9.85\times10^{-8}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $6.82\times10^{-6}$ & $1.70\times10^{-6}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & $M^{\rm signed}_{2,R}$ & $0.985$ & $0.985$ & $0.985$ & $1.81\times10^{-7}$ & $4.51\times10^{-8}$ & step-size signal is not resolved above seed spread \\
-PBME & 100 & $M^{\rm signed}_{2,P}$ & $0.444$ & $0.444$ & $0.444$ & $7.48\times10^{-6}$ & $1.87\times10^{-6}$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 20 & $\rho_{11}^{\mathrm{SN}}$ & $1.18$ & $1.31$ & $0.818$ & $0.525$ & $0.422$ & contracting signal resolved above noise and seed spread \\
-MIDPOINT & 20 & $\rho_{22}^{\mathrm{SN}}$ & $-0.18$ & $-0.312$ & $0.182$ & $0.525$ & $0.422$ & contracting signal resolved above noise and seed spread \\
-MIDPOINT & 20 & electronic trace & $1$ & $1$ & $1$ & $1.45\times10^{-12}$ & $1.68\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
-MIDPOINT & 20 & energy & $0.107$ & $0.126$ & $0.0937$ & $0.0317$ & $0.0232$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 20 & $\langle R\rangle$ & $16.6$ & $14.3$ & $13.9$ & $2.38$ & $2.21$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 20 & $\langle P\rangle$ & $21.5$ & $24.2$ & $18.5$ & $4.91$ & $3.96$ & contracting signal resolved above noise and seed spread \\
-MIDPOINT & 20 & $M^{\rm signed}_{2,R}$ & $-1.52\times10^{3}$ & $-5.07$ & $-13.1$ & $503$ & $8.38$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 20 & $M^{\rm signed}_{2,P}$ & $-2.67\times10^{3}$ & $11.4$ & $-13.4$ & $1.94\times10^{3}$ & $82.5$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 100 & $\rho_{11}^{\mathrm{SN}}$ & $-0.201$ & $-0.198$ & $-0.18$ & $5.74$ & $5.82$ & nonmonotone step-size response \\
-MIDPOINT & 100 & $\rho_{22}^{\mathrm{SN}}$ & $1.2$ & $1.2$ & $1.18$ & $5.74$ & $5.82$ & nonmonotone step-size response \\
-MIDPOINT & 100 & electronic trace & $1$ & $1$ & $1$ & $7.61\times10^{-13}$ & $1.44\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
-MIDPOINT & 100 & energy & $2.5$ & $2.53$ & $2.52$ & $0.704$ & $0.722$ & nonmonotone step-size response \\
-MIDPOINT & 100 & $\langle R\rangle$ & $12.8$ & $12.5$ & $12.6$ & $14.5$ & $12.4$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 100 & $\langle P\rangle$ & $98.8$ & $99.4$ & $99.2$ & $18.2$ & $18$ & step-size signal is not resolved above seed spread \\
-MIDPOINT & 100 & $M^{\rm signed}_{2,R}$ & $-1.02\times10^{44}$ & $-1.27\times10^{43}$ & $-6.88\times10^{45}$ & $2.95\times10^{43}$ & $2.01\times10^{45}$ & nonmonotone step-size response \\
-MIDPOINT & 100 & $M^{\rm signed}_{2,P}$ & $-5.96\times10^{45}$ & $-9.50\times10^{44}$ & $-4.79\times10^{47}$ & $3.06\times10^{45}$ & $2.38\times10^{47}$ & nonmonotone step-size response \\
+PBME & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.964$ & $0.964$ & $0.964$ & $7.02\times10^{-7}$ & $1.75\times10^{-7}$ & 4/4 & $5.26\times10^{-7}\,[4.22\times10^{-7},6.31\times10^{-7}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0357$ & $0.0357$ & $0.0357$ & $7.02\times10^{-7}$ & $1.75\times10^{-7}$ & 4/4 & $5.26\times10^{-7}\,[4.22\times10^{-7},6.31\times10^{-7}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 20 & electronic trace & $1$ & $1$ & $1$ & $2.90\times10^{-13}$ & $5.91\times10^{-13}$ & 0/4 & $-3.01\times10^{-13}\,[-3.07\times10^{-13},-2.95\times10^{-13}]$ & one or more seeds are numerical-floor limited; temporal order not interpreted \\
+PBME & 20 & energy & $0.1$ & $0.1$ & $0.1$ & $4.93\times10^{-9}$ & $1.23\times10^{-9}$ & 4/4 & $3.70\times10^{-9}\,[3.58\times10^{-9},3.81\times10^{-9}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 20 & $\langle R\rangle$ & $15.3$ & $15.3$ & $15.3$ & $1.48\times10^{-6}$ & $3.69\times10^{-7}$ & 4/4 & $1.11\times10^{-6}\,[9.12\times10^{-7},1.31\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 20 & $\langle P\rangle$ & $19.8$ & $19.8$ & $19.8$ & $3.50\times10^{-6}$ & $8.74\times10^{-7}$ & 4/4 & $2.62\times10^{-6}\,[2.12\times10^{-6},3.12\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 20 & $M^{\rm signed}_{2,R}$ & $2.31$ & $2.31$ & $2.31$ & $4.89\times10^{-7}$ & $1.22\times10^{-7}$ & 4/4 & $3.67\times10^{-7}\,[1.83\times10^{-7},5.51\times10^{-7}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 20 & $M^{\rm signed}_{2,P}$ & $1.66$ & $1.66$ & $1.66$ & $3.00\times10^{-6}$ & $7.49\times10^{-7}$ & 4/4 & $2.25\times10^{-6}\,[1.78\times10^{-6},2.72\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.137$ & $0.137$ & $0.137$ & $6.74\times10^{-6}$ & $1.69\times10^{-6}$ & 4/4 & $5.06\times10^{-6}\,[4.88\times10^{-6},5.23\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.863$ & $0.863$ & $0.863$ & $6.74\times10^{-6}$ & $1.69\times10^{-6}$ & 4/4 & $5.06\times10^{-6}\,[4.88\times10^{-6},5.23\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & electronic trace & $1$ & $1$ & $1$ & $5.64\times10^{-14}$ & $1.16\times10^{-13}$ & 0/4 & $-5.98\times10^{-14}\,[-6.31\times10^{-14},-5.65\times10^{-14}]$ & one or more seeds are numerical-floor limited; temporal order not interpreted \\
+PBME & 100 & energy & $2.5$ & $2.5$ & $2.5$ & $5.98\times10^{-8}$ & $1.50\times10^{-8}$ & 4/4 & $4.49\times10^{-8}\,[4.15\times10^{-8},4.83\times10^{-8}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $3.94\times10^{-7}$ & $9.85\times10^{-8}$ & 4/4 & $2.95\times10^{-7}\,[2.74\times10^{-7},3.17\times10^{-7}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $6.82\times10^{-6}$ & $1.70\times10^{-6}$ & 4/4 & $5.11\times10^{-6}\,[4.94\times10^{-6},5.28\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & $M^{\rm signed}_{2,R}$ & $0.985$ & $0.985$ & $0.985$ & $1.81\times10^{-7}$ & $4.51\times10^{-8}$ & 4/4 & $1.35\times10^{-7}\,[9.69\times10^{-8},1.74\times10^{-7}]$ & paired differences contract in all four seeds; interval is descriptive \\
+PBME & 100 & $M^{\rm signed}_{2,P}$ & $0.444$ & $0.444$ & $0.444$ & $7.48\times10^{-6}$ & $1.87\times10^{-6}$ & 4/4 & $5.61\times10^{-6}\,[5.44\times10^{-6},5.77\times10^{-6}]$ & paired differences contract in all four seeds; interval is descriptive \\
+MIDPOINT & 20 & $\rho_{11}^{\mathrm{SN}}$ & $1.18$ & $1.31$ & $0.818$ & $0.525$ & $0.422$ & 3/4 & $0.102\,[-0.196,0.401]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 20 & $\rho_{22}^{\mathrm{SN}}$ & $-0.18$ & $-0.312$ & $0.182$ & $0.525$ & $0.422$ & 3/4 & $0.102\,[-0.196,0.401]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 20 & electronic trace & $1$ & $1$ & $1$ & $1.45\times10^{-12}$ & $1.68\times10^{-12}$ & 1/4 & $-2.31\times10^{-13}\,[-1.82\times10^{-12},1.36\times10^{-12}]$ & one or more seeds are numerical-floor limited; temporal order not interpreted \\
+MIDPOINT & 20 & energy & $0.107$ & $0.126$ & $0.0937$ & $0.0317$ & $0.0232$ & 4/4 & $0.00853\,[-0.00443,0.0215]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 20 & $\langle R\rangle$ & $16.6$ & $14.3$ & $13.9$ & $2.38$ & $2.21$ & 3/4 & $0.169\,[-0.434,0.773]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 20 & $\langle P\rangle$ & $21.5$ & $24.2$ & $18.5$ & $4.91$ & $3.96$ & 3/4 & $0.957\,[-0.991,2.9]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 20 & $M^{\rm signed}_{2,R}$ & $-1.52\times10^{3}$ & $-5.07$ & $-13.1$ & $503$ & $8.38$ & 4/4 & $495\,[-1.04\times10^{3},2.03\times10^{3}]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 20 & $M^{\rm signed}_{2,P}$ & $-2.67\times10^{3}$ & $11.4$ & $-13.4$ & $1.94\times10^{3}$ & $82.5$ & 4/4 & $1.86\times10^{3}\,[-3.86\times10^{3},7.57\times10^{3}]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & $\rho_{11}^{\mathrm{SN}}$ & $-0.201$ & $-0.198$ & $-0.18$ & $5.74$ & $5.82$ & 3/4 & $-0.0741\,[-1.94,1.79]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & $\rho_{22}^{\mathrm{SN}}$ & $1.2$ & $1.2$ & $1.18$ & $5.74$ & $5.82$ & 3/4 & $-0.0741\,[-1.94,1.79]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & electronic trace & $1$ & $1$ & $1$ & $7.61\times10^{-13}$ & $1.44\times10^{-12}$ & 0/4 & $-6.76\times10^{-13}\,[-1.58\times10^{-12},2.30\times10^{-13}]$ & one or more seeds are numerical-floor limited; temporal order not interpreted \\
+MIDPOINT & 100 & energy & $2.5$ & $2.53$ & $2.52$ & $0.704$ & $0.722$ & 2/4 & $-0.0177\,[-0.565,0.53]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & $\langle R\rangle$ & $12.8$ & $12.5$ & $12.6$ & $14.5$ & $12.4$ & 2/4 & $2.03\,[-4.65,8.7]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & $\langle P\rangle$ & $98.8$ & $99.4$ & $99.2$ & $18.2$ & $18$ & 3/4 & $0.258\,[-12.8,13.3]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & $M^{\rm signed}_{2,R}$ & $-1.02\times10^{44}$ & $-1.27\times10^{43}$ & $-6.88\times10^{45}$ & $2.95\times10^{43}$ & $2.01\times10^{45}$ & 3/4 & $-1.98\times10^{45}\,[-8.30\times10^{45},4.33\times10^{45}]$ & one or more levels physically inadmissible; temporal order not interpreted \\
+MIDPOINT & 100 & $M^{\rm signed}_{2,P}$ & $-5.96\times10^{45}$ & $-9.50\times10^{44}$ & $-4.79\times10^{47}$ & $3.06\times10^{45}$ & $2.38\times10^{47}$ & 3/4 & $-2.35\times10^{47}\,[-9.83\times10^{47},5.13\times10^{47}]$ & one or more levels physically inadmissible; temporal order not interpreted \\
 \end{longtable}
 \endgroup
 \end{landscape}

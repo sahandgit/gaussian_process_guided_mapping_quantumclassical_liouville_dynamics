@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGE = ROOT / "reviewer_data_audit" / "github_main_staging"
-RELEASE_TAG = "thesis-final-2026-08-01-r3"
+RELEASE_TAG = "thesis-final-2026-08-01-r4"
 REPO_URL = (
     "https://github.com/sahandgit/"
     "gaussian_process_guided_mapping_quantumclassical_liouville_dynamics"
@@ -31,7 +31,7 @@ AUDIT_MODULES = (
     "reviewer_final_closure.py", "thesis_analysis.py", "thesis_closure.py",
 )
 EVIDENCE_DIRS = (
-    "commands", "environment", "figures", "manufactured",
+    "commands", "environment", "figures", "implementation_controls", "manufactured",
     "physical_comparison", "preserved_evidence", "reference_grid_qcle",
     "reference_tdse", "replication", "smoke", "support", "tables",
     "tail_sensitivity", "timestep",
@@ -154,8 +154,10 @@ The final evidence inventory is 24 paired time-step configurations (48
 individual PBME/MIDPOINT method executions) using seeds 11, 29, 47, and 73.
 The absolute-plus-relative numerical-noise rule and all rejection reasons are
 stored in the time-step and reference CSVs. For both stochastic moving-cloud
-methods, PBME and MIDPOINT, both refinement differences must also exceed pooled
-independent-seed dispersion before an order is interpreted.
+methods, PBME and MIDPOINT, the time-step hierarchy is numerical floor, finite
+output, physical admissibility, and then same-seed paired contraction. Raw
+cross-seed observable spread is retained as a descriptive cloud-variability
+diagnostic and is not used as an order or uncertainty gate.
 
 Cloud-size decisions are hierarchical: numerical resolution is checked first,
 then physical admissibility (including negative signed central second moments),

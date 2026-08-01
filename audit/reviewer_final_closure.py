@@ -1282,25 +1282,137 @@ def analyze_manufactured(out: Path) -> Dict[str, Path]:
     comparison_path = write_csv(
         out / "manufactured" / "manufactured_policy_comparison.csv", comparisons
     )
+    sampling_geometry_path = write_json(
+        out / "manufactured" / "manufactured_sampling_geometry.json",
+        {
+            "dimension": 6,
+            "coordinate_order": ["R", "P", "r0", "r1", "p0", "p1"],
+            "training_and_query_geometry": (
+                "fully dimensional independent Gaussian points"
+            ),
+            "independent_coordinate_distributions": {
+                "R": {"family": "Normal", "mean": 0.0, "standard_deviation": 1.2},
+                "P": {"family": "Normal", "mean": 8.0, "standard_deviation": 0.7},
+                "r0": {"family": "Normal", "mean": 0.0, "standard_deviation": math.sqrt(0.5)},
+                "r1": {"family": "Normal", "mean": 0.0, "standard_deviation": math.sqrt(0.5)},
+                "p0": {"family": "Normal", "mean": 0.0, "standard_deviation": math.sqrt(0.5)},
+                "p1": {"family": "Normal", "mean": 0.0, "standard_deviation": math.sqrt(0.5)},
+            },
+            "mapping_coordinates_independent": True,
+            "focused_mapping_shell": False,
+            "scope_limitation": (
+                "This fully dimensional test is more informative about ambient "
+                "derivatives than the focused production cloud. It does not "
+                "reproduce focused-MMST normal-derivative nonidentifiability, "
+                "and its 2--3 percent operator errors are not quantitative "
+                "estimates of production off-manifold error."
+            ),
+            "implementation": "ReviewerValidation.py::manufactured_test",
+            "implementation_sha256": sha256_file(REPO / "ReviewerValidation.py"),
+        },
+    )
     write_json(out / "manufactured" / "manufactured_manifest.json", {
         "created_utc": utcnow(), "expected_complete_rows": 72,
         "actual_complete_rows": len(complete),
         "paired_design": "same training and off-support clouds at fixed N and seed",
         "on_support_contract": "all N unique training points",
         "off_support_contract": "1000 independent query points",
+        "sampling_geometry_contract": read_json(sampling_geometry_path),
         "denominator_floor": 1e-30,
         "sources": sources,
         "outputs": {
             str(path): sha256_file(path)
             for path in (
-                complete_path, summary_path, comparison_path, refinement_path
+                complete_path, summary_path, comparison_path, refinement_path,
+                sampling_geometry_path,
             )
         },
     })
     return {
         "complete": complete_path, "summary": summary_path,
         "comparison": comparison_path, "refinement": refinement_path,
+        "sampling_geometry": sampling_geometry_path,
     }
+
+
+def analyze_mint_controls(out: Path) -> Dict[str, Path]:
+    """Regenerate deterministic implementation controls used by the MInt tests."""
+    from Mint import PBMEMIntDynamics
+
+    dynamics = PBMEMIntDynamics()
+    z0 = np.array([-1.3, 18.0, 0.9, -0.4, 0.3, 0.6], dtype=float)
+    dt = 0.5
+    n_steps = 200
+    fd_epsilon = 1.0e-7
+    jacobian = np.asarray(
+        dynamics.compute_step_jacobian(z0, dt, eps=fd_epsilon), float
+    )
+    trajectory = np.asarray(dynamics.propagate(z0, dt, n_steps), float)
+    radii = np.asarray(dynamics.mapping_radius_sq(trajectory), float)
+    energies = np.asarray(dynamics.energy(trajectory), float)
+    diagnostics = (
+        (
+            "one-step symplectic residual",
+            float(dynamics.symplectic_defect(jacobian)),
+            "Frobenius norm of J^T Omega J - Omega",
+            1.0e-6,
+        ),
+        (
+            "one-step round-trip residual",
+            float(dynamics.time_reversal_error(z0, dt)),
+            "Euclidean norm of Psi_-dt(Psi_dt(z0)) - z0",
+            1.0e-10,
+        ),
+        (
+            "mapping-radius drift",
+            float(np.max(np.abs(radii - radii[0]))),
+            "maximum absolute drift over 200 steps",
+            1.0e-11,
+        ),
+        (
+            "trajectory-energy drift",
+            float(abs(energies[-1] - energies[0])),
+            "absolute PBME trajectory-energy drift after 200 steps",
+            1.0e-7,
+        ),
+    )
+    rows = [
+        {
+            "diagnostic": name,
+            "value": value,
+            "aggregation": aggregation,
+            "tolerance": tolerance,
+            "status": "PASS" if value < tolerance else "FAIL",
+            "dt": dt,
+            "n_steps": n_steps,
+            "finite_difference_epsilon": fd_epsilon,
+            "initial_state": z0.tolist(),
+            "implementation": "Mint.py::PBMEMIntDynamics",
+        }
+        for name, value, aggregation, tolerance in diagnostics
+    ]
+    csv_path = write_csv(
+        out / "implementation_controls" / "mint_implementation_controls.csv",
+        rows,
+    )
+    manifest_path = write_json(
+        out / "implementation_controls" / "mint_implementation_controls_manifest.json",
+        {
+            "created_utc": utcnow(),
+            "purpose": "deterministic numerical implementation control; not a production simulation",
+            "coordinate_order": ["R", "P", "r0", "r1", "p0", "p1"],
+            "initial_state": z0.tolist(),
+            "dt": dt,
+            "n_steps": n_steps,
+            "finite_difference_epsilon": fd_epsilon,
+            "Mint.py_sha256": sha256_file(REPO / "Mint.py"),
+            "test_math_expressions.py_sha256": sha256_file(
+                REPO / "test_math_expressions.py"
+            ),
+            "output": {str(csv_path): sha256_file(csv_path)},
+        },
+    )
+    return {"controls": csv_path, "manifest": manifest_path}
 
 
 def snapshot_prefix(files: Iterable[str], which: str) -> str:
@@ -1703,8 +1815,12 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
         raise ValueError("time-step analysis requires exactly three dt levels")
     dt1, dt2, dt3 = dts
 
-    seed_spreads: Dict[Tuple[float, str, str, int], float] = {}
-    pooled_spreads: Dict[Tuple[float, str, str], float] = {}
+    # Retain the raw finest-level cross-seed observable spread only as a
+    # descriptive cloud-variability diagnostic.  It is not an uncertainty
+    # estimate for the paired refinement differences and is never used as an
+    # order gate.
+    raw_seed_spreads: Dict[Tuple[float, str, str, int], float] = {}
+    pooled_raw_spreads: Dict[Tuple[float, str, str], float] = {}
     for P0 in map(float, args.P0):
         for method in ("pbme", "midpoint"):
             for observable in OBSERVABLES:
@@ -1723,11 +1839,58 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                         per_seed[int(seed_a)].append(value)
                         per_seed[int(seed_b)].append(value)
                 pooled = float(np.sqrt(np.mean(np.square(pair_values))))
-                pooled_spreads[(P0, method, observable)] = pooled
+                pooled_raw_spreads[(P0, method, observable)] = pooled
                 for seed, values in per_seed.items():
-                    seed_spreads[(P0, method, observable, seed)] = float(
+                    raw_seed_spreads[(P0, method, observable, seed)] = float(
                         np.sqrt(np.mean(np.square(values)))
                     )
+
+    # The physical gate is evaluated on the three endpoint states for the
+    # same method, momentum and seed.  The reported population estimators must
+    # lie in [0,1], their norm/trace must be unity within the declared
+    # tolerance, energy must be finite, and signed central second moments must
+    # be nonnegative.  A case-level failure prevents interpreting any
+    # non-noise-limited observable order for that seed.
+    physical_by_case: Dict[Tuple[float, str, int], Tuple[bool, str]] = {}
+    physical_tol = 1.0e-10
+    norm_tol = 1.0e-8
+    for P0 in map(float, args.P0):
+        for method in ("pbme", "midpoint"):
+            for seed in map(int, args.dynamics_seeds):
+                failures: List[str] = []
+                for dt in (dt1, dt2, dt3):
+                    item = cache[(P0, seed, dt, method)]
+                    endpoints = {
+                        observable: float(item[observable][-1])
+                        for observable in OBSERVABLES
+                    }
+                    if not all(np.isfinite(value) for value in endpoints.values()):
+                        failures.append(f"dt={dt:g}: nonfinite endpoint")
+                        continue
+                    for population in ("P0", "P1"):
+                        value = endpoints[population]
+                        if not (-physical_tol <= value <= 1.0 + physical_tol):
+                            failures.append(
+                                f"dt={dt:g}: {population}={value:.8g} outside [0,1]"
+                            )
+                    if abs(endpoints["trace"] - 1.0) > norm_tol:
+                        failures.append(
+                            f"dt={dt:g}: norm/trace={endpoints['trace']:.8g} "
+                            f"differs from unity by more than {norm_tol:g}"
+                        )
+                    if not np.isfinite(endpoints["energy"]):
+                        failures.append(f"dt={dt:g}: nonfinite energy")
+                    for moment in ("R_var", "P_var"):
+                        value = endpoints[moment]
+                        if value < -physical_tol:
+                            failures.append(
+                                f"dt={dt:g}: {moment}={value:.8g} is negative"
+                            )
+                physical_by_case[(P0, method, seed)] = (
+                    not failures,
+                    "passed endpoint population, norm, energy and signed-central-moment checks"
+                    if not failures else "; ".join(failures),
+                )
 
     rows: List[Dict[str, Any]] = []
     for P0 in map(float, args.P0):
@@ -1766,10 +1929,15 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                             ))) for item in aligned
                         ]
                         tau = numerical_noise_threshold(rms_scales)
-                        seed_spread = seed_spreads[(P0, method, observable, seed)]
-                        pooled = pooled_spreads[(P0, method, observable)]
+                        raw_seed_spread = raw_seed_spreads[
+                            (P0, method, observable, seed)
+                        ]
+                        pooled_raw = pooled_raw_spreads[(P0, method, observable)]
+                        physically_admissible, physical_reason = physical_by_case[
+                            (P0, method, seed)
+                        ]
                         if not all(np.isfinite(x) for x in (
-                            *values, D12, D23, tau, seed_spread, pooled
+                            *values, D12, D23, tau, raw_seed_spread, pooled_raw
                         )):
                             verdict, reason, p = (
                                 "NONFINITE_RUN", "nonfinite aligned value", math.nan
@@ -1780,10 +1948,10 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                                 "roundoff- or saturation-limited; order not interpreted",
                                 math.nan,
                             )
-                        elif min(D12, D23) <= pooled:
+                        elif not physically_admissible:
                             verdict, reason, p = (
-                                "REJECT_SEED_VARIABILITY",
-                                "one or both refinement signals are no larger than pooled independent-seed spread",
+                                "REJECT_PHYSICAL_INADMISSIBILITY",
+                                "one or more levels physically inadmissible; temporal order not interpreted",
                                 math.nan,
                             )
                         else:
@@ -1791,18 +1959,21 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                             if p > 0:
                                 verdict, reason = (
                                     "COMPUTED_POSITIVE",
-                                    "three finite levels; refinement signal exceeds roundoff and pooled seed guard",
+                                    "three finite and physically admissible levels; paired finer difference contracts",
                                 )
                             else:
                                 verdict, reason = (
                                     "COMPUTED_ZERO_OR_NEGATIVE",
-                                    "three finite levels but finer difference does not decrease",
+                                    "three finite and physically admissible levels but paired finer difference does not decrease",
                                 )
-                    seed_spread = seed_spreads.get(
+                    raw_seed_spread = raw_seed_spreads.get(
                         (P0, method, observable, seed), math.nan
                     )
-                    pooled = pooled_spreads.get(
+                    pooled_raw = pooled_raw_spreads.get(
                         (P0, method, observable), math.nan
+                    )
+                    physically_admissible, physical_reason = physical_by_case.get(
+                        (P0, method, seed), (False, "case unavailable")
                     )
                     run_dirs = [runs[(P0, seed, dt)] for dt in (dt1, dt2, dt3)]
                     rows.append({
@@ -1811,9 +1982,19 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                         "dt1": dt1, "dt2": dt2, "dt3": dt3,
                         "value1": values[0], "value2": values[1], "value3": values[2],
                         "D12": D12, "D23": D23,
-                        "seed_spread": seed_spread,
-                        "pooled_seed_spread": pooled,
+                        "D12_over_D23": (
+                            D12 / D23 if np.isfinite(D23) and D23 > 0.0 else math.nan
+                        ),
+                        "paired_difference_D12_minus_D23": D12 - D23,
+                        "paired_contraction": bool(D23 < D12),
+                        "raw_observable_seed_spread": raw_seed_spread,
+                        "pooled_raw_observable_seed_spread": pooled_raw,
+                        "raw_seed_spread_role": (
+                            "descriptive cloud-to-cloud variability only; not an order or uncertainty gate"
+                        ),
                         "roundoff_threshold": tau,
+                        "physically_admissible_case": physically_admissible,
+                        "physical_admissibility_reason": physical_reason,
                         "p_observed": p, "verdict": verdict, "reason": reason,
                         "alignment": "linear interpolation to common coarse saved times; no extrapolation",
                         "run1_manifest": str(run_dirs[0] / "run_manifest.json"),
@@ -1823,13 +2004,17 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
 
     run_path = write_csv(out / "timestep" / "timestep_run_by_run.csv", rows)
     summary: List[Dict[str, Any]] = []
+    paired_summary: List[Dict[str, Any]] = []
     groups: Dict[Tuple[str, float, str], List[Dict[str, Any]]] = {}
     for row in rows:
         groups.setdefault(
             (str(row["method"]), float(row["P0"]), str(row["observable"])), []
         ).append(row)
     for (method, P0, observable), items in sorted(groups.items()):
-        for metric in ("value1", "value2", "value3", "D12", "D23", "seed_spread"):
+        for metric in (
+            "value1", "value2", "value3", "D12", "D23",
+            "raw_observable_seed_spread",
+        ):
             values = [float(item[metric]) for item in items]
             mean, sd, se, lo, hi = t_interval(values)
             summary.append({
@@ -1840,19 +2025,108 @@ def analyze_timestep(out: Path, args: argparse.Namespace) -> Dict[str, Path]:
                 "confidence_interval_method": "two-sided Student t, df=3",
                 "source_csv": str(run_path),
             })
+        deltas = [float(item["paired_difference_D12_minus_D23"]) for item in items]
+        ratios = [float(item["D12_over_D23"]) for item in items]
+        dmean, dsd, dse, dlo, dhi = t_interval(deltas)
+        noise_limited = [
+            item for item in items if item["verdict"] == "REJECT_NUMERICAL_NOISE"
+        ]
+        physically_bad = [
+            item for item in items
+            if item["verdict"] == "REJECT_PHYSICAL_INADMISSIBILITY"
+        ]
+        finite_bad = [item for item in items if item["verdict"] == "NONFINITE_RUN"]
+        if noise_limited:
+            final_verdict = "REJECT_NUMERICAL_NOISE"
+            interpretation = "one or more seeds are numerical-floor limited; temporal order not interpreted"
+        elif finite_bad:
+            final_verdict = "REJECT_NONFINITE"
+            interpretation = "one or more seeds are nonfinite; temporal order not interpreted"
+        elif physically_bad:
+            final_verdict = "REJECT_PHYSICAL_INADMISSIBILITY"
+            interpretation = "one or more levels physically inadmissible; temporal order not interpreted"
+        else:
+            n_contract = sum(bool(item["paired_contraction"]) for item in items)
+            if n_contract == len(items):
+                final_verdict = "PAIRED_CONTRACTION_ALL_SEEDS"
+                interpretation = (
+                    "paired differences contract in all four seeds; interval is descriptive"
+                )
+            elif n_contract > 0:
+                final_verdict = "MIXED_PAIRED_CONTRACTION"
+                interpretation = (
+                    "paired contraction is not reproducible across all four seeds; no order identified"
+                )
+            else:
+                final_verdict = "NO_PAIRED_CONTRACTION"
+                interpretation = "no paired seed contracts; no order identified"
+        paired_summary.append({
+            "method": method, "P0": P0, "observable": observable,
+            "n_seeds": len(items),
+            "mean_value1": float(np.mean([float(item["value1"]) for item in items])),
+            "mean_value2": float(np.mean([float(item["value2"]) for item in items])),
+            "mean_value3": float(np.mean([float(item["value3"]) for item in items])),
+            "mean_D12": float(np.mean([float(item["D12"]) for item in items])),
+            "sample_sd_D12": float(np.std([float(item["D12"]) for item in items], ddof=1)),
+            "mean_D23": float(np.mean([float(item["D23"]) for item in items])),
+            "sample_sd_D23": float(np.std([float(item["D23"]) for item in items], ddof=1)),
+            **{
+                f"seed_{int(item['seed'])}_D12_over_D23": float(item["D12_over_D23"])
+                for item in sorted(items, key=lambda item: int(item["seed"]))
+            },
+            "n_paired_contractions": sum(
+                bool(item["paired_contraction"]) for item in items
+            ),
+            "mean_paired_difference_D12_minus_D23": dmean,
+            "paired_difference_sample_sd": dsd,
+            "paired_difference_standard_error": dse,
+            "paired_difference_ci95_low": dlo,
+            "paired_difference_ci95_high": dhi,
+            "confidence_interval_method": "two-sided paired Student t on D12-D23, df=3; descriptive",
+            "all_cases_physically_admissible": all(
+                bool(item["physically_admissible_case"]) for item in items
+            ),
+            "final_verdict": final_verdict,
+            "interpretation": interpretation,
+            "source_csv": str(run_path),
+        })
     summary_path = write_csv(out / "timestep" / "timestep_summary.csv", summary)
+    paired_path = write_csv(
+        out / "timestep" / "timestep_paired_summary.csv", paired_summary
+    )
+    paired_by_seed_path = write_csv(
+        out / "timestep" / "timestep_paired_differences_by_seed.csv", rows
+    )
     write_json(out / "timestep" / "timestep_manifest.json", {
         "created_utc": utcnow(), "methods": ["PBME", "MIDPOINT"],
         "P0": list(args.P0), "seeds": list(args.dynamics_seeds),
         "dt_levels": dts, "N": 1000,
         "alignment": "common coarse saved times, linear interpolation, no extrapolation",
-        "order_guard": "both D12 and D23 exceed scale-aware roundoff and pooled pairwise seed RMS",
+        "decision_hierarchy": [
+            "numerical floor", "finite output", "physical admissibility",
+            "paired within-seed contraction and descriptive paired uncertainty",
+        ],
+        "physical_admissibility": (
+            "endpoint populations in [0,1] within 1e-10; norm/trace within "
+            "1e-8 of unity; finite energy; signed central second moments >= -1e-10"
+        ),
+        "order_guard": (
+            "D12 and D23 must exceed the scale-aware numerical floor; raw "
+            "cross-seed observable spread is descriptive only and is not an order gate"
+        ),
         "sources": sources,
         "outputs": {
-            str(path): sha256_file(path) for path in (run_path, summary_path)
+            str(path): sha256_file(path)
+            for path in (
+                run_path, summary_path, paired_path, paired_by_seed_path
+            )
         },
     })
-    return {"run_by_run": run_path, "summary": summary_path}
+    return {
+        "run_by_run": run_path, "summary": summary_path,
+        "paired_summary": paired_path,
+        "paired_by_seed": paired_by_seed_path,
+    }
 
 
 def analyze_support_and_replication(out: Path, args: argparse.Namespace
@@ -2453,9 +2727,12 @@ def tex_number(value: Any) -> str:
         "NO_MONOTONE_DECREASE_OBSERVED": "no monotone decrease",
         "MONOTONE_DECREASE_OBSERVED": "monotone decrease",
         "REJECT_NUMERICAL_NOISE": "noise-floor reject",
-        "REJECT_SEED_VARIABILITY": "seed-variation reject",
+        "REJECT_PHYSICAL_INADMISSIBILITY": "physical-admissibility reject",
         "COMPUTED_ZERO_OR_NEGATIVE": "zero/negative",
         "COMPUTED_POSITIVE": "positive",
+        "PAIRED_CONTRACTION_ALL_SEEDS": "all four paired seeds contract",
+        "MIXED_PAIRED_CONTRACTION": "mixed paired contraction",
+        "NO_PAIRED_CONTRACTION": "no paired contraction",
         "NO_RESOLVED_DIFFERENCE": "no resolved difference",
         "MIDPOINT_ERROR_LARGER": "MIDPOINT larger",
         "MAPPING-INTEGRATED R-P DENSITY": r"$R$--$P$ density",
@@ -2936,16 +3213,18 @@ def generate_tables(out: Path, paths: Mapping[str, Path],
         (
             "timestep_run", tables / "TimeStepRunByRun.tex",
             (("method", "Method"), ("P0", r"$P_{\mathrm{init}}$"), ("seed", "Seed"),
-             ("observable", "Observable"), ("dt1", r"$h$"), ("dt2", r"$h/2$"),
-             ("dt3", r"$h/4$"), ("value1", r"$O_h(T)$"),
+             ("observable", "Observable"), ("value1", r"$O_h(T)$"),
              ("value2", r"$O_{h/2}(T)$"), ("value3", r"$O_{h/4}(T)$"),
              ("D12", r"$D_{12}$"), ("D23", r"$D_{23}$"),
-             ("seed_spread", r"$S_{\rm seed}$"),
+             ("D12_over_D23", r"$D_{12}/D_{23}$"),
+             ("paired_difference_D12_minus_D23", r"$D_{12}-D_{23}$"),
+             ("paired_contraction", "Contracts?"),
              ("roundoff_threshold", r"$\tau_{\rm noise}$"),
-             ("p_observed", r"$p_{\rm obs}$"), ("verdict", "Verdict")),
-            "Run-by-run three-level time-step evidence with reconstructible endpoint values.",
+             ("physically_admissible_case", "Physical?"),
+             ("verdict", "Verdict")),
+            "Run-by-run paired three-level time-step evidence with reconstructible endpoint values.",
             "tab:timestep-run-by-run",
-            "N=1000; seeds 11,29,47,73. Differences are time-normalized L2 values on common saved times without extrapolation. The declared floor is tau_noise=1e-12+1e-12 max_k RMS(O_k); both differences must exceed it before an order is interpreted. For both stochastic moving-cloud methods, PBME and MIDPOINT, both differences must also exceed pooled independent-seed variation. Rejected orders remain visible.",
+            "N=1000; seeds 11,29,47,73. Differences are within-seed time-normalized L2 values on common saved times without extrapolation. The decision hierarchy is numerical floor, finite output, endpoint physical admissibility, and only then paired contraction. Raw cross-seed observable spread is retained in the source CSV as a descriptive cloud-variability diagnostic and is not an order gate. Rejected orders remain visible.",
         ),
         (
             "support_summary", tables / "IndependentCloudSupport.tex",
@@ -3176,9 +3455,15 @@ def analyze(args: argparse.Namespace) -> int:
     paths["manufactured_summary"] = manufactured["summary"]
     paths["manufactured_comparison"] = manufactured["comparison"]
     paths["manufactured_refinement"] = manufactured["refinement"]
+    paths["manufactured_sampling_geometry"] = manufactured["sampling_geometry"]
+    mint_controls = analyze_mint_controls(out)
+    paths["mint_controls"] = mint_controls["controls"]
+    paths["mint_controls_manifest"] = mint_controls["manifest"]
     timestep = analyze_timestep(out, args)
     paths["timestep_run"] = timestep["run_by_run"]
     paths["timestep_summary"] = timestep["summary"]
+    paths["timestep_paired_summary"] = timestep["paired_summary"]
+    paths["timestep_paired_by_seed"] = timestep["paired_by_seed"]
     support = analyze_support_and_replication(out, args)
     paths["support_run"] = support["support_run"]
     paths["support_summary"] = support["support_summary"]
@@ -3273,6 +3558,9 @@ def verify(args: argparse.Namespace) -> int:
         out / "manufactured" / "manufactured_summary.csv": 432,
         out / "manufactured" / "manufactured_policy_comparison.csv": 864,
         out / "timestep" / "timestep_run_by_run.csv": 128,
+        out / "timestep" / "timestep_paired_differences_by_seed.csv": 128,
+        out / "timestep" / "timestep_paired_summary.csv": 32,
+        out / "implementation_controls" / "mint_implementation_controls.csv": 4,
         out / "support" / "independent_cloud_run_by_run.csv": 288,
         out / "replication" / "four_seed_values.csv": 128,
         out / "tail_sensitivity" / "threshold_sweep.csv": 160,
@@ -3496,11 +3784,67 @@ def verify(args: argparse.Namespace) -> int:
         check("timestep_no_missing_or_nonfinite_verdict", not bad,
               f"{len(bad)} forbidden verdicts")
         required = (
-            "value1", "value2", "value3", "D12", "D23", "seed_spread",
-            "roundoff_threshold",
+            "value1", "value2", "value3", "D12", "D23",
+            "D12_over_D23", "paired_difference_D12_minus_D23",
+            "raw_observable_seed_spread", "roundoff_threshold",
         )
         ok, detail = csv_finite(timestep, required)
         check("timestep_reconstruction_fields_finite", ok, detail)
+        check(
+            "timestep_raw_seed_spread_not_used_as_gate",
+            all(
+                row.get("raw_seed_spread_role", "").startswith("descriptive")
+                and row.get("verdict") != "REJECT_SEED_VARIABILITY"
+                for row in rows
+            ),
+            "raw cross-seed spread is descriptive only; legacy seed-spread veto absent",
+        )
+
+    paired_timestep = out / "timestep" / "timestep_paired_summary.csv"
+    if paired_timestep.exists():
+        rows = read_csv_rows(paired_timestep)
+        ok, detail = csv_finite(paired_timestep, (
+            "mean_D12", "sample_sd_D12", "mean_D23", "sample_sd_D23",
+            "mean_paired_difference_D12_minus_D23",
+            "paired_difference_sample_sd", "paired_difference_standard_error",
+            "paired_difference_ci95_low", "paired_difference_ci95_high",
+            "seed_11_D12_over_D23", "seed_29_D12_over_D23",
+            "seed_47_D12_over_D23", "seed_73_D12_over_D23",
+        ))
+        check("timestep_paired_statistics_finite", ok, detail)
+        check(
+            "timestep_paired_hierarchy_reported",
+            all(row.get("final_verdict", "") for row in rows),
+            "all 32 summaries report the numerical/finite/physical/paired hierarchy",
+        )
+
+    geometry = out / "manufactured" / "manufactured_sampling_geometry.json"
+    if geometry.exists():
+        record = read_json(geometry)
+        check(
+            "manufactured_geometry_exact",
+            record.get("dimension") == 6
+            and record.get("focused_mapping_shell") is False
+            and record.get("mapping_coordinates_independent") is True,
+            "fully dimensional independent Gaussian geometry recorded; no focused shell",
+        )
+    else:
+        check("manufactured_geometry_exact", False, f"absent: {geometry}")
+
+    mint_controls = (
+        out / "implementation_controls" / "mint_implementation_controls.csv"
+    )
+    if mint_controls.exists():
+        rows = read_csv_rows(mint_controls)
+        ok, detail = csv_finite(mint_controls, ("value", "tolerance"))
+        check("mint_control_values_finite", ok, detail)
+        check(
+            "mint_implementation_controls_pass",
+            len(rows) == 4
+            and all(row.get("status") == "PASS" for row in rows)
+            and all(float(row["value"]) < float(row["tolerance"]) for row in rows),
+            "symplectic, round-trip, mapping-radius and energy controls pass",
+        )
 
     support = out / "support" / "independent_cloud_run_by_run.csv"
     if support.exists():

@@ -1,0 +1,49 @@
+{
+  "coordinate_order": [
+    "R",
+    "P",
+    "r0",
+    "r1",
+    "p0",
+    "p1"
+  ],
+  "dimension": 6,
+  "focused_mapping_shell": false,
+  "implementation": "ReviewerValidation.py::manufactured_test",
+  "implementation_sha256": "619c499f2e9ff435608be6bfd1139f342d33047514ba42dd9e31063496a56489",
+  "independent_coordinate_distributions": {
+    "P": {
+      "family": "Normal",
+      "mean": 8.0,
+      "standard_deviation": 0.7
+    },
+    "R": {
+      "family": "Normal",
+      "mean": 0.0,
+      "standard_deviation": 1.2
+    },
+    "p0": {
+      "family": "Normal",
+      "mean": 0.0,
+      "standard_deviation": 0.7071067811865476
+    },
+    "p1": {
+      "family": "Normal",
+      "mean": 0.0,
+      "standard_deviation": 0.7071067811865476
+    },
+    "r0": {
+      "family": "Normal",
+      "mean": 0.0,
+      "standard_deviation": 0.7071067811865476
+    },
+    "r1": {
+      "family": "Normal",
+      "mean": 0.0,
+      "standard_deviation": 0.7071067811865476
+    }
+  },
+  "mapping_coordinates_independent": true,
+  "scope_limitation": "This fully dimensional test is more informative about ambient derivatives than the focused production cloud. It does not reproduce focused-MMST normal-derivative nonidentifiability, and its 2--3 percent operator errors are not quantitative estimates of production off-manifold error.",
+  "training_and_query_geometry": "fully dimensional independent Gaussian points"
+}

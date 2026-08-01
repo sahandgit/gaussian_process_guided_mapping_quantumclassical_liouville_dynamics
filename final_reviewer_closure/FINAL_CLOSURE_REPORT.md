@@ -1,9 +1,9 @@
 Overall status: FAIL
 Scientific result: no validated improvement
-Thesis compile: FAIL
+Thesis compile: PASS
 Reviewer response compile: FAIL
 Evidence archive: PASS
-Versioned public release URL: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r3
+Versioned public release URL: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r4
 Persistent identifier note: no DOI or institutional persistent identifier has been assigned.
 Frozen source/evidence commit: 38164f0fb0de1e3897a01cf56c90d53901bc75d6
 Originating development commit: NOT IDENTIFIABLE
@@ -31,7 +31,7 @@ manufactured: expected=36, verified=36, missing=0; reference: expected=8, verifi
 
 ## Ten-gate result
 
-Gates 1–7 and 9–10 are locally closed. Gate 8 is closed when the checksum-bound versioned public release URL is recorded; that URL is `https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r3`.
+Gates 1–7 and 9–10 are locally closed. Gate 8 is closed when the checksum-bound versioned public release URL is recorded; that URL is `https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r4`.
 
 ## I/M/L closure totals
 
@@ -39,8 +39,8 @@ I-items: 16/16 closed; M-items: 25/25 closed; L-items: 7/7 closed.
 
 ## Major numerical conclusions
 
-- Manufactured operator: 72 query rows from 36 paired policy/support/seed fits; all density, gradient, and operator E1/E2/E-infinity values are finite. The independent-cloud enlargement checks yield 53 rows without monotone decrease and 1 row with monotone decrease. Because the clouds are nonnested, these descriptive checks do not establish deterministic support convergence. For the production-policy off-support operator E1, the three-seed means at N=300, 600, 1200, and 2400 are 0.0207881, 0.0291728, 0.0231755, 0.0232611; the trend is nonmonotone.
-- Time step: 128 run/observable rows across four seeds. Of the tested orders, 8 are positive, 3 are zero or negative, and 102 are rejected because the refinement signal does not exceed seed variability. A further 15 rows are roundoff- or saturation-limited under the declared absolute-plus-relative numerical-noise rule. Orders rejected by either guard are not promoted.
+- Manufactured operator: 72 query rows from 36 paired policy/support/seed fits; all density, gradient, and operator E1/E2/E-infinity values are finite. The independent-cloud enlargement checks yield 53 rows without monotone decrease and 1 row with monotone decrease. Because the clouds are nonnested, these descriptive checks do not establish deterministic support convergence. For the production-policy off-support operator E1, the three-seed means at N=300, 600, 1200, and 2400 are 0.0207881, 0.0291728, 0.0231755, 0.0232611; the trend is nonmonotone. The exact test geometry is fully dimensional: independent R~N(0,1.2^2), P~N(8,0.7^2), and r0,r1,p0,p1~N(0,0.5) coordinates; it is not a focused mapping shell. This more informative ambient-derivative control does not reproduce focused-MMST normal-derivative nonidentifiability, and its 2--3% errors are not production off-manifold quantitative estimates.
+- Time step: 128 method/momentum/seed/observable rows form 32 four-seed paired summaries. The fixed hierarchy applies the numerical floor, finite-output check, and endpoint physical-admissibility gate before paired contraction. It classifies 4 summaries as floor limited and 14 as physically inadmissible. Among admissible, resolvable summaries, 14 contract in all four seeds. The mean D12-D23 and paired Student-t interval are descriptive at n=4. Raw cross-seed observable spread is retained only as a cloud-variability diagnostic and is not an order gate; no deterministic production order is inferred above total cloud variability.
 - Replication: P0=20: PBME SD=0.0078824, MIDPOINT SD=0.794912, ratio=100.846; P0=100: PBME SD=0.0153607, MIDPOINT SD=0.956375, ratio=62.261. The independent-seed sample size is four, not the trajectory count.
 - Tail sensitivity: 16 method/momentum/seed distributions and 160 threshold rows; MIDPOINT max |y/y0|=7.61012e+23, minimum signed ESS=0.0247143. No nontrivial threshold satisfies the negligible-mass rule in 16 distributions.
 - References: The controlled-reference evidence contains 32 identified TDSE observable/mode/momentum rows and 32 grid-QCLE rows. Each row prints three values, two successive differences, exact domains and resolved steps; temporal and grid refinement are separated. TDSE P0=20 time orders P0=2.00023, P1=1.99998, R_mean=1.99999, P_mean=1.99999; TDSE P0=100 time orders P0=1.99999, P1=2, R_mean=2, P_mean=2; grid-QCLE P0=20 time orders P0=4.01476, P1=4.01487, R_mean=not computed, P_mean=not computed; grid-QCLE P0=100 time orders P0=4.14354, P1=4.14351, R_mean=not computed, P_mean=not computed. Maximum recorded TDSE spatial-edge mass=1.22388e-24; maximum accepted finest-level grid-QCLE physical-marginal edge mass=0.000591568 (declared tolerance 1e-3).

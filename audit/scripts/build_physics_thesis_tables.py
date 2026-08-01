@@ -134,7 +134,7 @@ def longtable(
 def study_design_table() -> str:
     rows = [
         r"Manufactured operator & $\rho$, $\nabla\rho$, and $Q[\rho]$ on and away from the training cloud & $\ell_2=10^{-6},0.01,0.05$; $N=300,600,1200,2400$; seeds 123--125 & Relative $L_1$, $L_2$, and $L_\infty$ errors",
-        r"Time-step refinement & Dynamical observables at three common physical-time grids & $\Delta t=0.5,0.25,0.125$; $P_{\rm init}=20,100$; four independent seeds & Successive differences compared with seed dispersion",
+        r"Time-step refinement & Dynamical observables at three common physical-time grids & $\Delta t=0.5,0.25,0.125$; $P_{\rm init}=20,100$; four paired seeds & Within-seed successive differences, ratios, contraction count, and descriptive paired interval",
         r"Cloud-size sensitivity & Effect of enlarging independently sampled phase-space clouds & $N=500,1000,2000$; three independent seeds & Mean, sample standard deviation, and change relative to seed dispersion",
         r"Replication & Sensitivity of endpoint observables to independently sampled initial clouds & Seeds 11, 29, 47, and 73; $N=1000$; $\Delta t=0.25$ & Mean, sample standard deviation, and Student-$t$ interval",
         r"Estimator structure & SEO leakage, raw invariants, and signed-label conditioning & Three collision-time snapshots and threshold sweep & Projection residual, raw drift, effective sample sizes, and excluded physical mass",
@@ -190,44 +190,65 @@ def manufactured_tables() -> str:
 
 
 def timestep_table() -> str:
-    data = read_csv(EVIDENCE / "timestep" / "timestep_run_by_run.csv")
-    grouped: dict[tuple[str, float, str], list[dict[str, str]]] = defaultdict(list)
-    for row in data:
-        grouped[(row["method"], value(row, "P0"), row["observable"])].append(row)
+    data = read_csv(EVIDENCE / "timestep" / "timestep_paired_summary.csv")
+    indexed = {
+        (row["method"], value(row, "P0"), row["observable"]): row
+        for row in data
+    }
     order = ["P0", "P1", "trace", "energy", "R_mean", "P_mean", "R_var", "P_var"]
     rows: list[str] = []
     for m in ("PBME", "MIDPOINT"):
         for p0 in (20.0, 100.0):
             for observable in order:
-                group = grouped[(m, p0, observable)]
-                means = [mean(value(row, key) for row in group) for key in ("value1", "value2", "value3")]
-                d12 = mean(value(row, "D12") for row in group)
-                d23 = mean(value(row, "D23") for row in group)
-                spread = mean(value(row, "pooled_seed_spread") for row in group)
-                noise = max(value(row, "roundoff_threshold") for row in group)
-                if min(d12, d23) <= noise:
-                    interpretation = (
-                        "roundoff- or saturation-limited; order not interpreted"
-                    )
-                elif d23 >= d12:
-                    interpretation = "nonmonotone step-size response"
-                elif min(d12, d23) <= spread:
-                    interpretation = "step-size signal is not resolved above seed spread"
-                else:
-                    interpretation = "contracting signal resolved above noise and seed spread"
+                row = indexed[(m, p0, observable)]
+                means = [value(row, key) for key in ("mean_value1", "mean_value2", "mean_value3")]
+                d12 = value(row, "mean_D12")
+                d23 = value(row, "mean_D23")
+                contractions = int(value(row, "n_paired_contractions"))
+                delta = value(row, "mean_paired_difference_D12_minus_D23")
+                lo = value(row, "paired_difference_ci95_low")
+                hi = value(row, "paired_difference_ci95_high")
+                interpretation = row["interpretation"]
                 rows.append(
                     rf"{m} & {int(p0)} & {obs(observable)} & "
                     + " & ".join(mathnum(x) for x in means)
-                    + rf" & {mathnum(d12)} & {mathnum(d23)} & {interpretation}"
+                    + rf" & {mathnum(d12)} & {mathnum(d23)} & {contractions}/4 & "
+                    + rf"${fmt(delta)}\,[{fmt(lo)},{fmt(hi)}]$ & {interpretation}"
                 )
     return longtable(
         "tab:timestep-refinement-physics",
-        "Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\\tau_{\\rm noise}=10^{-12}+10^{-12}\\max_k\\operatorname{RMS}(O_k)$ before an order is interpreted. For both stochastic moving-cloud methods, PBME and MIDPOINT, both differences must also exceed pooled independent-seed dispersion.",
-        r"l r l r r r r r L{0.20\textwidth}",
-        r"Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation",
+        "Paired time-step sensitivity. Endpoint values and time-normalized successive differences are averages over the same seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. The decision hierarchy is numerical floor, finite output, endpoint physical admissibility (populations in $[0,1]$, unit norm, finite energy, and nonnegative signed central second moments), then within-seed contraction. The final numeric column gives the mean paired difference $D_{12}-D_{23}$ and its descriptive two-sided paired Student-$t$ 95\\% interval ($df=3$). Raw cross-seed observable spread remains archived as a cloud-variability diagnostic and is not an order gate.",
+        r"l r l r r r r r r r L{0.15\textwidth}",
+        r"Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Contract & $\overline{D_{12}-D_{23}}$ [95\%] & Interpretation",
         rows,
         landscape=True,
+        font=r"\tiny",
     )
+
+
+def mint_controls_table() -> str:
+    data = read_csv(
+        EVIDENCE / "implementation_controls" / "mint_implementation_controls.csv"
+    )
+    rows = []
+    for row in data:
+        label = row["diagnostic"].replace("-", "--")
+        rows.append(
+            rf"{label} & {mathnum(value(row, 'value'))} & "
+            rf"$<{fmt(value(row, 'tolerance'))}$ & {row['status']}"
+        )
+    return "\n".join([
+        r"\begin{center}",
+        r"\small",
+        r"\begin{tabular}{L{0.43\textwidth}rrl}",
+        r"\toprule",
+        r"MInt implementation diagnostic & Residual & Acceptance tolerance & Status \\",
+        r"\midrule",
+        *[row + r" \\" for row in rows],
+        r"\bottomrule",
+        r"\end{tabular}",
+        r"\end{center}",
+    ])
 
 
 def cloud_size_table() -> str:

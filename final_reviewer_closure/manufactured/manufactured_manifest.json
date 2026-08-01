@@ -1,6 +1,6 @@
 {
   "actual_complete_rows": 72,
-  "created_utc": "2026-08-01T19:51:17.272796+00:00",
+  "created_utc": "2026-08-01T21:31:18.094710+00:00",
   "denominator_floor": 1e-30,
   "expected_complete_rows": 72,
   "off_support_contract": "1000 independent query points",
@@ -9,9 +9,59 @@
     "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_complete.csv": "4954fe496bb6963451cf94237de8d1113b6a67ec3b66760bba24163391f6b036",
     "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_policy_comparison.csv": "1820eaf95302f6a7428c8dfad3a2c0d8822223ea916050fb85316e240d04722b",
     "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_refinement_verdicts.csv": "f9c17f20b5bd53a5d85852584d0e3f91671ffef4fb627adb69b2d82e8313adc6",
+    "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_sampling_geometry.json": "aafc5a90af9f14990133d533dc070bf95426b90148826a6e2c077e47d5bc2dc1",
     "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\manufactured\\manufactured_summary.csv": "7b51bcc16e20bc08d02f932ac1864a6983abc1444c9aee8bb671c6edc593aff7"
   },
   "paired_design": "same training and off-support clouds at fixed N and seed",
+  "sampling_geometry_contract": {
+    "coordinate_order": [
+      "R",
+      "P",
+      "r0",
+      "r1",
+      "p0",
+      "p1"
+    ],
+    "dimension": 6,
+    "focused_mapping_shell": false,
+    "implementation": "ReviewerValidation.py::manufactured_test",
+    "implementation_sha256": "619c499f2e9ff435608be6bfd1139f342d33047514ba42dd9e31063496a56489",
+    "independent_coordinate_distributions": {
+      "P": {
+        "family": "Normal",
+        "mean": 8.0,
+        "standard_deviation": 0.7
+      },
+      "R": {
+        "family": "Normal",
+        "mean": 0.0,
+        "standard_deviation": 1.2
+      },
+      "p0": {
+        "family": "Normal",
+        "mean": 0.0,
+        "standard_deviation": 0.7071067811865476
+      },
+      "p1": {
+        "family": "Normal",
+        "mean": 0.0,
+        "standard_deviation": 0.7071067811865476
+      },
+      "r0": {
+        "family": "Normal",
+        "mean": 0.0,
+        "standard_deviation": 0.7071067811865476
+      },
+      "r1": {
+        "family": "Normal",
+        "mean": 0.0,
+        "standard_deviation": 0.7071067811865476
+      }
+    },
+    "mapping_coordinates_independent": true,
+    "scope_limitation": "This fully dimensional test is more informative about ambient derivatives than the focused production cloud. It does not reproduce focused-MMST normal-derivative nonidentifiability, and its 2--3 percent operator errors are not quantitative estimates of production off-manifold error.",
+    "training_and_query_geometry": "fully dimensional independent Gaussian points"
+  },
   "sources": [
     {
       "off_support_query_sha256": "74755e50778941d12afa91269ce2b0a85694b9973e6fa77068f68b3ada05440d",

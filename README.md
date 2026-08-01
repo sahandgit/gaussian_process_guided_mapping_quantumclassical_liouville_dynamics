@@ -20,7 +20,7 @@ the tested discretization, not the continuum QCLE excess term.
 - audit/ -- evidence generation, verification, and document-build scripts.
 - final_reviewer_closure/ -- compact generated CSV/table/figure evidence.
 - release/response_item_audit.csv -- exact 58-row gate and I/M/L crosswalk.
-- [Release thesis-final-2026-08-01-r3](https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r3) -- frozen numerical-evidence archive,
+- [Release thesis-final-2026-08-01-r4](https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r4) -- frozen numerical-evidence archive,
   checksums, manifests, clean-room verification, environment, and complete
   downloadable closure.
 
@@ -60,8 +60,10 @@ The final evidence inventory is 24 paired time-step configurations (48
 individual PBME/MIDPOINT method executions) using seeds 11, 29, 47, and 73.
 The absolute-plus-relative numerical-noise rule and all rejection reasons are
 stored in the time-step and reference CSVs. For both stochastic moving-cloud
-methods, PBME and MIDPOINT, both refinement differences must also exceed pooled
-independent-seed dispersion before an order is interpreted.
+methods, PBME and MIDPOINT, the time-step hierarchy is numerical floor, finite
+output, physical admissibility, and then same-seed paired contraction. Raw
+cross-seed observable spread is retained as a descriptive cloud-variability
+diagnostic and is not used as an order or uncertainty gate.
 
 Cloud-size decisions are hierarchical: numerical resolution is checked first,
 then physical admissibility (including negative signed central second moments),

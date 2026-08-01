@@ -110,7 +110,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-commit", default="NOT_IDENTIFIABLE")
     parser.add_argument("--release-asset-url", default="PENDING_PUBLIC_RELEASE")
-    parser.add_argument("--release-tag", default="thesis-final-2026-08-01-r3")
+    parser.add_argument("--release-tag", default="thesis-final-2026-08-01-r4")
     args = parser.parse_args()
     if (EVIDENCE / "EXECUTION.lock").exists():
         raise RuntimeError("Refusing to freeze evidence while an execution lock exists")

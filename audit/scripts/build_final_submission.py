@@ -21,6 +21,7 @@ from build_physics_thesis_tables import (
     cloud_size_table,
     conservation_table,
     manufactured_tables,
+    mint_controls_table,
     physical_comparison_table,
     projection_and_baseline_tables,
     reference_tables,
@@ -176,6 +177,8 @@ def evidence_summary() -> Dict[str, Any]:
         "manufactured_summary": EVIDENCE / "manufactured" / "manufactured_summary.csv",
         "manufactured_refinement": EVIDENCE / "manufactured" / "manufactured_refinement_verdicts.csv",
         "timestep": EVIDENCE / "timestep" / "timestep_run_by_run.csv",
+        "timestep_paired": EVIDENCE / "timestep" / "timestep_paired_summary.csv",
+        "mint_controls": EVIDENCE / "implementation_controls" / "mint_implementation_controls.csv",
         "support": EVIDENCE / "support" / "independent_cloud_summary.csv",
         "replication": EVIDENCE / "replication" / "four_seed_summary.csv",
         "tail": EVIDENCE / "tail_sensitivity" / "tail_summary.csv",
@@ -195,6 +198,10 @@ def evidence_summary() -> Dict[str, Any]:
         ),
     }
     require(paths.values())
+    require([
+        EVIDENCE / "manufactured" / "manufactured_sampling_geometry.json",
+        EVIDENCE / "implementation_controls" / "mint_implementation_controls_manifest.json",
+    ])
     rows = {name: read_csv(path) for name, path in paths.items()}
     payload_record = json.loads(
         paths["frozen_payload_manifest"].read_text(encoding="utf-8")
@@ -250,20 +257,32 @@ def evidence_summary() -> Dict[str, Any]:
         )
         + "; the trend is nonmonotone."
     )
+    manufactured_text += (
+        " The exact test geometry is fully dimensional: independent "
+        "R~N(0,1.2^2), P~N(8,0.7^2), and r0,r1,p0,p1~N(0,0.5) "
+        "coordinates; it is not a focused mapping shell. This more informative "
+        "ambient-derivative control does not reproduce focused-MMST normal-"
+        "derivative nonidentifiability, and its 2--3% errors are not production "
+        "off-manifold quantitative estimates."
+    )
 
-    timestep_counts = Counter(row["verdict"] for row in rows["timestep"])
+    timestep_counts = Counter(
+        row["final_verdict"] for row in rows["timestep_paired"]
+    )
     timestep_text = (
-        f"{len(rows['timestep'])} run/observable rows across four seeds. "
-        f"Of the tested orders, {timestep_counts.get('COMPUTED_POSITIVE', 0)} "
-        "are positive, "
-        f"{timestep_counts.get('COMPUTED_ZERO_OR_NEGATIVE', 0)} are zero or "
-        f"negative, and {timestep_counts.get('REJECT_SEED_VARIABILITY', 0)} "
-        "are rejected because the refinement signal does not exceed seed "
-        "variability. A further "
-        f"{timestep_counts.get('REJECT_NUMERICAL_NOISE', 0)} rows are "
-        "roundoff- or saturation-limited under the declared absolute-plus-"
-        "relative numerical-noise rule. Orders rejected by either guard are "
-        "not promoted."
+        f"{len(rows['timestep'])} method/momentum/seed/observable rows form "
+        f"{len(rows['timestep_paired'])} four-seed paired summaries. The fixed "
+        "hierarchy applies the numerical floor, finite-output check, and "
+        "endpoint physical-admissibility gate before paired contraction. It "
+        f"classifies {timestep_counts.get('REJECT_NUMERICAL_NOISE', 0)} summaries "
+        "as floor limited and "
+        f"{timestep_counts.get('REJECT_PHYSICAL_INADMISSIBILITY', 0)} as "
+        "physically inadmissible. Among admissible, resolvable summaries, "
+        f"{timestep_counts.get('PAIRED_CONTRACTION_ALL_SEEDS', 0)} contract in "
+        "all four seeds. The mean D12-D23 and paired Student-t interval are "
+        "descriptive at n=4. Raw cross-seed observable spread is retained only "
+        "as a cloud-variability diagnostic and is not an order gate; no "
+        "deterministic production order is inferred above total cloud variability."
     )
 
     rep = rows["replication"]
@@ -1073,7 +1092,17 @@ dynamical feedback. An analytic positive density is sampled in the same
 six-dimensional phase space used by the product surrogate. Its density,
 gradient, and excess action \(Q[\rho]\) are then compared with their analytic
 counterparts both on the training cloud and on 1000 independently drawn query
-points. Tables~\ref{tab:manufactured-density}--\ref{tab:manufactured-operator}
+points. Specifically,
+\(R\sim\mathcal N(0,1.2^2)\), \(P\sim\mathcal N(8,0.7^2)\), and each of
+\(r_0,r_1,p_0,p_1\sim\mathcal N(0,0.5)\) independently (standard deviation
+\(\sqrt{0.5}\)). This is a fully dimensional Gaussian design, not a focused mapping shell.
+It is consequently more informative about ambient derivatives
+than the production cloud, but it does not reproduce the focused-MMST
+normal-derivative nonidentifiability. The observed two-to-three-percent
+operator errors must not be read as quantitative estimates of production
+off-manifold error. The exact geometry is recorded in
+\texttt{manufactured\_sampling\_geometry.json}.
+Tables~\ref{tab:manufactured-density}--\ref{tab:manufactured-operator}
 report the relative \(L_1\), \(L_2\), and \(L_\infty\) errors as means and
 sample standard deviations over three independent cloud pairs for every
 regularization and cloud size.
@@ -1174,15 +1203,22 @@ interpolation without extrapolation. Both successive time-normalized
 differences must first exceed
 \(\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)\).
 Rows below that floor are labelled roundoff- or saturation-limited; rows with
-nondecreasing successive differences are labelled nonmonotone. For both
-stochastic moving-cloud methods, PBME and MIDPOINT, both differences must
-additionally exceed the pooled dispersion over four independently sampled
-clouds. The 128 run/observable rows comprise 15
-noise-limited rejections, 102 seed-variability rejections, three nonpositive
-orders, and eight positive orders. The latter do not repair the simultaneous
-failures in replication and raw conservation, so the formal order of the
-midpoint formula is not promoted to a demonstrated order of the full
-moving-cloud dynamics.
+nondecreasing successive differences are labelled nonmonotone only after
+finite-output and physical-admissibility checks. Physical admissibility
+requires endpoint populations in \([0,1]\), unit norm within \(10^{-8}\),
+finite energy, and nonnegative signed central second moments at all three
+levels. The same seed and cloud are used at each level, so uncertainty is
+assessed through paired \(D_{12,s}\), \(D_{23,s}\), their per-seed ratios,
+the contraction count, and a descriptive paired Student-\(t\) interval for
+\(D_{12,s}-D_{23,s}\). Raw between-seed observable spread is archived as a
+cloud-variability diagnostic only; it is not a statistically valid order gate.
+In particular, the MIDPOINT \(P_{\rm init}=20\) population sequence that
+includes \(-0.180,-0.312,0.182\), and the negative signed moments in the
+\(P_{\rm init}=100\) case, stop at the physical-admissibility gate. Their
+temporal order is not interpreted. The admissible paired results do not
+identify a deterministic production order above the total cloud variability,
+so the formal order of the midpoint formula is not promoted to a demonstrated
+order of the full moving-cloud dynamics.
 
 @@TABLE_TIMESTEP@@
 
@@ -1255,6 +1291,15 @@ drifts: even in the canonical four-seed set the largest normalization drift
 reaches \(8.69\times10^{20}\), and across the tested refinement/cloud-size
 calculations it reaches \(7.35\times10^{46}\). A unit-normalized display curve
 cannot be used as evidence against this failure.
+
+The following deterministic implementation control uses
+\(z_0=(-1.3,18,0.9,-0.4,0.3,0.6)\), \(\Delta t=0.5\), 200 MInt steps, and a
+\(10^{-7}\) central finite-difference Jacobian. It is not a new production
+simulation. The residuals are regenerated directly from \texttt{Mint.py} and
+archived at
+\texttt{implementation\_controls/mint\_implementation\_controls.csv}.
+
+@@TABLE_MINT_CONTROLS@@
 
 The signed-label diagnostic in Table~\ref{tab:signed-label-tail-physics}
 quantifies the conditioning of the ratio \(y_i(t)/y_i^0\). At zero threshold,
@@ -1367,9 +1412,14 @@ not establish systematic improvement. Table~\ref{tab:paired-physical-errors}
 reports the paired mean and descriptive Student-\(t\) interval for raw and
 unit-mass density errors and for the principal time-dependent observables.
 With four paired seeds, sign consistency in the individual Appendix~G values
-is primary; where those signs vary, the table says ``no consistent sign across
-the four paired seeds.'' The comparisons are not consistently in favour of
-MIDPOINT. More fundamentally, a physical success claim also requires
+is primary. Every reference-based metric listed in
+Table~\ref{tab:paired-physical-errors} has a positive MIDPOINT-minus-PBME
+difference for all four paired seeds: PBME has the lower error for every reported paired seed and metric
+in this campaign. This is a directional
+within-campaign result, not strong population inference, because \(n=4\) and
+the paired differences are strongly skewed. The low-momentum grid-QCLE rows
+remain numerical-sensitivity comparisons only, not resolved accuracy
+standards. More fundamentally, a physical success claim also requires
 seed-stable dynamics, raw conservation, and controlled discretization
 sensitivity. Those conditions are not met, so systematic improvement over
 PBME is not demonstrated.
@@ -1505,7 +1555,8 @@ the relevant trace and energy identities before any renormalization. The
 regression should incorporate derivative information or structural constraints
 capable of controlling directions normal to the sampled manifold. A future
 success claim requires decreasing manufactured-operator errors under a
-controlled refinement, time-step changes resolvable above seed variation,
+controlled refinement, reproducible within-seed time-step contraction with
+paired uncertainty summaries and physically admissible levels,
 independent-cloud uncertainty bands, raw conservation, and reproducibly
 smaller PBME-matched errors against controlled references where the excess
 source is appreciable
@@ -1546,6 +1597,7 @@ cloud-converged, or improved.
         "@@TABLE_MANUFACTURED@@": manufactured_tables(),
         "@@TABLE_PROJECTION_BASELINE@@": projection_and_baseline_tables(),
         "@@TABLE_TIMESTEP@@": timestep_table(),
+        "@@TABLE_MINT_CONTROLS@@": mint_controls_table(),
         "@@TABLE_CLOUD_SIZE@@": cloud_size_table(),
         "@@TABLE_REPLICATION@@": replication_table(),
         "@@TABLE_CONSERVATION@@": conservation_table(),
@@ -1719,7 +1771,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         "I-10": "The applied excess source is distinguished from clipped or renormalized alternatives; the reported MIDPOINT results use the unprojected, nonconservative source under examination.",
         "I-11": "The unsupported analytic-GP physical-observable claim was removed; no uncomputed table is implied. Retained physical comparisons use the reported cloud estimators and controlled references.",
         "I-12": "The independent sample size is four clouds, not the number of trajectories; intervals are described as small-sample sensitivity measures.",
-        "I-13": "Paired MIDPOINT-minus-PBME physical-error differences do not consistently favour MIDPOINT, and the joint reliability requirements are not met.",
+        "I-13": "Every listed paired MIDPOINT-minus-PBME physical-error difference is positive in all four seeds, so PBME has the lower error for every reported seed and metric in this campaign; n=4 intervals remain descriptive.",
         "I-14": "Reference domains, time steps, grids, boundary conventions, edge masses, and CFL controls are stated in Chapter 6 and Appendix F.",
         "I-15": (
             "The final code, evidence archive, checksum index, environment, "
@@ -1785,7 +1837,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/manufactured/manufactured_complete.csv; manufactured_summary.csv; manufactured_refinement_verdicts.csv",
         ),
         "I-2": (
-            "Each method/momentum/seed/observable row reports the three endpoint values, both aligned time-series differences, the numerical floor, pooled seed spread, guarded order, verdict, and reason.",
+            "Each method/momentum/seed/observable row reports the three endpoint values, the same-seed paired differences D12,s and D23,s, their ratio and contraction indicator, the numerical floor, physical-admissibility result, verdict, and reason. Cross-seed spread is retained only as a descriptive diagnostic and is not an acceptance gate.",
             "Sections 5.9.5 and 6.4, printed pp. 80 and 89--93; Table 6.7; Appendix G, Table G.4, printed pp. 153--157.",
             "final_reviewer_closure/timestep/timestep_run_by_run.csv",
         ),
@@ -1840,7 +1892,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/replication/four_seed_values.csv; four_seed_summary.csv",
         ),
         "I-13": (
-            "Physical comparisons are reported as per-seed absolute errors and paired MIDPOINT-minus-PBME differences. Four-seed Student-t intervals are descriptive only, and raw per-seed sign consistency is stated explicitly.",
+            "Physical comparisons are reported as per-seed absolute errors and paired MIDPOINT-minus-PBME differences. Every listed metric is positive in all four paired seeds, so PBME has the lower error for every reported seed and metric in this campaign. Four-seed Student-t intervals remain descriptive, and the low-momentum grid-QCLE case remains sensitivity-only.",
             "Section 6.8, printed pp. 109--111; Table 6.15 and Figure 6.5; Appendix G, Tables G.7--G.8, printed pp. 163--164.",
             "final_reviewer_closure/physical_comparison/density_errors_method_pair_by_seed.csv; observable_errors_method_pair_by_seed.csv; paired_improvement_summary.csv",
         ),
@@ -1895,7 +1947,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/manufactured/manufactured_complete.csv; manufactured_summary.csv",
         ),
         "M-8": (
-            "The formal statement is restricted to a smooth fixed-representation semi-discrete midpoint system; moving-support refit and safe-profile assumptions are not established. Neither PBME nor MIDPOINT receives an observed production order unless both numerical-noise and pooled seed-dispersion guards pass.",
+            "The formal statement is restricted to a smooth fixed-representation semi-discrete midpoint system; moving-support refit and safe-profile assumptions are not established. No production order is assigned unless the numerical floor, finiteness, physical-admissibility, and same-seed paired-contraction checks all pass.",
             "Sections 5.5 and 5.9.5, printed pp. 75 and 80; Section 6.4, printed pp. 89--93; Table 6.7 and Table G.4.",
             "final_reviewer_closure/timestep/timestep_run_by_run.csv",
         ),
@@ -2049,7 +2101,13 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             ("printed pp. 146--152", "printed pp. 151--156"),
             ("printed pp. 153--157", "printed pp. 158--160"),
             ("printed pp. 157--162", "printed pp. 162--166"),
-            ("printed pp. 163--164", "printed pp. 167--168"),
+            (
+                "printed pp. 163--164",
+                "printed pp. "
+                + pages.get("tab:density-reference-errors-per-seed", "168")
+                + "--"
+                + pages.get("tab:observable-reference-errors-per-seed", "169"),
+            ),
             ("printed pp. 140--145", "printed pp. 145--149"),
             ("printed pp. 140--142", "printed pp. 145--147"),
             ("printed pp. 137--139", "printed pp. 142--144"),
@@ -2057,7 +2115,10 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             ("and 86--108", "and 86--110"),
             ("80 and 97--100", "80 and 98--102"),
             ("Table 6.10, printed p. 97", "Table 6.10, printed p. 98"),
-            ("printed p. 165", "printed p. 170"),
+            (
+                "printed p. 165",
+                "printed p. " + pages.get("appsec:versioned-release", "172"),
+            ),
             ("printed p. 112", "printed p. 117"),
             ("printed p. 113", "printed p. 118"),
             ("printed p. 114", "printed p. 119"),
@@ -2144,10 +2205,11 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         (
             "4 --- Numerical-noise and stochastic guards enforced",
             "The absolute-plus-relative floor is 1e-12 + 1e-12 times the "
-            "maximum level scale. Noise-limited, nonmonotone, and rapidly "
-            "contracting nonasymptotic rows are rejected; for both stochastic "
-            "moving-cloud methods, PBME and MIDPOINT, both differences must "
-            "also exceed pooled independent-seed variation.",
+            "maximum level scale. It is followed by finite-output and physical-"
+            "admissibility gates. Contraction is then evaluated from same-seed "
+            "D12 and D23 values, per-seed ratios, contraction counts, and a "
+            "descriptive paired interval. Raw cross-seed observable spread is "
+            "descriptive only and is not an order gate.",
             f"Thesis p. {thesis_page('eq:declared-numerical-noise-floor')}, "
             "Eq. (declared numerical-noise floor); Tables 6.7, 6.13, 6.14, and G.4.",
             "full-precision order-reason and verdict columns in the three "
@@ -2196,9 +2258,9 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         ),
         (
             "10 --- Shared stochastic refinement rule made consistent",
-            "Section 6.4 now states that both PBME and MIDPOINT must clear "
-            "the same numerical-noise and pooled independent-seed-dispersion "
-            "guards before any time-step contraction is interpreted.",
+            "Section 6.4 applies the same numerical, finite-output, and physical-"
+            "admissibility hierarchy to PBME and MIDPOINT, then evaluates "
+            "within-seed contraction without the former cross-seed-spread veto.",
             f"Thesis p. {thesis_page('sec:results-timestep')}, Section 6.4; "
             "Table 6.7.",
             "final_reviewer_closure/timestep/timestep_run_by_run.csv",
@@ -2246,8 +2308,10 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         (
             "15 --- Four-seed interval interpretation qualified",
             "The paired Student-t intervals are described as sensitivity "
-            "summaries only. Table 6.15 reports whether the four raw paired "
-            "signs are consistent, with the individual Appendix G values primary.",
+            "summaries only. Every Table 6.15 metric has a positive MIDPOINT-"
+            "minus-PBME difference in all four paired seeds, so PBME has the "
+            "lower error for every reported paired seed and metric in this "
+            "campaign; this remains directional evidence at n=4.",
             f"Thesis p. {thesis_page('tab:paired-physical-errors')}, Table 6.15 "
             "and Figure 6.5; Appendix G per-seed tables.",
             "final_reviewer_closure/physical_comparison/paired_improvement_summary.csv; "
@@ -2269,6 +2333,78 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "the reviewer-delivery package.",
             "This response and the release asset manifest.",
             "Reviewer_Response.pdf; Reviewer_Response.tex; GitHub release manifest",
+        ),
+        (
+            "18 --- Equation C.17 tensor index corrected",
+            "The second derivative of the SEO Gaussian now contains delta_de, "
+            "matching the differentiated coordinates x_d and x_e; the unrelated "
+            "delta_ab index is removed.",
+            f"Thesis p. {thesis_page('appeq:seo-profile-second')}, Eq. (C.17).",
+            "Thesis/Thesis.tex; test_math_expressions.py",
+        ),
+        (
+            "19 --- Time-step inference reanalysed as paired data",
+            "The existing three-level runs are reanalysed with paired D12,s and "
+            "D23,s values, per-seed ratios, contraction counts, and descriptive "
+            "paired Student-t intervals for D12-D23. The raw cross-seed observable "
+            "spread is no longer an uncertainty or order veto.",
+            f"Thesis p. {thesis_page('tab:timestep-refinement-physics')}, Table 6.7; "
+            f"Appendix G.2, p. {thesis_page('tab:timestep-run-by-run')}.",
+            "final_reviewer_closure/timestep/timestep_paired_summary.csv; "
+            "timestep_paired_differences_by_seed.csv",
+        ),
+        (
+            "20 --- Time-step physical-admissibility hierarchy enforced",
+            "The hierarchy is numerical floor, finite output, physical "
+            "admissibility, then paired contraction. Populations, unit norm, "
+            "finite energy, and nonnegative signed central moments are checked; "
+            "inadmissible MIDPOINT levels have no interpreted temporal order.",
+            f"Thesis p. {thesis_page('sec:results-timestep')}, Section 6.4 and Table 6.7.",
+            "final_reviewer_closure/timestep/timestep_run_by_run.csv; timestep_manifest.json",
+        ),
+        (
+            "21 --- Manufactured sampling geometry and scope made explicit",
+            "The thesis and manifest state the exact independent six-dimensional "
+            "Gaussian distributions, identify that no focused mapping shell is "
+            "used, and explain why the observed operator errors are not quantitative "
+            "production off-manifold estimates.",
+            f"Thesis p. {thesis_page('sec:results-manufactured')}, Section 6.2.",
+            "final_reviewer_closure/manufactured/manufactured_sampling_geometry.json; "
+            "manufactured_manifest.json",
+        ),
+        (
+            "22 --- Numerical MInt implementation controls reported",
+            "A deterministic control block reports the one-step symplectic and "
+            "round-trip residuals plus 200-step mapping-radius and endpoint-energy "
+            "drifts, with initial state, step size, finite-difference scale, "
+            "tolerances, and code hashes archived.",
+            f"Thesis p. {thesis_page('sec:results-conservation-tail')}, Section 6.6.",
+            "final_reviewer_closure/implementation_controls/"
+            "mint_implementation_controls.csv; mint_implementation_controls_manifest.json",
+        ),
+        (
+            "23 --- Uniform paired physical-error direction stated exactly",
+            "The thesis now states that every listed reference metric is positive "
+            "for MIDPOINT-minus-PBME in all four paired seeds, while retaining the "
+            "n=4/skewness qualification and the sensitivity-only role of low-"
+            "momentum grid-QCLE.",
+            f"Thesis p. {thesis_page('tab:paired-physical-errors')}, Table 6.15; "
+            f"Tables G.7--G.8, pp. {thesis_page('tab:density-reference-errors-per-seed')}--"
+            f"{thesis_page('tab:observable-reference-errors-per-seed')}.",
+            "final_reviewer_closure/physical_comparison/paired_improvement_summary.csv; "
+            "observable_errors_method_pair_by_seed.csv; density_errors_method_pair_by_seed.csv",
+        ),
+        (
+            "24 --- Appendix locators, CSV guidance, and TeX portability corrected",
+            "The response obtains G.7 and G.8 pages from the compiled labels, "
+            "Appendix G directs readers to TABLE_DATA_CROSSWALK.csv before dense "
+            "tables, and the thesis states that portability requires preserving "
+            "the complete institutional TeX directory tree.",
+            f"Thesis Appendix G, Tables G.7--G.8, pp. "
+            f"{thesis_page('tab:density-reference-errors-per-seed')}--"
+            f"{thesis_page('tab:observable-reference-errors-per-seed')}; Appendix G.5, "
+            f"p. {thesis_page('appsec:versioned-release')}.",
+            "final_reviewer_closure/TABLE_DATA_CROSSWALK.csv; complete release source tree",
         ),
     ]
     lines.append(r"\section*{Final mandatory and requested corrections}")
@@ -2300,7 +2436,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         ),
         4: item_audit["I-1"],
         5: (
-            "Production and reference orders are reconstructible and guarded. For both PBME and MIDPOINT, both differences must exceed numerical noise and pooled independent-seed dispersion; reference time/grid controls remain separate.",
+            "Production and reference orders are reconstructible and guarded. PBME and MIDPOINT share the numerical, finite-output, and physical-admissibility hierarchy; production contraction is evaluated from same-seed paired differences and descriptive paired intervals, while raw cross-seed observable spread is not an order gate. Reference time/grid controls remain separate.",
             "Sections 5.9.5, 6.4, and 6.7, printed pp. 80, 89--93, and 100--108; Tables 6.7 and 6.12--6.14; Table G.4, printed pp. 153--157.",
             "final_reviewer_closure/timestep/timestep_run_by_run.csv; reference_tdse/tdse_three_level.csv; reference_grid_qcle/qcle_three_level.csv",
         ),
