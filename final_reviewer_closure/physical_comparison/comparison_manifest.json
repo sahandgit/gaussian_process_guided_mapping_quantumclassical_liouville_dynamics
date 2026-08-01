@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-08-01T17:22:42.842144+00:00",
+  "created_utc": "2026-08-01T18:32:07.980429+00:00",
   "density_contract": "raw-amplitude and normalized shape errors reported separately; TDSE uses nuclear R marginal; QCLE uses mapping-integrated R-P density",
   "outputs": {
     "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\physical_comparison\\density_errors_by_seed.csv": "1ef4f5d156802210aa9cb130bb06e951827a154ff33f3efb46c3addbc6c34205",

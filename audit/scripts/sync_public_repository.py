@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGE = ROOT / "reviewer_data_audit" / "github_main_staging"
-RELEASE_TAG = "thesis-final-2026-08-01"
+RELEASE_TAG = "thesis-final-2026-08-01-r2"
 REPO_URL = (
     "https://github.com/sahandgit/"
     "gaussian_process_guided_mapping_quantumclassical_liouville_dynamics"
@@ -80,17 +80,39 @@ the tested discretization, not the continuum QCLE excess term.
 - src/gp_mint_qcle/ -- installable package mirror of the scientific modules.
 - audit/ -- evidence generation, verification, and document-build scripts.
 - final_reviewer_closure/ -- compact generated CSV/table/figure evidence.
+- release/response_item_audit.csv -- exact 58-row gate and I/M/L crosswalk.
 - [Release {RELEASE_TAG}]({release}) -- frozen numerical-evidence archive,
-  checksums, manifests, environment, and complete downloadable closure.
+  checksums, manifests, clean-room verification, environment, and complete
+  downloadable closure.
 
 Raw trajectory arrays are kept in the release asset rather than ordinary Git
 history. This avoids GitHub's per-file limits while preserving exact retrieval
 through a versioned release.
 
+The versioned GitHub release is public and immutable by tag convention, but it
+is not a DOI or an institutional persistent identifier. No DOI has been
+assigned.
+
+## Clean source build
+
+The repository/tag archive is the self-contained source package. Do not detach
+`thesis/Thesis.tex` from its sibling bibliography, class, generated tables, and
+figures. From a clean extraction of the repository archive, with Tectonic on
+`PATH`, compile both documents as follows:
+
+    cd thesis
+    tectonic Thesis.tex
+    cd ..
+    tectonic Reviewer_Response.tex
+
+All LaTeX inputs resolve within the extracted repository root. The release
+asset `CLEAN_ROOM_VERIFICATION.json` records a public download, checksum,
+extraction, manifest-presence, embedded-checksum, and clean-compilation test.
+
 ## Reproduce the accepted evidence
 
     python -m pip install -r requirements.txt
-    python -m pytest -q tests/test_pipeline_core.py tests/test_math_expressions.py tests/test_master_table.py tests/test_reviewer_closure.py tests/test_regularization_selection.py tests/test_thesis_modules.py
+    python -m pytest -q tests/test_pipeline_core.py tests/test_math_expressions.py tests/test_master_table.py tests/test_reviewer_closure.py tests/test_regularization_selection.py tests/test_thesis_modules.py tests/test_run_cli_contract.py
     python audit/reviewer_final_closure.py --mode analyze
     python audit/reviewer_final_closure.py --mode verify
     python audit/final_acceptance_check.py --stage final
@@ -98,7 +120,9 @@ through a versioned release.
 The final evidence inventory is 24 paired time-step configurations (48
 individual PBME/MIDPOINT method executions) using seeds 11, 29, 47, and 73.
 The absolute-plus-relative numerical-noise rule and all rejection reasons are
-stored in the time-step and reference CSVs.
+stored in the time-step and reference CSVs. For both stochastic moving-cloud
+methods, PBME and MIDPOINT, both refinement differences must also exceed pooled
+independent-seed dispersion before an order is interpreted.
 
 ## Environment
 
@@ -202,6 +226,10 @@ def main() -> int:
         ),
     ):
         copy_file(source, target)
+    for name in ("response_item_audit.csv", "CLEAN_ROOM_VERIFICATION.json"):
+        source = ROOT / "reviewer_data_audit" / name
+        if source.exists():
+            copy_file(source, release_metadata / name)
 
     evidence_target = STAGE / "final_reviewer_closure"
     reset_dir(evidence_target)

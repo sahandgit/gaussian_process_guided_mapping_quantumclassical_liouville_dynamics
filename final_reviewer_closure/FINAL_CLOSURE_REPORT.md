@@ -3,8 +3,9 @@ Scientific result: no validated improvement
 Thesis compile: FAIL
 Reviewer response compile: FAIL
 Evidence archive: PASS
-Permanent archive identifier: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01
-Audit-created code release commit: 38164f0fb0de1e3897a01cf56c90d53901bc75d6
+Versioned public release URL: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r2
+Persistent identifier note: no DOI or institutional persistent identifier has been assigned.
+Frozen source/evidence commit: 38164f0fb0de1e3897a01cf56c90d53901bc75d6
 Originating development commit: NOT IDENTIFIABLE
 Archive SHA-256: 9b6e98221f61993dc8022785295ebe80db2a3f71595ea1349269d7db0627cfb7
 
@@ -30,7 +31,7 @@ manufactured: expected=36, verified=36, missing=0; reference: expected=8, verifi
 
 ## Ten-gate result
 
-Gates 1–7 and 9–10 are locally closed. Gate 8 remains externally blocked exactly when the permanent identifier is `BLOCKED_EXTERNAL_PUBLICATION`.
+Gates 1–7 and 9–10 are locally closed. Gate 8 is closed when the checksum-bound versioned public release URL is recorded; that URL is `https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r2`.
 
 ## I/M/L closure totals
 

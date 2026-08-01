@@ -36,6 +36,7 @@ FORBIDDEN_THESIS = (
     "approximately second-order behaviour for the TDSE and grid-QCLE",
     "step-size change exceeds seed spread",
     "fail to converge for this manufactured operator",
+    "MIDPOINT additionally requires",
 )
 FORBIDDEN_LOG = (
     "undefined", "multiply defined", "LaTeX Error", "Fatal error",
@@ -612,27 +613,89 @@ def check_response(c: Checker, response: Path) -> None:
         addressed_hits + pending_hits >= len(expected),
         f"addressed={addressed_hits}; external_pending={pending_hits}; expected>={len(expected)}",
     )
+    generic_phrases = (
+        "Tables 6.1--6.15 and G.1--G.8, traced through",
+        "Terminology, definitions, claim calibration, local clarity",
+        "The requested wording, evidence boundary, or numerical table is present",
+    )
+    generic_present = [phrase for phrase in generic_phrases if phrase in text]
+    c.check(
+        "response_item_specific_language",
+        not generic_present,
+        f"generic_phrases_present={generic_present}",
+    )
     c.check(
         "response_locations_and_evidence",
-        text.count("Revision in thesis") >= len(expected)
-        and text.count("Evidence") >= 48,
-        "each item identifies its thesis revision and scientific evidence",
+        text.count("Exact correction") == len(expected)
+        and text.count("Thesis locator") == len(expected)
+        and text.count("Evidence artifact") == len(expected),
+        "all 58 gates/items have exact correction, locator, and evidence fields",
+    )
+    audit_candidates = (
+        response.parent / "reviewer_data_audit" / "response_item_audit.csv",
+        response.parent / "release" / "response_item_audit.csv",
+    )
+    audit_path = next((path for path in audit_candidates if path.exists()), None)
+    audit_rows = csv_rows(audit_path) if audit_path else []
+    audit_items = [row.get("item", "") for row in audit_rows]
+    unique_corrections = {
+        row.get("exact_correction", "").strip() for row in audit_rows
+        if row.get("exact_correction", "").strip()
+    }
+    audit_complete = (
+        len(audit_rows) == len(expected)
+        and audit_items == expected
+        and len(unique_corrections) == len(expected)
+        and all(
+            row.get("thesis_locator", "").strip()
+            and row.get("evidence_artifact", "").strip()
+            for row in audit_rows
+        )
+    )
+    c.check(
+        "response_58_row_audit_matrix",
+        audit_complete,
+        f"path={audit_path}; rows={len(audit_rows)}; unique_corrections={len(unique_corrections)}",
+    )
+    normalized_text = text.replace(r"\_", "_")
+    i15_markers = (
+        "Appendix G.5", "printed p. 165", "frozen_numerical_evidence_payload.zip",
+        "frozen source/evidence commit", "archive SHA-256",
+        "checksum-index SHA-256", "FINAL_RUN_MANIFEST.json",
+        "FIGURE_DATA_CROSSWALK.csv", "table_data_crosswalk.csv",
+        "environment.json", "README.md", "CLEAN_ROOM_VERIFICATION.json",
+    )
+    c.check(
+        "response_I15_archive_evidence",
+        all(marker in normalized_text for marker in i15_markers),
+        f"missing={[marker for marker in i15_markers if marker not in normalized_text]}",
+    )
+    i16_markers = (
+        "Thesis title page and PDF metadata",
+        "this response title and PDF metadata",
+        "CITATION.cff",
+        "GitHub release metadata",
+    )
+    c.check(
+        "response_I16_title_evidence",
+        all(marker in normalized_text for marker in i16_markers),
+        f"missing={[marker for marker in i16_markers if marker not in normalized_text]}",
     )
     has_doi = bool(re.search(r"10\.\d{4,9}/[-._;()/:\w]+", text))
-    normalized_text = text.replace(r"\_", "_")
     public_release = (
         "https://github.com/" in normalized_text
         and "/releases/tag/" in normalized_text
         and "frozen_numerical_evidence_payload.zip" in normalized_text
     )
-    honest_pending = (
-        "A permanent DOI has not yet been assigned" in text
-        and "https://github.com/" in text
+    exact_no_doi = (
+        "The versioned public release is available at" in text
+        and "No DOI or institutional persistent identifier has been assigned" in text
+        and "The permanent identifier is" not in text
     )
     c.check(
         "response_availability_statement",
-        has_doi or public_release or honest_pending,
-        "public release/DOI recorded or external deposition status stated explicitly",
+        has_doi or (public_release and exact_no_doi),
+        "versioned public release is distinguished from a DOI/persistent identifier",
     )
     return
     status_hits = sum(
@@ -720,6 +783,40 @@ def check_compile(c: Checker, thesis_pdf: Path, response_pdf: Path,
             c.check(f"{name}_pages", pages > 0, f"{pages} pages ({counter})")
 
 
+def check_clean_room(c: Checker, response: Path) -> None:
+    candidates = (
+        response.parent / "reviewer_data_audit" / "CLEAN_ROOM_VERIFICATION.json",
+        response.parent / "release" / "CLEAN_ROOM_VERIFICATION.json",
+    )
+    path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if path is None:
+        c.check("clean_room_release_verification", False, "record absent")
+        return
+    record = json.loads(path.read_text(encoding="utf-8"))
+    compilations = record.get("clean_compilations", [])
+    sources = {row.get("source") for row in compilations}
+    valid = (
+        record.get("status") == "PASSED"
+        and record.get("evidence_download_sha256")
+        == record.get("evidence_expected_sha256")
+        and record.get("fresh_temporary_directory_used") is True
+        and int(record.get("embedded_index_rows_verified", 0)) > 0
+        and sources == {"Thesis.tex", "Reviewer_Response.tex"}
+        and all(
+            row.get("returncode") == 0
+            and int(row.get("page_count") or 0) > 0
+            and not row.get("forbidden_log_diagnostics")
+            for row in compilations
+        )
+    )
+    c.check(
+        "clean_room_release_verification",
+        valid,
+        f"path={path}; tag={record.get('release_tag')}; sources={sorted(sources)}; "
+        f"embedded_rows={record.get('embedded_index_rows_verified')}",
+    )
+
+
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--stage", choices=("precompile", "final"), required=True)
@@ -750,6 +847,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             c, args.thesis_pdf.resolve(), args.response_pdf.resolve(),
             args.thesis_tex.resolve(), args.response_tex.resolve(),
         )
+        check_clean_room(c, args.response_tex.resolve())
     result = {
         "stage": args.stage, "passed": c.passed, "checks": c.rows,
     }

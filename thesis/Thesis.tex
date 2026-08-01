@@ -2664,9 +2664,10 @@ Sec.~\ref{subsec:mass-ratio-scaling-qcle}.
 \section{Thesis objective and organization}
 \label{sec:thesis-objective-contribution}
 
-The objective is to determine whether a differentiable density representation
-carried by a moving support can make the excess mapping-QCLE operator
-computationally accessible. The Meyer--Miller--Stock--Thoss representation
+The objective is to determine whether the single product-GP/moving-cloud/
+explicit-MIDPOINT construction tested here can make the excess mapping-QCLE
+operator computationally accessible on a one-dimensional, two-state
+avoided-crossing benchmark. The Meyer--Miller--Stock--Thoss representation
 places the finite electronic subsystem and classical environment in a common
 extended phase space
 \cite{MeyerMiller1979JCP,StockThoss1997PRL,StockThoss2005,Kim2008JCP}.
@@ -7123,6 +7124,11 @@ The results analysis must distinguish errors in the Hamiltonian map, the GP
 representation, and the discrete source operator. The following diagnostics
 are therefore recorded separately.
 
+Whenever a source contribution is summarized as a ratio of global RMS norms,
+that scalar is only a global diagnostic. It is not a pointwise bound on the
+source update, and no statement such as ``less than one percent per step'' is
+inferred for every support point.
+
 
 \subsection{Hamiltonian-map diagnostics}
 \label{subsec:ch5-map-diagnostics}
@@ -7334,8 +7340,8 @@ interpreted.'' For aligned time-series differences, the maximum absolute
 level in Eq.~\eqref{eq:declared-numerical-noise-floor} is replaced by the
 maximum RMS scale of the three aligned series. A resolvable row must then
 contract monotonically and must not show implausibly rapid non-asymptotic
-contraction. For stochastic MIDPOINT calculations, both differences must also
-exceed the pooled independent-seed variation. Thus a ratio of two
+contraction. For both stochastic moving-cloud methods, PBME and MIDPOINT,
+both differences must also exceed the pooled independent-seed variation. Thus a ratio of two
 roundoff-level quantities is never promoted to an observed order.
 
 The validation campaign completed the intended run inventory through
@@ -7789,7 +7795,7 @@ moving-cloud dynamics.
 \scriptsize
 \setlength{\tabcolsep}{3.5pt}
 \begin{longtable}{l r l r r r r r L{0.20\textwidth}}
-\caption{Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)$ before an order is interpreted; MIDPOINT additionally requires both differences to exceed pooled independent-seed dispersion.}\label{tab:timestep-refinement-physics}\\
+\caption{Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)$ before an order is interpreted. For both stochastic moving-cloud methods, PBME and MIDPOINT, both differences must also exceed pooled independent-seed dispersion.}\label{tab:timestep-refinement-physics}\\
 \toprule
 Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation \\
 \midrule

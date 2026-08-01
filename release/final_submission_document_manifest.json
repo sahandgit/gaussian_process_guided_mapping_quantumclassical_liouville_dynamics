@@ -1,9 +1,9 @@
 {
-  "archive_identifier": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01",
+  "archive_identifier": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r2",
   "outputs": [
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\THESIS_EVIDENCE_TABLES.tex",
-      "sha256": "eda8a40e3778e85d0f573b329b3ef71cf9230ec51f3ed76b7c5bc76fc3e42ace"
+      "sha256": "314d9b65be240446c8704cec28cae653b89b6c2301fc3dadc36ef2dceb1bf3c9"
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\metric_provenance_final_closure.csv",
@@ -11,19 +11,19 @@
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\PIPELINE_DATA_AUDIT_AND_THESIS_EVIDENCE.md",
-      "sha256": "d498caf6259380c569e7407775e8f728903d7214176f26a29dbf77a6bffefc02"
+      "sha256": "152d86019f8ce04a37150e715fdca74d6f310631b9dd4f619b7b41245c734839"
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\EXAMINER_RESPONSE_EVIDENCE.md",
-      "sha256": "cb1207128984b73296aee7aacb40ca9bbcde71baabc0e11b4a641e00be19b801"
+      "sha256": "74e63c76a1842685173ad6c60be6272365beedb1303a7f81d8b25c8c0f0cb5e2"
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\MISSING_DATA_AND_ANALYSES.md",
-      "sha256": "377fbb2f121545060cfba7d042c1720ed0702d4bc095fd782c0bc57e2ffee468"
+      "sha256": "c9165079e00f2b47a87360f3d1c919922a14ea4ab63035fc401a22b6b740152e"
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Chapter6_VerifiedResults.tex",
-      "sha256": "756f4297a6472ed25fa8f01814c16ec81ea1d1ed8fc2a81eb8bffd321d4b6b6c"
+      "sha256": "6135a5b32ebe32c87841e8942d6ce9640174d640bb64833d9b6784f5c433b2e7"
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Chapter7_Conclusions.tex",
@@ -31,11 +31,11 @@
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.tex",
-      "sha256": "cecedc3a220a771266bf463d955f32fecd5ee6fb47f91e3fec11f6e2a53d21d5"
+      "sha256": "191141b6a5c2659a56f0aa0652a59e3657be166bbde929b8aba053f7921ea68a"
     },
     {
       "path": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\final_reviewer_closure\\FINAL_CLOSURE_REPORT.md",
-      "sha256": "bdd95f90310cfb0e2c84e0b0a1862429d7b65540572b277c76d3bf03c5333cef"
+      "sha256": "1e55051b7d437be891e0ea6e8a2b34a1ff1752d0e14e9bbad1631c4abeb01fe4"
     }
   ]
 }

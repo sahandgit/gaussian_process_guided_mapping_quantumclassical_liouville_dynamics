@@ -221,8 +221,8 @@
       "passed": true
     }
   ],
-  "created_utc": "2026-08-01T17:23:33.513832+00:00",
-  "permanent_archive_note": "A real DOI or permanent release identifier requires author login to a repository; no identifier is invented.",
-  "permanent_archive_status": "BLOCKED_EXTERNAL_PUBLICATION",
+  "created_utc": "2026-08-01T18:40:06.406871+00:00",
+  "persistent_identifier_note": "The versioned GitHub release is a public retrieval record, not a DOI or institutional persistent identifier; no DOI is invented.",
+  "public_release_record": "final_reviewer_closure/PUBLIC_RELEASE.json",
   "status": "PASSED"
 }

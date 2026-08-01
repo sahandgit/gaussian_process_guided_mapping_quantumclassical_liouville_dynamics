@@ -14,6 +14,7 @@ behaviour is trustworthy even though the physics runs happen elsewhere.
 import json
 import os
 import sys
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +22,50 @@ import pytest
 
 import reviewer_closure_campaign as rcc
 import reviewer_final_closure as rfc
+
+
+def test_shared_seed_dispersion_policy_is_documented_for_both_methods():
+    """The declared convergence guard must match the implementation for both methods."""
+    root = Path(__file__).resolve().parent
+    sources = [
+        root / "reviewer_final_closure.py",
+        root / "reviewer_data_audit" / "scripts" / "build_physics_thesis_tables.py",
+        root / "Thesis" / "Thesis.tex",
+    ]
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+    assert "For both stochastic moving-cloud methods" in combined
+    assert "PBME and MIDPOINT" in combined
+    assert "pooled independent-seed variation" in combined
+    assert "MIDPOINT additionally" not in combined
+
+
+def test_response_audit_matrix_is_complete_and_item_specific():
+    """Every gate and I/M/L item must carry distinct, auditable evidence."""
+    root = Path(__file__).resolve().parent
+    audit_path = root / "reviewer_data_audit" / "response_item_audit.csv"
+    assert audit_path.is_file(), "generate final submission documents before testing"
+    with audit_path.open(newline="", encoding="utf-8-sig") as handle:
+        rows = list(csv.DictReader(handle))
+
+    expected = (
+        [f"Gate {i}" for i in range(1, 11)]
+        + [f"I-{i}" for i in range(1, 17)]
+        + [f"M-{i}" for i in range(1, 26)]
+        + [f"L-{i}" for i in range(1, 8)]
+    )
+    assert len(rows) == 58
+    assert [row["item"] for row in rows] == expected
+    corrections = [row["exact_correction"].strip() for row in rows]
+    assert len(set(corrections)) == 58
+    assert all(row["thesis_locator"].strip() for row in rows)
+    assert all(row["evidence_artifact"].strip() for row in rows)
+    boilerplate = (
+        "requested wording is present",
+        "all requested language is present",
+        "the thesis and evidence package address this item",
+    )
+    joined = "\n".join(corrections).lower()
+    assert not any(phrase in joined for phrase in boilerplate)
 
 
 def test_case_compatible_crosswalk_copy(tmp_path):

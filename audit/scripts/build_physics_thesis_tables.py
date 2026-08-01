@@ -222,7 +222,7 @@ def timestep_table() -> str:
                 )
     return longtable(
         "tab:timestep-refinement-physics",
-        "Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\\tau_{\\rm noise}=10^{-12}+10^{-12}\\max_k\\operatorname{RMS}(O_k)$ before an order is interpreted; MIDPOINT additionally requires both differences to exceed pooled independent-seed dispersion.",
+        "Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\\tau_{\\rm noise}=10^{-12}+10^{-12}\\max_k\\operatorname{RMS}(O_k)$ before an order is interpreted. For both stochastic moving-cloud methods, PBME and MIDPOINT, both differences must also exceed pooled independent-seed dispersion.",
         r"l r l r r r r r L{0.20\textwidth}",
         r"Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation",
         rows,

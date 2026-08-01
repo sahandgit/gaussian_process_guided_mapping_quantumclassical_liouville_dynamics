@@ -48,7 +48,7 @@ def update_thesis_release_block(
         r"\url{" + release_asset_url + r"}.\\",
         "Archive filename:",
         r"\path{" + ARCHIVE.name + r"}.\\",
-        "Source-release commit (retrievable at the repository above):",
+        "Frozen source/evidence commit (retrievable at the repository above):",
         breakable_hash(source_commit) + r".\\",
         "Frozen numerical-evidence archive SHA-256:",
         breakable_hash(archive_sha) + r".\\",
@@ -59,8 +59,12 @@ def update_thesis_release_block(
         r"\path{environment/pip_freeze.txt} (environment), "
         r"\path{FINAL_RUN_MANIFEST.json} and the table/figure and per-run "
         r"manifests, plus \path{PAYLOAD_SHA256SUMS.csv} for every archived "
-        r"file. The public release asset and cited source commit make this "
-        r"record independently retrievable and checksum-verifiable.",
+        r"file. The release also supplies \path{CLEAN_ROOM_VERIFICATION.json}, "
+        r"which records public download, checksum, extraction, manifest, and "
+        r"clean source-compilation checks. The public release asset and cited "
+        r"frozen source/evidence commit make this record independently "
+        r"retrievable and checksum-verifiable. The versioned GitHub release is "
+        r"not a DOI or an institutional persistent identifier.",
         RELEASE_END,
     ])
     text = THESIS.read_text(encoding="utf-8")
@@ -172,7 +176,7 @@ def main() -> int:
         "archive_filename": ARCHIVE.name,
         "public_repository_url": REPOSITORY_URL,
         "public_release_asset_url": args.release_asset_url,
-        "source_release_commit": args.source_commit,
+        "frozen_source_evidence_commit": args.source_commit,
         "source_root": str(EVIDENCE.resolve()),
         "source_file_count": len(files),
         "embedded_checksum_index": (
