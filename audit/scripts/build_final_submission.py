@@ -1791,7 +1791,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
             "final_reviewer_closure/reference_settings_by_method_and_momentum.csv; reference_tdse/tdse_three_level.csv; reference_grid_qcle/qcle_three_level.csv",
         ),
         "I-15": (
-            "The archive record distinguishes the release-tag commit from the frozen source/evidence commit and states that the GitHub release is versioned public access, not a DOI or institutional persistent identifier.",
+            "The archive record distinguishes the final release tag, which identifies the tagged document commit, from the frozen source/evidence commit and states that the GitHub release is versioned public access, not a DOI or institutional persistent identifier.",
             "Appendix G.5, printed p. 165; this response Availability note.",
             f"release {archive_id}; frozen_numerical_evidence_payload.zip; frozen source/evidence commit {frozen_commit}; archive SHA-256 {archive_sha}; checksum-index SHA-256 {index_sha}; FINAL_RUN_MANIFEST.json; FIGURE_DATA_CROSSWALK.csv; table_data_crosswalk.csv; environment.json; README.md; CLEAN_ROOM_VERIFICATION.json",
         ),
@@ -2058,7 +2058,7 @@ def write_reviewer_response(summary: Mapping[str, Any], archive_id: str) -> Path
         (
             "7 --- Retrievable release record supplied",
             "The final release identifies the archive filename, public release "
-            "URL, release-tag commit, frozen source/evidence commit, archive "
+            "URL, final release tag, frozen source/evidence commit, archive "
             "SHA-256, checksum-index SHA-256, environment, manifests, clean-room "
             "verification record, and reproduction instructions. It also states "
             "that no DOI or institutional persistent identifier is assigned.",
@@ -2392,7 +2392,7 @@ failure pathway, and redesign criteria.
 The local evidence package is complete. Its checksum-bound versioned public
 release URL is `{archive_id}`. This GitHub release is not a DOI or institutional
 persistent identifier; no DOI is invented. The frozen source/evidence commit
-and the release-tag commit are reported separately in the release record.
+and the final release tag are reported separately in the release record.
 
 ## 19. Recommended thesis changes implemented
 

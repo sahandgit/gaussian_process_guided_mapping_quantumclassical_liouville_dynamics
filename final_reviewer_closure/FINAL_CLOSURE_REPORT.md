@@ -56,7 +56,7 @@ Thesis PDF: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_
 
 ## Archive
 
-Frozen numerical-evidence payload SHA-256: `3c934504819654143b06ec2db313380cbeece83ca3c204361889bf51e5971e94`
+Frozen numerical-evidence payload SHA-256: `9752f3e16a305225ed30796d799d5a9795d09d8cdebd1ee74648054cf84af87e`
 
 Archive: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\MSC-THESIS-FINAL-CLOSURE-2026-08-01T111722.zip`
 

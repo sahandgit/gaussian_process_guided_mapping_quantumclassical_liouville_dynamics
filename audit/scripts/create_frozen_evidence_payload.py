@@ -38,14 +38,18 @@ def update_thesis_release_block(
     index_sha: str,
     source_commit: str,
     release_asset_url: str,
+    release_tag: str,
 ) -> None:
     """Keep the printed release identifiers synchronized with the archive."""
     block = "\n".join([
         RELEASE_BEGIN,
+        r"\begingroup\small\sloppy",
         "Public source repository:",
         r"\url{" + REPOSITORY_URL + r"}.\\",
         "Public release asset:",
         r"\url{" + release_asset_url + r"}.\\",
+        "Final release tag (identifies the final tagged document commit):",
+        r"\path{" + release_tag + r"}.\\",
         "Archive filename:",
         r"\path{" + ARCHIVE.name + r"}.\\",
         "Frozen source/evidence commit (retrievable at the repository above):",
@@ -65,6 +69,7 @@ def update_thesis_release_block(
         r"frozen source/evidence commit make this record independently "
         r"retrievable and checksum-verifiable. The versioned GitHub release is "
         r"not a DOI or an institutional persistent identifier.",
+        r"\endgroup",
         RELEASE_END,
     ])
     text = THESIS.read_text(encoding="utf-8")
@@ -105,6 +110,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-commit", default="NOT_IDENTIFIABLE")
     parser.add_argument("--release-asset-url", default="PENDING_PUBLIC_RELEASE")
+    parser.add_argument("--release-tag", default="thesis-final-2026-08-01-r2")
     args = parser.parse_args()
     if (EVIDENCE / "EXECUTION.lock").exists():
         raise RuntimeError("Refusing to freeze evidence while an execution lock exists")
@@ -176,6 +182,7 @@ def main() -> int:
         "archive_filename": ARCHIVE.name,
         "public_repository_url": REPOSITORY_URL,
         "public_release_asset_url": args.release_asset_url,
+        "final_release_tag": args.release_tag,
         "frozen_source_evidence_commit": args.source_commit,
         "source_root": str(EVIDENCE.resolve()),
         "source_file_count": len(files),
@@ -199,6 +206,7 @@ def main() -> int:
         sha256_bytes(index_bytes),
         args.source_commit,
         args.release_asset_url,
+        args.release_tag,
     )
     print(json.dumps(record, indent=2))
     return 0

@@ -1,8 +1,9 @@
 {
   "repository": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics",
-  "release_tag": "thesis-final-2026-08-01",
-  "release_page": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01",
+  "final_release_tag": "thesis-final-2026-08-01-r2",
+  "release_page": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r2",
   "archive_filename": "frozen_numerical_evidence_payload.zip",
-  "release_asset_url": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/download/thesis-final-2026-08-01/frozen_numerical_evidence_payload.zip",
-  "source_release_commit": "420828990fa027a9eaa6b091796365932fb43c1a"
+  "release_asset_url": "https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/download/thesis-final-2026-08-01-r2/frozen_numerical_evidence_payload.zip",
+  "frozen_source_evidence_commit": "1f170df258cb43123af1a040a9973ca6996c804b",
+  "persistent_identifier_note": "This versioned GitHub release is not a DOI or institutional persistent identifier."
 }

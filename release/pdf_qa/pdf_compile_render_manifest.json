@@ -2,11 +2,11 @@
   {
     "name": "thesis",
     "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.tex",
-    "source_sha256": "2e2135627a46d7c5272dcc8035d82bcc50d0490d5fb6a09b8d484982ce45673f",
+    "source_sha256": "2a2c2e20e531d98e8a07e2241a8d06c91739fef1bf4e1a2ceaf4eea7e1380835",
     "pdf": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.pdf",
-    "pdf_sha256": "73d9ed7096bca3d76cd32d9ddcfc789864b92bf153654a53ab89a86e2744207c",
+    "pdf_sha256": "d325ba42f9801a44d5d91ab9d311a34755777284b2d849feaf5bc93347a7c3df",
     "latex_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Thesis\\Thesis.log",
-    "latex_log_sha256": "ec66d53c77ec74d762c9dcc8e284377c1dfc941ea57781114553ad7b34a3712a",
+    "latex_log_sha256": "da0e9341e62efe57f09e83da5a2b9fb8037ac9f416091748561d43e1899c27ea",
     "console_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\pdf_qa\\Thesis_tectonic_console.log",
     "page_count": 192,
     "rendered_page_count": 192,
@@ -16,15 +16,15 @@
   {
     "name": "reviewer_response",
     "source": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.tex",
-    "source_sha256": "cecedc3a220a771266bf463d955f32fecd5ee6fb47f91e3fec11f6e2a53d21d5",
+    "source_sha256": "4b931e896bbb6df7efebe3a2b641ffce519a1ed3607c7ac08dc85a82f4705c00",
     "pdf": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.pdf",
-    "pdf_sha256": "2a198af6a106bfe24684eacba2b54e6475a693659e0428f4366b972df10d9651",
+    "pdf_sha256": "e4d9512eb11d66a35087d389fb26cef91718fa456073092b9877e8e6cd05abc1",
     "latex_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\Reviewer_Response.log",
-    "latex_log_sha256": "6c1a7df950a0f3db2623bb1419a0fc1f2389fbc249b7a1c6b05ed7f6602d137e",
+    "latex_log_sha256": "08383b179727111d5351cb5b978978012f61f8c8179cd5402e82acc431ceab57",
     "console_log": "D:\\PhD-Project\\GP_RKHS_MINT\\GP_RKHS_MINT\\Tully_models\\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\\output\\fixed_pipeline\\reviewer_data_audit\\pdf_qa\\Reviewer_Response_tectonic_console.log",
-    "page_count": 16,
-    "rendered_page_count": 16,
-    "contact_sheet_count": 1,
-    "visual_status": "PASS_ALL_16_PAGES_INSPECTED"
+    "page_count": 17,
+    "rendered_page_count": 17,
+    "contact_sheet_count": 2,
+    "visual_status": "PASS_ALL_17_PAGES_INSPECTED"
   }
 ]
