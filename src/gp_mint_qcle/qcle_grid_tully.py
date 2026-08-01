@@ -73,6 +73,18 @@ Observables
 """
 from __future__ import annotations
 
+# --- UTF-8 console safety: prevent UnicodeEncodeError on Windows cp1252 ---
+# Banners/diagnostics below print non-ASCII physics notation (α, ρ̂, Δ, →, ħ).
+# Reconfigure the console streams to UTF-8 so direct execution of this module
+# does not abort under Windows' default cp1252 encoding.  No-op where unsupported.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+# --------------------------------------------------------------------------
+
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 

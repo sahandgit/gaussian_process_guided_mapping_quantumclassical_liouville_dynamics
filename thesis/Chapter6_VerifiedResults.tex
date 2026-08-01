@@ -1,0 +1,936 @@
+\chapter{Numerical Results and Physical Interpretation}
+\label{chap:results}
+
+The central question is whether the product-GP excess source supplies a
+physically reliable correction to PBME for the one-dimensional two-state
+scattering model. Reliability requires more than accurate interpolation of
+the density values used for training. The reconstructed derivatives must
+remain accurate away from the sampled cloud, the fitted density must remain
+close to the physical singly-excited-oscillator (SEO) image, the propagation
+must become insensitive to time step and cloud size, raw invariants must be
+preserved, and physical errors relative to controlled TDSE or grid-QCLE
+references must decrease. These questions are tested separately below so that
+a favourable value-reconstruction result cannot conceal a failure of the
+derivative operator or the dynamics. The combined evidence gives a controlled
+negative result: the tested MIDPOINT construction does not satisfy these joint
+requirements and does not show a systematic improvement over PBME.
+
+\section{Numerical design and hierarchy of evidence}
+\label{sec:results-design}
+
+Table~\ref{tab:numerical-study-design} summarizes the independent numerical
+questions. Raw physical observables and raw invariants are primary. Errors
+relative to analytic manufactured functions or controlled reference solutions
+are the next level. GP training residuals, leave-one-out residuals, posterior
+variance, and \(R^2\) diagnose the interpolant internally but are not treated
+as physical-error estimates. Likewise, unit-mass density shapes are useful
+only after the corresponding raw integral has been examined.
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{L{0.16\textwidth}L{0.28\textwidth}L{0.25\textwidth}L{0.23\textwidth}}
+\caption{Numerical studies used to distinguish interpolation accuracy, operator fidelity, dynamical stability, estimator structure, and physical predictive accuracy.  Here and below, $N$ denotes the number of independently sampled phase-space trajectories in a cloud.}\label{tab:numerical-study-design}\\
+\toprule
+Question & Quantity examined & Controlled variation & Evidence reported \\
+\midrule
+\endfirsthead
+\multicolumn{4}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Question & Quantity examined & Controlled variation & Evidence reported \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Manufactured operator & $\rho$, $\nabla\rho$, and $Q[\rho]$ on and away from the training cloud & $\ell_2=10^{-6},0.01,0.05$; $N=300,600,1200,2400$; seeds 123--125 & Relative $L_1$, $L_2$, and $L_\infty$ errors \\
+Time-step refinement & Dynamical observables at three common physical-time grids & $\Delta t=0.5,0.25,0.125$; $P_{\rm init}=20,100$; four independent seeds & Successive differences compared with seed dispersion \\
+Cloud-size sensitivity & Effect of enlarging independently sampled phase-space clouds & $N=500,1000,2000$; three independent seeds & Mean, sample standard deviation, and change relative to seed dispersion \\
+Replication & Sensitivity of endpoint observables to independently sampled initial clouds & Seeds 11, 29, 47, and 73; $N=1000$; $\Delta t=0.25$ & Mean, sample standard deviation, and Student-$t$ interval \\
+Estimator structure & SEO leakage, raw invariants, and signed-label conditioning & Three collision-time snapshots and threshold sweep & Projection residual, raw drift, effective sample sizes, and excluded physical mass \\
+Reference calculations & Numerical control of TDSE and grid-QCLE baselines & Separate three-level time and grid refinements & Values, successive differences, observed order, edge mass, and CFL ratio \\
+Physical comparison & PBME and MIDPOINT against the same TDSE or grid-QCLE reference & Paired four-seed comparisons & Density and observable error differences with paired Student-$t$ intervals \\
+\end{longtable}
+\endgroup
+
+\section{Manufactured density, gradient, and excess operator}
+\label{sec:results-manufactured}
+
+The manufactured calculation isolates the reconstruction problem from
+dynamical feedback. An analytic positive density is sampled in the same
+six-dimensional phase space used by the product surrogate. Its density,
+gradient, and excess action \(Q[\rho]\) are then compared with their analytic
+counterparts both on the training cloud and on 1000 independently drawn query
+points. Tables~\ref{tab:manufactured-density}--\ref{tab:manufactured-operator}
+report the relative \(L_1\), \(L_2\), and \(L_\infty\) errors as means and
+sample standard deviations over three independent cloud pairs for every
+regularization and cloud size.
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{r r L{0.25\textwidth} r r r}
+\caption{Manufactured-function errors for the reconstructed density $\rho$.  Entries are mean $\pm$ sample standard deviation over three independently generated training/query-cloud pairs.  The relative norms use the corresponding analytic quantity in the denominator.}\label{tab:manufactured-density}\\
+\toprule
+$\ell_2$ & $N$ & Evaluation domain & $E_1$ & $E_2$ & $E_\infty$ \\
+\midrule
+\endfirsthead
+\multicolumn{6}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+$\ell_2$ & $N$ & Evaluation domain & $E_1$ & $E_2$ & $E_\infty$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+$1.00\times10^{-6}$ & 300 & training cloud & $0.001\pm 0.00143$ & $0.00128\pm 0.00182$ & $0.00209\pm 0.00313$ \\
+$1.00\times10^{-6}$ & 300 & independent query cloud & $0.00451\pm 0.00349$ & $0.00699\pm 0.00679$ & $0.0152\pm 0.0191$ \\
+$1.00\times10^{-6}$ & 600 & training cloud & $0.00523\pm 0.00595$ & $0.00619\pm 0.00669$ & $0.00748\pm 0.00676$ \\
+$1.00\times10^{-6}$ & 600 & independent query cloud & $0.0075\pm 0.00558$ & $0.00946\pm 0.00541$ & $0.0154\pm 0.00413$ \\
+$1.00\times10^{-6}$ & 1200 & training cloud & $0.00679\pm 0.0022$ & $0.00764\pm 0.00217$ & $0.0091\pm 2.41\times10^{-4}$ \\
+$1.00\times10^{-6}$ & 1200 & independent query cloud & $0.00766\pm 0.00214$ & $0.00839\pm 0.00219$ & $0.0122\pm 0.00115$ \\
+$1.00\times10^{-6}$ & 2400 & training cloud & $0.00649\pm 0.00163$ & $0.00684\pm 0.00124$ & $0.00876\pm 0.00111$ \\
+$1.00\times10^{-6}$ & 2400 & independent query cloud & $0.00747\pm 0.0012$ & $0.0083\pm 4.15\times10^{-4}$ & $0.0158\pm 0.015$ \\
+$0.01$ & 300 & training cloud & $0.00123\pm 0.00128$ & $0.00159\pm 0.00161$ & $0.0028\pm 0.00272$ \\
+$0.01$ & 300 & independent query cloud & $0.00467\pm 0.00381$ & $0.00773\pm 0.00822$ & $0.019\pm 0.0262$ \\
+$0.01$ & 600 & training cloud & $0.00521\pm 0.00594$ & $0.00617\pm 0.00665$ & $0.00744\pm 0.00666$ \\
+$0.01$ & 600 & independent query cloud & $0.00734\pm 0.00558$ & $0.00928\pm 0.00547$ & $0.0151\pm 0.00486$ \\
+$0.01$ & 1200 & training cloud & $0.00679\pm 0.00227$ & $0.00765\pm 0.00222$ & $0.00908\pm 4.61\times10^{-4}$ \\
+$0.01$ & 1200 & independent query cloud & $0.00762\pm 0.00215$ & $0.00831\pm 0.00222$ & $0.0117\pm 0.00116$ \\
+$0.01$ & 2400 & training cloud & $0.00715\pm 0.00251$ & $0.00755\pm 0.0022$ & $0.00978\pm 2.94\times10^{-4}$ \\
+$0.01$ & 2400 & independent query cloud & $0.00799\pm 0.00213$ & $0.00843\pm 0.00148$ & $0.0135\pm 0.0069$ \\
+$0.05$ & 300 & training cloud & $0.00101\pm 0.00143$ & $0.0013\pm 0.00181$ & $0.00215\pm 0.00311$ \\
+$0.05$ & 300 & independent query cloud & $0.00459\pm 0.00367$ & $0.00711\pm 0.00717$ & $0.0158\pm 0.0207$ \\
+$0.05$ & 600 & training cloud & $0.0052\pm 0.00589$ & $0.00614\pm 0.0066$ & $0.00743\pm 0.00668$ \\
+$0.05$ & 600 & independent query cloud & $0.00746\pm 0.00552$ & $0.0094\pm 0.00533$ & $0.0152\pm 0.00414$ \\
+$0.05$ & 1200 & training cloud & $0.00681\pm 0.00219$ & $0.00764\pm 0.00216$ & $0.00893\pm 3.06\times10^{-4}$ \\
+$0.05$ & 1200 & independent query cloud & $0.00768\pm 0.00212$ & $0.00834\pm 0.00222$ & $0.0122\pm 0.00103$ \\
+$0.05$ & 2400 & training cloud & $0.00719\pm 0.00251$ & $0.00758\pm 0.00223$ & $0.00955\pm 4.83\times10^{-4}$ \\
+$0.05$ & 2400 & independent query cloud & $0.00805\pm 0.00208$ & $0.0089\pm 9.81\times10^{-4}$ & $0.017\pm 0.0132$ \\
+\end{longtable}
+\endgroup
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{r r L{0.25\textwidth} r r r}
+\caption{Manufactured-function errors for the reconstructed density gradient $\nabla\rho$.  Entries are mean $\pm$ sample standard deviation over three independently generated training/query-cloud pairs.  The relative norms use the corresponding analytic quantity in the denominator.}\label{tab:manufactured-gradient}\\
+\toprule
+$\ell_2$ & $N$ & Evaluation domain & $E_1$ & $E_2$ & $E_\infty$ \\
+\midrule
+\endfirsthead
+\multicolumn{6}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+$\ell_2$ & $N$ & Evaluation domain & $E_1$ & $E_2$ & $E_\infty$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+$1.00\times10^{-6}$ & 300 & training cloud & $0.00606\pm 0.00497$ & $0.00792\pm 0.00765$ & $0.0132\pm 0.0126$ \\
+$1.00\times10^{-6}$ & 300 & independent query cloud & $0.00753\pm 0.0062$ & $0.0099\pm 0.00913$ & $0.0274\pm 0.0203$ \\
+$1.00\times10^{-6}$ & 600 & training cloud & $0.0104\pm 0.0077$ & $0.0117\pm 0.00609$ & $0.0199\pm 0.00625$ \\
+$1.00\times10^{-6}$ & 600 & independent query cloud & $0.0115\pm 0.00724$ & $0.0125\pm 0.00528$ & $0.0279\pm 0.0159$ \\
+$1.00\times10^{-6}$ & 1200 & training cloud & $0.0111\pm 0.00296$ & $0.0102\pm 0.00264$ & $0.0123\pm 5.89\times10^{-4}$ \\
+$1.00\times10^{-6}$ & 1200 & independent query cloud & $0.0119\pm 0.00291$ & $0.0111\pm 0.00265$ & $0.0161\pm 0.00726$ \\
+$1.00\times10^{-6}$ & 2400 & training cloud & $0.0118\pm 0.00149$ & $0.0105\pm 8.74\times10^{-4}$ & $0.0136\pm 0.00444$ \\
+$1.00\times10^{-6}$ & 2400 & independent query cloud & $0.0126\pm 0.00109$ & $0.0113\pm 6.03\times10^{-4}$ & $0.0158\pm 0.00374$ \\
+$0.01$ & 300 & training cloud & $0.00638\pm 0.0055$ & $0.00825\pm 0.00831$ & $0.0128\pm 0.0126$ \\
+$0.01$ & 300 & independent query cloud & $0.00775\pm 0.00669$ & $0.0109\pm 0.0113$ & $0.0331\pm 0.0337$ \\
+$0.01$ & 600 & training cloud & $0.0103\pm 0.00768$ & $0.0115\pm 0.00608$ & $0.0199\pm 0.00586$ \\
+$0.01$ & 600 & independent query cloud & $0.0112\pm 0.00724$ & $0.0121\pm 0.00527$ & $0.0234\pm 0.0133$ \\
+$0.01$ & 1200 & training cloud & $0.011\pm 0.00295$ & $0.0101\pm 0.00264$ & $0.0119\pm 4.28\times10^{-4}$ \\
+$0.01$ & 1200 & independent query cloud & $0.0118\pm 0.00287$ & $0.0109\pm 0.00264$ & $0.0138\pm 0.00402$ \\
+$0.01$ & 2400 & training cloud & $0.0124\pm 0.00234$ & $0.0113\pm 0.00169$ & $0.0147\pm 0.00383$ \\
+$0.01$ & 2400 & independent query cloud & $0.0133\pm 0.00205$ & $0.012\pm 0.00137$ & $0.014\pm 4.58\times10^{-4}$ \\
+$0.05$ & 300 & training cloud & $0.00605\pm 0.00498$ & $0.00792\pm 0.00754$ & $0.0133\pm 0.0124$ \\
+$0.05$ & 300 & independent query cloud & $0.00761\pm 0.00649$ & $0.00983\pm 0.00969$ & $0.0265\pm 0.024$ \\
+$0.05$ & 600 & training cloud & $0.0104\pm 0.00761$ & $0.0116\pm 0.00599$ & $0.0197\pm 0.00625$ \\
+$0.05$ & 600 & independent query cloud & $0.0114\pm 0.00717$ & $0.0125\pm 0.00522$ & $0.0287\pm 0.0159$ \\
+$0.05$ & 1200 & training cloud & $0.0111\pm 0.00291$ & $0.0102\pm 0.00263$ & $0.0121\pm 7.71\times10^{-4}$ \\
+$0.05$ & 1200 & independent query cloud & $0.0119\pm 0.00286$ & $0.011\pm 0.00263$ & $0.0127\pm 0.00182$ \\
+$0.05$ & 2400 & training cloud & $0.0125\pm 0.00236$ & $0.0113\pm 0.00176$ & $0.0144\pm 0.00342$ \\
+$0.05$ & 2400 & independent query cloud & $0.0133\pm 0.00204$ & $0.0121\pm 0.00131$ & $0.0163\pm 0.00339$ \\
+\end{longtable}
+\endgroup
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{r r L{0.25\textwidth} r r r}
+\caption{Manufactured-function errors for the reconstructed excess action $Q[\rho]$.  Entries are mean $\pm$ sample standard deviation over three independently generated training/query-cloud pairs.  The relative norms use the corresponding analytic quantity in the denominator.}\label{tab:manufactured-operator}\\
+\toprule
+$\ell_2$ & $N$ & Evaluation domain & $E_1$ & $E_2$ & $E_\infty$ \\
+\midrule
+\endfirsthead
+\multicolumn{6}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+$\ell_2$ & $N$ & Evaluation domain & $E_1$ & $E_2$ & $E_\infty$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+$1.00\times10^{-6}$ & 300 & training cloud & $0.017\pm 0.0155$ & $0.0189\pm 0.0185$ & $0.0304\pm 0.0364$ \\
+$1.00\times10^{-6}$ & 300 & independent query cloud & $0.0206\pm 0.019$ & $0.0256\pm 0.0246$ & $0.0643\pm 0.0702$ \\
+$1.00\times10^{-6}$ & 600 & training cloud & $0.0269\pm 0.0131$ & $0.0306\pm 0.0131$ & $0.0456\pm 0.029$ \\
+$1.00\times10^{-6}$ & 600 & independent query cloud & $0.0291\pm 0.0134$ & $0.0307\pm 0.0139$ & $0.0405\pm 0.00411$ \\
+$1.00\times10^{-6}$ & 1200 & training cloud & $0.0225\pm 0.00407$ & $0.0218\pm 0.00351$ & $0.0281\pm 0.00512$ \\
+$1.00\times10^{-6}$ & 1200 & independent query cloud & $0.0232\pm 0.00324$ & $0.0236\pm 0.00222$ & $0.0267\pm 6.70\times10^{-4}$ \\
+$1.00\times10^{-6}$ & 2400 & training cloud & $0.0241\pm 0.00199$ & $0.022\pm 0.00223$ & $0.0255\pm 0.0046$ \\
+$1.00\times10^{-6}$ & 2400 & independent query cloud & $0.0234\pm 0.00216$ & $0.0213\pm 0.00272$ & $0.027\pm 0.00334$ \\
+$0.01$ & 300 & training cloud & $0.0182\pm 0.0178$ & $0.0225\pm 0.0251$ & $0.0304\pm 0.0368$ \\
+$0.01$ & 300 & independent query cloud & $0.0199\pm 0.0183$ & $0.0328\pm 0.0381$ & $0.115\pm 0.163$ \\
+$0.01$ & 600 & training cloud & $0.0268\pm 0.0125$ & $0.0304\pm 0.0126$ & $0.0456\pm 0.0303$ \\
+$0.01$ & 600 & independent query cloud & $0.0285\pm 0.0129$ & $0.0302\pm 0.0137$ & $0.0399\pm 0.00491$ \\
+$0.01$ & 1200 & training cloud & $0.0222\pm 0.00392$ & $0.0214\pm 0.00342$ & $0.0274\pm 0.00362$ \\
+$0.01$ & 1200 & independent query cloud & $0.0228\pm 0.003$ & $0.0233\pm 0.00225$ & $0.0269\pm 0.0011$ \\
+$0.01$ & 2400 & training cloud & $0.0239\pm 0.00161$ & $0.022\pm 0.00195$ & $0.0279\pm 0.00533$ \\
+$0.01$ & 2400 & independent query cloud & $0.0231\pm 0.0014$ & $0.0215\pm 0.00247$ & $0.0286\pm 0.00244$ \\
+$0.05$ & 300 & training cloud & $0.0171\pm 0.0159$ & $0.0189\pm 0.0188$ & $0.0288\pm 0.0341$ \\
+$0.05$ & 300 & independent query cloud & $0.0208\pm 0.0197$ & $0.0256\pm 0.0261$ & $0.0654\pm 0.0779$ \\
+$0.05$ & 600 & training cloud & $0.027\pm 0.0133$ & $0.0307\pm 0.0132$ & $0.0458\pm 0.0285$ \\
+$0.05$ & 600 & independent query cloud & $0.0292\pm 0.0136$ & $0.0307\pm 0.0139$ & $0.0399\pm 0.00367$ \\
+$0.05$ & 1200 & training cloud & $0.0225\pm 0.00363$ & $0.0219\pm 0.003$ & $0.0293\pm 0.00615$ \\
+$0.05$ & 1200 & independent query cloud & $0.0232\pm 0.00291$ & $0.0238\pm 0.00182$ & $0.0272\pm 0.00129$ \\
+$0.05$ & 2400 & training cloud & $0.0239\pm 0.00196$ & $0.0219\pm 0.00224$ & $0.0275\pm 0.00565$ \\
+$0.05$ & 2400 & independent query cloud & $0.0233\pm 0.00193$ & $0.0216\pm 0.00288$ & $0.0285\pm 0.00333$ \\
+\end{longtable}
+\endgroup
+
+The value reconstruction is generally the least demanding part of this test;
+the gradient and \(Q[\rho]\) amplify local errors through differentiation.
+Most importantly, increasing \(N\) does not produce a monotone reduction of
+the operator error. For the regularization used in the dynamical calculations,
+\(\ell_2=0.05\), the off-cloud mean relative \(L_1\) error in \(Q[\rho]\) is
+\(2.08\times10^{-2}\), \(2.92\times10^{-2}\),
+\(2.32\times10^{-2}\), and \(2.33\times10^{-2}\) for
+\(N=300,600,1200,2400\), respectively. The smaller regularizations
+\(10^{-6}\) and \(0.01\) change the error level but do not restore a systematic
+refinement trend. The data therefore support neither convergence of the
+ambient derivative reconstruction nor an attribution of the non-monotonicity
+to one numerical cause.
+
+Figure~\ref{fig:manufactured-operator-regularization} condenses the decisive
+operator comparison.
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.96\textwidth]{../final_reviewer_closure/figures/manufactured_operator_regularization.png}
+\caption{Manufactured relative \(L_2\) error in the excess action \(Q[\rho]\)
+on the training cloud and on an independent query cloud. Points are means
+over seeds 123, 124, and 125; bars are sample standard deviations. The three
+regularization policies use paired training and query clouds at each cloud
+size. The error remains nonzero and nonmonotone, so neither cloud enlargement
+nor changing \(\ell_2\) from \(10^{-6}\) to the pilot \(0.01\) or production
+\(0.05\) policy establishes a monotone error decrease under independent-cloud
+enlargement.}
+\label{fig:manufactured-operator-regularization}
+\end{figure}
+
+\section{Physical SEO image and identical-cloud reconstruction}
+\label{sec:results-projection}
+
+The two-state physical SEO image has four real bath-dependent coefficient
+fields. Table~\ref{tab:seo-projection-physics} measures the relative distance
+of the fitted product density from this image using 20 bath anchors and 400
+mapping probes. The projection is diagnosed but not imposed. Across the
+reported snapshots and initial momenta, the mean leakage spans approximately
+0.221--0.977, which is too large to regard the propagated surrogate as a small
+perturbation within the physical SEO subspace. This is a representation
+diagnostic, not a TDSE or QCLE error.
+
+The identical-cloud comparison in
+Table~\ref{tab:identical-cloud-reconstruction} addresses a narrower question:
+can the GP reproduce a KDE density when both estimators use the same PBME
+snapshot, weights, bandwidth, normalization, and evaluation grid? The maximum
+\(E_1\) values are well below the declared \(0.02\) criterion. This positive
+control confirms accurate same-cloud value reconstruction, but it does not
+test derivatives, the SEO constraint, or time propagation.
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r r r r}
+\caption{Relative $L_2$ distance from the four-field physical SEO image at three collision-time snapshots.  The entries are mean $\pm$ sample standard deviation over four independently propagated clouds; projection is diagnosed by least squares but is not imposed during propagation.}\label{tab:seo-projection-physics}\\
+\toprule
+Method & $P_{\rm init}$ & $t/t_c$ & Mean leakage & Largest local leakage \\
+\midrule
+\endfirsthead
+\multicolumn{5}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Method & $P_{\rm init}$ & $t/t_c$ & Mean leakage & Largest local leakage \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+PBME & 20 & $0$ & $0.222\pm 0.00155$ & $0.256$ \\
+PBME & 20 & $1$ & $0.803\pm 0.0769$ & $0.993$ \\
+PBME & 20 & $2$ & $0.32\pm 0.0339$ & $0.777$ \\
+PBME & 100 & $0$ & $0.222\pm 0.00155$ & $0.256$ \\
+PBME & 100 & $1$ & $0.962\pm 0.00312$ & $0.998$ \\
+PBME & 100 & $2$ & $0.959\pm 0.0109$ & $0.997$ \\
+MIDPOINT & 20 & $0$ & $0.222\pm 0.00155$ & $0.256$ \\
+MIDPOINT & 20 & $1$ & $0.864\pm 0.0338$ & $0.998$ \\
+MIDPOINT & 20 & $2$ & $0.626\pm 0.163$ & $0.99$ \\
+MIDPOINT & 100 & $0$ & $0.222\pm 0.00155$ & $0.256$ \\
+MIDPOINT & 100 & $1$ & $0.968\pm 0.00653$ & $0.999$ \\
+MIDPOINT & 100 & $2$ & $0.967\pm 0.00671$ & $0.998$ \\
+\end{longtable}
+\endgroup
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{r r r r r L{0.27\textwidth}}
+\caption{Identical-cloud KDE/GP reconstruction control.  Both estimators use the same PBME snapshot, weights, bandwidth convention, normalization, and evaluation grid.  The declared criterion concerns $E_1$ only and does not test derivatives or propagation.}\label{tab:identical-cloud-reconstruction}\\
+\toprule
+$P_{\rm init}$ & Cases & $\max E_1$ & $\max E_2$ & $\max E_\infty$ & Declared reconstruction criterion \\
+\midrule
+\endfirsthead
+\multicolumn{6}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+$P_{\rm init}$ & Cases & $\max E_1$ & $\max E_2$ & $\max E_\infty$ & Declared reconstruction criterion \\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+20 & 12 & $0.00118$ & $4.24\times10^{-4}$ & $5.88\times10^{-4}$ & $E_1\leq 0.02$ (criterion met) \\
+100 & 12 & $0.00155$ & $5.16\times10^{-4}$ & $9.28\times10^{-4}$ & $E_1\leq 0.02$ (criterion met) \\
+\end{longtable}
+\endgroup
+
+The nonzero initial value in Table~\ref{tab:seo-projection-physics} requires
+explicit interpretation. At \(t=0\) the analytic initial density is the
+occupied-state SEO profile multiplied by a smooth bath factor, so it lies
+exactly in the four-field image and its residual under the same projector
+vanishes identically in exact arithmetic. The reported initial leakage of
+approximately 0.222 is therefore a property of the fitted finite surrogate as
+evaluated by this diagnostic, not of the physical initial target: the
+20-anchor/400-probe evaluation samples mapping directions that the focused
+initial cloud does not constrain, where the fitted product density is
+determined by the Gaussian-process extension and the safe-profile floor
+rather than by data. PBME and MIDPOINT report identical initial values
+because both branches share the same initial fit before any excess source is
+applied. The present calculations do not apportion this initial residual
+among the Gaussian-process extension, the floor regularization, and the
+finite anchor/probe sampling; the subsequent growth of the leakage along the
+propagation, not the initial offset, carries the propagation-relevant
+conclusion.
+
+The four-seed snapshot summary in
+Figure~\ref{fig:seo-projection-leakage-verified} shows that the leakage is not
+a small local residual confined to one calculation.
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.96\textwidth]{../final_reviewer_closure/figures/seo_projection_leakage_verified.png}
+\caption{Diagnostic SEO projection leakage at \(t/t_c=0,1,2\). Each point is
+the mean over four independent propagation seeds and each bar is the sample
+standard deviation. The plotted quantity is the relative \(L_2\) residual
+\(\lVert y-Bc\rVert_2/\max(\lVert y\rVert_2,10^{-30})\) from a four-field
+least-squares SEO projection using 20 bath anchors and 400 mapping probes.
+Projection is diagnosed but not enforced, and this quantity is not a physical
+TDSE or QCLE error.}
+\label{fig:seo-projection-leakage-verified}
+\end{figure}
+
+\section{Time-step refinement}
+\label{sec:results-timestep}
+
+Table~\ref{tab:timestep-refinement-physics} compares
+\(\Delta t=0.5,0.25,0.125\) on common physical times using linear
+interpolation without extrapolation. Both successive time-normalized
+differences must first exceed
+\(\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)\).
+Rows below that floor are labelled roundoff- or saturation-limited; rows with
+nondecreasing successive differences are labelled nonmonotone. For MIDPOINT,
+both differences must additionally exceed the pooled dispersion over four
+independently sampled clouds. The 128 run/observable rows comprise 15
+noise-limited rejections, 102 seed-variability rejections, three nonpositive
+orders, and eight positive orders. The latter do not repair the simultaneous
+failures in replication and raw conservation, so the formal order of the
+midpoint formula is not promoted to a demonstrated order of the full
+moving-cloud dynamics.
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l r r r r r L{0.20\textwidth}}
+\caption{Time-step sensitivity of endpoint observables. Values and time-normalized successive differences are averages over seeds 11, 29, 47, and 73 after interpolation to common physical times without extrapolation. Both differences must exceed the declared absolute-plus-relative floor $\tau_{\rm noise}=10^{-12}+10^{-12}\max_k\operatorname{RMS}(O_k)$ before an order is interpreted; MIDPOINT additionally requires both differences to exceed pooled independent-seed dispersion.}\label{tab:timestep-refinement-physics}\\
+\toprule
+Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation \\
+\midrule
+\endfirsthead
+\multicolumn{9}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Method & $P_{\rm init}$ & Observable & $\langle y_{0.5}\rangle$ & $\langle y_{0.25}\rangle$ & $\langle y_{0.125}\rangle$ & $\langle D_{12}\rangle$ & $\langle D_{23}\rangle$ & Interpretation \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+PBME & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.964$ & $0.964$ & $0.964$ & $7.02\times10^{-7}$ & $1.75\times10^{-7}$ & step-size signal is not resolved above seed spread \\
+PBME & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0357$ & $0.0357$ & $0.0357$ & $7.02\times10^{-7}$ & $1.75\times10^{-7}$ & step-size signal is not resolved above seed spread \\
+PBME & 20 & electronic trace & $1$ & $1$ & $1$ & $2.90\times10^{-13}$ & $5.91\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+PBME & 20 & energy & $0.1$ & $0.1$ & $0.1$ & $4.93\times10^{-9}$ & $1.23\times10^{-9}$ & step-size signal is not resolved above seed spread \\
+PBME & 20 & $\langle R\rangle$ & $15.3$ & $15.3$ & $15.3$ & $1.48\times10^{-6}$ & $3.69\times10^{-7}$ & step-size signal is not resolved above seed spread \\
+PBME & 20 & $\langle P\rangle$ & $19.8$ & $19.8$ & $19.8$ & $3.50\times10^{-6}$ & $8.74\times10^{-7}$ & step-size signal is not resolved above seed spread \\
+PBME & 20 & $\operatorname{var}(R)$ & $2.31$ & $2.31$ & $2.31$ & $4.89\times10^{-7}$ & $1.22\times10^{-7}$ & step-size signal is not resolved above seed spread \\
+PBME & 20 & $\operatorname{var}(P)$ & $1.66$ & $1.66$ & $1.66$ & $3.00\times10^{-6}$ & $7.49\times10^{-7}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.137$ & $0.137$ & $0.137$ & $6.74\times10^{-6}$ & $1.69\times10^{-6}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.863$ & $0.863$ & $0.863$ & $6.74\times10^{-6}$ & $1.69\times10^{-6}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & electronic trace & $1$ & $1$ & $1$ & $5.64\times10^{-14}$ & $1.16\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+PBME & 100 & energy & $2.5$ & $2.5$ & $2.5$ & $5.98\times10^{-8}$ & $1.50\times10^{-8}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $3.94\times10^{-7}$ & $9.85\times10^{-8}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $6.82\times10^{-6}$ & $1.70\times10^{-6}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & $\operatorname{var}(R)$ & $0.985$ & $0.985$ & $0.985$ & $1.81\times10^{-7}$ & $4.51\times10^{-8}$ & step-size signal is not resolved above seed spread \\
+PBME & 100 & $\operatorname{var}(P)$ & $0.444$ & $0.444$ & $0.444$ & $7.48\times10^{-6}$ & $1.87\times10^{-6}$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 20 & $\rho_{11}^{\mathrm{SN}}$ & $1.18$ & $1.31$ & $0.818$ & $0.525$ & $0.422$ & contracting signal resolved above noise and seed spread \\
+MIDPOINT & 20 & $\rho_{22}^{\mathrm{SN}}$ & $-0.18$ & $-0.312$ & $0.182$ & $0.525$ & $0.422$ & contracting signal resolved above noise and seed spread \\
+MIDPOINT & 20 & electronic trace & $1$ & $1$ & $1$ & $1.45\times10^{-12}$ & $1.68\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+MIDPOINT & 20 & energy & $0.107$ & $0.126$ & $0.0937$ & $0.0317$ & $0.0232$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 20 & $\langle R\rangle$ & $16.6$ & $14.3$ & $13.9$ & $2.38$ & $2.21$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 20 & $\langle P\rangle$ & $21.5$ & $24.2$ & $18.5$ & $4.91$ & $3.96$ & contracting signal resolved above noise and seed spread \\
+MIDPOINT & 20 & $\operatorname{var}(R)$ & $-1.52\times10^{3}$ & $-5.07$ & $-13.1$ & $503$ & $8.38$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 20 & $\operatorname{var}(P)$ & $-2.67\times10^{3}$ & $11.4$ & $-13.4$ & $1.94\times10^{3}$ & $82.5$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 100 & $\rho_{11}^{\mathrm{SN}}$ & $-0.201$ & $-0.198$ & $-0.18$ & $5.74$ & $5.82$ & nonmonotone step-size response \\
+MIDPOINT & 100 & $\rho_{22}^{\mathrm{SN}}$ & $1.2$ & $1.2$ & $1.18$ & $5.74$ & $5.82$ & nonmonotone step-size response \\
+MIDPOINT & 100 & electronic trace & $1$ & $1$ & $1$ & $7.61\times10^{-13}$ & $1.44\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+MIDPOINT & 100 & energy & $2.5$ & $2.53$ & $2.52$ & $0.704$ & $0.722$ & nonmonotone step-size response \\
+MIDPOINT & 100 & $\langle R\rangle$ & $12.8$ & $12.5$ & $12.6$ & $14.5$ & $12.4$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 100 & $\langle P\rangle$ & $98.8$ & $99.4$ & $99.2$ & $18.2$ & $18$ & step-size signal is not resolved above seed spread \\
+MIDPOINT & 100 & $\operatorname{var}(R)$ & $-1.02\times10^{44}$ & $-1.27\times10^{43}$ & $-6.88\times10^{45}$ & $2.95\times10^{43}$ & $2.01\times10^{45}$ & nonmonotone step-size response \\
+MIDPOINT & 100 & $\operatorname{var}(P)$ & $-5.96\times10^{45}$ & $-9.50\times10^{44}$ & $-4.79\times10^{47}$ & $3.06\times10^{45}$ & $2.38\times10^{47}$ & nonmonotone step-size response \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\section{Independent-cloud enlargement and four-seed replication}
+\label{sec:results-support-replication}
+
+The cloud-size study in Table~\ref{tab:independent-cloud-size} compares
+\(N=500,1000,2000\) using three independently sampled clouds at each size.
+These clouds are not nested; the results therefore measure sensitivity to
+enlarging a stochastic representation rather than deterministic convergence.
+Several MIDPOINT changes remain comparable to, or larger than, the seed
+dispersion, while PBME is generally much more stable.
+
+Table~\ref{tab:four-seed-replication-physics} makes that contrast explicit at
+\(N=1000\) and \(\Delta t=0.25\). For the endpoint \(\rho_{11}^{\mathrm{SN}}\) estimator, the
+PBME sample standard deviation is 0.00788 at initial momentum 20 and 0.0154 at
+initial momentum 100; the corresponding MIDPOINT values are 0.795 and 0.956.
+The MIDPOINT mean and interval can also extend outside the physical population
+range \([0,1]\). Four seeds provide a sensitive instability diagnostic but
+not a precise uncertainty distribution, so the intervals are interpreted
+descriptively.
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l r r r L{0.24\textwidth}}
+\caption{Sensitivity to enlarging independently sampled trajectory clouds.  Each entry is mean $\pm$ sample standard deviation over seeds 11, 29, and 47.  Because the clouds are independently sampled rather than nested, this is a stochastic cloud-size test, not a deterministic convergence order.}\label{tab:independent-cloud-size}\\
+\toprule
+Method & $P_{\rm init}$ & Observable & $N=500$ & $N=1000$ & $N=2000$ & Interpretation \\
+\midrule
+\endfirsthead
+\multicolumn{7}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Method & $P_{\rm init}$ & Observable & $N=500$ & $N=1000$ & $N=2000$ & Interpretation \\
+\midrule
+\endhead
+\midrule
+\multicolumn{7}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+PBME & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.963\pm 0.0109$ & $0.964\pm 0.00965$ & $0.953\pm 0.00151$ & cloud-size change exceeds seed spread \\
+PBME & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0369\pm 0.0109$ & $0.0356\pm 0.00965$ & $0.0472\pm 0.00151$ & cloud-size change exceeds seed spread \\
+PBME & 20 & electronic trace & $1\pm 7.72\times10^{-15}$ & $1\pm 3.67\times10^{-15}$ & $1\pm 1.12\times10^{-15}$ & cloud-size change exceeds seed spread \\
+PBME & 20 & energy & $0.0999\pm 1.94\times10^{-4}$ & $0.1\pm 9.32\times10^{-5}$ & $0.1\pm 9.57\times10^{-5}$ & change remains within seed spread \\
+PBME & 20 & $\langle R\rangle$ & $15.3\pm 0.033$ & $15.3\pm 0.0236$ & $15.3\pm 0.0264$ & cloud-size change exceeds seed spread \\
+PBME & 20 & $\langle P\rangle$ & $19.8\pm 0.0466$ & $19.8\pm 0.0583$ & $19.7\pm 0.013$ & cloud-size change exceeds seed spread \\
+PBME & 20 & $\operatorname{var}(R)$ & $2.18\pm 0.124$ & $2.37\pm 0.133$ & $2.31\pm 0.0335$ & change remains within seed spread \\
+PBME & 20 & $\operatorname{var}(P)$ & $1.46\pm 0.0285$ & $1.7\pm 0.097$ & $1.7\pm 0.0634$ & cloud-size change exceeds seed spread \\
+PBME & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.137\pm 0.00679$ & $0.135\pm 0.0178$ & $0.143\pm 0.006$ & change remains within seed spread \\
+PBME & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.863\pm 0.00679$ & $0.865\pm 0.0178$ & $0.857\pm 0.006$ & change remains within seed spread \\
+PBME & 100 & electronic trace & $1\pm 9.02\times10^{-16}$ & $1\pm 1.78\times10^{-15}$ & $1\pm 3.51\times10^{-16}$ & change remains within seed spread \\
+PBME & 100 & energy & $2.5\pm 9.52\times10^{-4}$ & $2.5\pm 4.71\times10^{-4}$ & $2.5\pm 4.84\times10^{-4}$ & change remains within seed spread \\
+PBME & 100 & $\langle R\rangle$ & $14.9\pm 0.0205$ & $14.9\pm 0.0249$ & $14.9\pm 0.0124$ & change remains within seed spread \\
+PBME & 100 & $\langle P\rangle$ & $99.1\pm 0.0226$ & $99.1\pm 0.0247$ & $99.1\pm 0.00766$ & cloud-size change exceeds seed spread \\
+PBME & 100 & $\operatorname{var}(R)$ & $0.979\pm 0.0751$ & $0.986\pm 0.054$ & $1\pm 0.0299$ & change remains within seed spread \\
+PBME & 100 & $\operatorname{var}(P)$ & $0.426\pm 0.0187$ & $0.447\pm 0.0117$ & $0.46\pm 0.00392$ & cloud-size change exceeds seed spread \\
+MIDPOINT & 20 & $\rho_{11}^{\mathrm{SN}}$ & $1.08\pm 0.0635$ & $0.916\pm 0.0672$ & $0.951\pm 0.0744$ & cloud-size change exceeds seed spread \\
+MIDPOINT & 20 & $\rho_{22}^{\mathrm{SN}}$ & $-0.079\pm 0.0635$ & $0.0841\pm 0.0672$ & $0.0485\pm 0.0744$ & cloud-size change exceeds seed spread \\
+MIDPOINT & 20 & electronic trace & $1\pm 6.46\times10^{-13}$ & $1\pm 6.09\times10^{-13}$ & $1\pm 7.07\times10^{-13}$ & change remains within seed spread \\
+MIDPOINT & 20 & energy & $0.101\pm 0.0214$ & $0.0994\pm 0.0167$ & $0.0934\pm 0.0207$ & change remains within seed spread \\
+MIDPOINT & 20 & $\langle R\rangle$ & $16.9\pm 0.989$ & $14.9\pm 2$ & $14.5\pm 2.24$ & change remains within seed spread \\
+MIDPOINT & 20 & $\langle P\rangle$ & $20.5\pm 1.93$ & $19.5\pm 1.73$ & $19\pm 1.75$ & change remains within seed spread \\
+MIDPOINT & 20 & $\operatorname{var}(R)$ & $-1.31\times10^{3}\pm 262$ & $-9.5\pm 52.5$ & $-1.94\times10^{8}\pm 3.31\times10^{8}$ & change remains within seed spread \\
+MIDPOINT & 20 & $\operatorname{var}(P)$ & $-1.94\times10^{3}\pm 571$ & $-6.33\pm 85.3$ & $-3.87\times10^{8}\pm 6.63\times10^{8}$ & change remains within seed spread \\
+MIDPOINT & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.923\pm 1.01$ & $-0.46\pm 0.98$ & $-0.297\pm 0.842$ & change remains within seed spread \\
+MIDPOINT & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.0775\pm 1.01$ & $1.46\pm 0.98$ & $1.3\pm 0.842$ & change remains within seed spread \\
+MIDPOINT & 100 & electronic trace & $1\pm 1.39\times10^{-13}$ & $1\pm 7.76\times10^{-14}$ & $1\pm 3.65\times10^{-14}$ & change remains within seed spread \\
+MIDPOINT & 100 & energy & $2.41\pm 0.0692$ & $2.53\pm 0.107$ & $2.5\pm 0.05$ & change remains within seed spread \\
+MIDPOINT & 100 & $\langle R\rangle$ & $12.4\pm 3.43$ & $12.5\pm 0.978$ & $12.6\pm 1.27$ & change remains within seed spread \\
+MIDPOINT & 100 & $\langle P\rangle$ & $98.2\pm 0.412$ & $99.2\pm 1.28$ & $98.7\pm 1.29$ & change remains within seed spread \\
+MIDPOINT & 100 & $\operatorname{var}(R)$ & $-1.47\times10^{19}\pm 2.54\times10^{19}$ & $-1.69\times10^{43}\pm 2.56\times10^{43}$ & $-4.76\times10^{94}\pm 8.25\times10^{94}$ & change remains within seed spread \\
+MIDPOINT & 100 & $\operatorname{var}(P)$ & $-8.89\times10^{20}\pm 1.53\times10^{21}$ & $-1.27\times10^{45}\pm 1.96\times10^{45}$ & $-2.43\times10^{96}\pm 4.20\times10^{96}$ & change remains within seed spread \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l r r r r}
+\caption{Four-seed endpoint replication at $N=1000$ and $\Delta t=0.25$.  The interval is a two-sided Student-$t$ interval with three degrees of freedom and is interpreted as a small-sample sensitivity measure, not as strong uncertainty calibration.}\label{tab:four-seed-replication-physics}\\
+\toprule
+Method & $P_{\rm init}$ & Observable & Mean & Sample SD & 95\% interval & Max. spread \\
+\midrule
+\endfirsthead
+\multicolumn{7}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Method & $P_{\rm init}$ & Observable & Mean & Sample SD & 95\% interval & Max. spread \\
+\midrule
+\endhead
+\midrule
+\multicolumn{7}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+PBME & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.964$ & $0.00788$ & $[0.952,0.977]$ & $0.019$ \\
+PBME & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0357$ & $0.00788$ & $[0.0231,0.0482]$ & $0.019$ \\
+PBME & 20 & electronic trace & $1$ & $3.08\times10^{-15}$ & $[1,1]$ & $7.33\times10^{-15}$ \\
+PBME & 20 & energy & $0.1$ & $8.18\times10^{-5}$ & $[0.0999,0.1]$ & $1.79\times10^{-4}$ \\
+PBME & 20 & $\langle R\rangle$ & $15.3$ & $0.0227$ & $[15.3,15.4]$ & $0.0458$ \\
+PBME & 20 & $\langle P\rangle$ & $19.8$ & $0.0476$ & $[19.7,19.9]$ & $0.111$ \\
+PBME & 20 & $\operatorname{var}(R)$ & $2.31$ & $0.163$ & $[2.05,2.57]$ & $0.357$ \\
+PBME & 20 & $\operatorname{var}(P)$ & $1.66$ & $0.118$ & $[1.47,1.85]$ & $0.281$ \\
+PBME & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.137$ & $0.0154$ & $[0.113,0.162]$ & $0.0333$ \\
+PBME & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.863$ & $0.0154$ & $[0.838,0.887]$ & $0.0333$ \\
+PBME & 100 & electronic trace & $1$ & $1.46\times10^{-15}$ & $[1,1]$ & $3.33\times10^{-15}$ \\
+PBME & 100 & energy & $2.5$ & $4.13\times10^{-4}$ & $[2.5,2.5]$ & $9.07\times10^{-4}$ \\
+PBME & 100 & $\langle R\rangle$ & $14.9$ & $0.0271$ & $[14.9,14.9]$ & $0.0543$ \\
+PBME & 100 & $\langle P\rangle$ & $99.1$ & $0.0203$ & $[99.1,99.2]$ & $0.0461$ \\
+PBME & 100 & $\operatorname{var}(R)$ & $0.985$ & $0.0441$ & $[0.915,1.06]$ & $0.0944$ \\
+PBME & 100 & $\operatorname{var}(P)$ & $0.444$ & $0.0116$ & $[0.426,0.463]$ & $0.021$ \\
+MIDPOINT & 20 & $\rho_{11}^{\mathrm{SN}}$ & $1.31$ & $0.795$ & $[0.0475,2.58]$ & $1.65$ \\
+MIDPOINT & 20 & $\rho_{22}^{\mathrm{SN}}$ & $-0.312$ & $0.795$ & $[-1.58,0.952]$ & $1.65$ \\
+MIDPOINT & 20 & electronic trace & $1$ & $2.52\times10^{-12}$ & $[1,1]$ & $5.34\times10^{-12}$ \\
+MIDPOINT & 20 & energy & $0.126$ & $0.0557$ & $[0.0378,0.215]$ & $0.122$ \\
+MIDPOINT & 20 & $\langle R\rangle$ & $14.3$ & $1.98$ & $[11.2,17.5]$ & $4.08$ \\
+MIDPOINT & 20 & $\langle P\rangle$ & $24.2$ & $9.49$ & $[9.11,39.3]$ & $20.4$ \\
+MIDPOINT & 20 & $\operatorname{var}(R)$ & $-5.07$ & $43.8$ & $[-74.8,64.6]$ & $104$ \\
+MIDPOINT & 20 & $\operatorname{var}(P)$ & $11.4$ & $78.1$ & $[-113,136]$ & $170$ \\
+MIDPOINT & 100 & $\rho_{11}^{\mathrm{SN}}$ & $-0.198$ & $0.956$ & $[-1.72,1.32]$ & $2.07$ \\
+MIDPOINT & 100 & $\rho_{22}^{\mathrm{SN}}$ & $1.2$ & $0.956$ & $[-0.324,2.72]$ & $2.07$ \\
+MIDPOINT & 100 & electronic trace & $1$ & $6.41\times10^{-14}$ & $[1,1]$ & $1.41\times10^{-13}$ \\
+MIDPOINT & 100 & energy & $2.53$ & $0.0879$ & $[2.39,2.67]$ & $0.207$ \\
+MIDPOINT & 100 & $\langle R\rangle$ & $12.5$ & $0.799$ & $[11.2,13.8]$ & $1.92$ \\
+MIDPOINT & 100 & $\langle P\rangle$ & $99.4$ & $1.1$ & $[97.6,101]$ & $2.22$ \\
+MIDPOINT & 100 & $\operatorname{var}(R)$ & $-1.27\times10^{43}$ & $2.25\times10^{43}$ & $[-4.85\times10^{43},2.31\times10^{43}]$ & $4.63\times10^{43}$ \\
+MIDPOINT & 100 & $\operatorname{var}(P)$ & $-9.50\times10^{44}$ & $1.72\times10^{45}$ & $[-3.69\times10^{45},1.79\times10^{45}]$ & $3.52\times10^{45}$ \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+Figure~\ref{fig:replication-raw-conservation} places the seed instability and
+the associated raw conservation failure on the same footing.
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.91\textwidth]{../final_reviewer_closure/figures/replication_and_raw_conservation.png}
+\caption{Four-seed replication and raw pre-normalization conservation for the
+canonical \(N=1000\), \(\Delta t=0.25\) calculations. The upper panels show
+the endpoint \(\rho_{11}^{\mathrm{SN}}\) estimator; the shaded band marks the physical interval
+\([0,1]\). The lower panels show the maximum absolute drift of the raw
+normalization. Exact PBME zeros are displayed at \(10^{-16}\) only to make
+them visible on the logarithmic axis. The seed count is four, not the number
+of trajectories, and the plot supplies a descriptive sensitivity comparison
+rather than strong uncertainty calibration.}
+\label{fig:replication-raw-conservation}
+\end{figure}
+
+\section{Raw conservation and signed-label tail sensitivity}
+\label{sec:results-conservation-tail}
+
+The population and density curves shown elsewhere can be normalized for visual
+comparison, but that operation removes the very integral whose conservation
+must be tested. Table~\ref{tab:raw-conservation-physics} therefore reports the
+normalization, electronic trace, and energy before any such rescaling. PBME
+keeps the raw normalization constant in these calculations and its trace and
+energy drifts remain small. MIDPOINT shows large and strongly seed-dependent
+drifts: even in the canonical four-seed set the largest normalization drift
+reaches \(8.69\times10^{20}\), and across the tested refinement/cloud-size
+calculations it reaches \(7.35\times10^{46}\). A unit-normalized display curve
+cannot be used as evidence against this failure.
+
+The signed-label diagnostic in Table~\ref{tab:signed-label-tail-physics}
+quantifies the conditioning of the ratio \(y_i(t)/y_i^0\). At zero threshold,
+the largest absolute ratio reaches \(7.61\times10^{23}\) and the signed
+effective sample size falls as low as 0.0247. The first nonzero threshold,
+however, already removes about \(10^{-3}\) of the absolute physical mass,
+which is larger than the predeclared negligible-mass allowance of \(10^{-6}\).
+Thus there is no nontrivial negligible-mass plateau. The signed estimator is
+demonstrably ill-conditioned, but these calculations do not isolate a
+vanishing-initial-label tail as its unique cause.
+
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l r r r}
+\caption{Raw pre-normalization conservation diagnostics for the canonical four-seed calculations ($N=1000$, $\Delta t=0.25$).  The largest drift is the maximum over both time and seeds; the RMS column is averaged over seeds.  These raw quantities are evaluated before any display normalization.}\label{tab:raw-conservation-physics}\\
+\toprule
+Method & $P_{\rm init}$ & Quantity & Largest $|\Delta|$ & Mean RMS drift & Endpoint-drift range \\
+\midrule
+\endfirsthead
+\multicolumn{6}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Method & $P_{\rm init}$ & Quantity & Largest $|\Delta|$ & Mean RMS drift & Endpoint-drift range \\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+PBME & 20 & normalization & $0$ & $0$ & $[0,0]$ \\
+PBME & 20 & trace & $1.17\times10^{-12}$ & $6.08\times10^{-13}$ & $[1.16\times10^{-12},1.17\times10^{-12}]$ \\
+PBME & 20 & energy & $6.38\times10^{-9}$ & $1.64\times10^{-9}$ & $[1.45\times10^{-13},4.38\times10^{-13}]$ \\
+PBME & 100 & normalization & $0$ & $0$ & $[0,0]$ \\
+PBME & 100 & trace & $2.28\times10^{-13}$ & $1.18\times10^{-13}$ & $[2.25\times10^{-13},2.28\times10^{-13}]$ \\
+PBME & 100 & energy & $8.02\times10^{-8}$ & $1.99\times10^{-8}$ & $[-9.10\times10^{-13},-3.81\times10^{-13}]$ \\
+MIDPOINT & 20 & normalization & $2.07$ & $0.353$ & $[-0.938,0.174]$ \\
+MIDPOINT & 20 & trace & $2.07$ & $0.353$ & $[-0.938,0.174]$ \\
+MIDPOINT & 20 & energy & $0.244$ & $0.0387$ & $[-0.0871,0.0383]$ \\
+MIDPOINT & 100 & normalization & $8.69\times10^{20}$ & $9.95\times10^{19}$ & $[-1.66\times10^{20},5.94\times10^{20}]$ \\
+MIDPOINT & 100 & trace & $8.69\times10^{20}$ & $9.95\times10^{19}$ & $[-1.66\times10^{20},5.94\times10^{20}]$ \\
+MIDPOINT & 100 & energy & $2.22\times10^{21}$ & $2.56\times10^{20}$ & $[-4.36\times10^{20},1.52\times10^{21}]$ \\
+\end{longtable}
+\endgroup
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r r r r r r r r}
+\caption{Signed-label conditioning and tail sensitivity.  The first nonzero threshold excludes about $10^{-3}$ of the absolute physical mass, already above the predeclared negligible-mass allowance $10^{-6}$.  Consequently no nontrivial negligible-mass plateau exists from which to attribute the instability uniquely to a vanishing-$|y_i^0|$ tail.}\label{tab:signed-label-tail-physics}\\
+\toprule
+Method & $P_{\rm init}$ & Seed & $\max|y/y^0|$ & $N_{\rm eff}^{\rm signed}$ & $N_{\rm eff}^{\rm abs}$ & Raw norm & First $\eta$ & Excluded mass \\
+\midrule
+\endfirsthead
+\multicolumn{9}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Method & $P_{\rm init}$ & Seed & $\max|y/y^0|$ & $N_{\rm eff}^{\rm signed}$ & $N_{\rm eff}^{\rm abs}$ & Raw norm & First $\eta$ & Excluded mass \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+MIDPOINT & 20 & 11 & $333$ & $4.07$ & $46$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+MIDPOINT & 20 & 29 & $176$ & $3.97$ & $92.6$ & $0.439$ & $0.001$ & $1.00\times10^{-3}$ \\
+MIDPOINT & 20 & 47 & $999$ & $0.669$ & $32.3$ & $1.17$ & $0.001$ & $1.00\times10^{-3}$ \\
+MIDPOINT & 20 & 73 & $256$ & $0.0247$ & $73.5$ & $0.0621$ & $0.01$ & $0.008$ \\
+MIDPOINT & 100 & 11 & $2.55\times10^{14}$ & $0.961$ & $27.6$ & $-4.75\times10^{11}$ & $0.001$ & $1.00\times10^{-3}$ \\
+MIDPOINT & 100 & 29 & $7.61\times10^{23}$ & $0.5$ & $16.4$ & $5.94\times10^{20}$ & $0.001$ & $1.00\times10^{-3}$ \\
+MIDPOINT & 100 & 47 & $3.38\times10^{23}$ & $0.204$ & $12.2$ & $-1.66\times10^{20}$ & $0.001$ & $1.00\times10^{-3}$ \\
+MIDPOINT & 100 & 73 & $4.83\times10^{16}$ & $0.478$ & $70.4$ & $-9.29\times10^{13}$ & $0.01$ & $0.008$ \\
+PBME & 20 & 11 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+PBME & 20 & 29 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+PBME & 20 & 47 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+PBME & 20 & 73 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.01$ & $0.008$ \\
+PBME & 100 & 11 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+PBME & 100 & 29 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+PBME & 100 & 47 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.001$ & $1.00\times10^{-3}$ \\
+PBME & 100 & 73 & $1$ & $1.00\times10^{3}$ & $1.00\times10^{3}$ & $1$ & $0.01$ & $0.008$ \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+Figure~\ref{fig:initial-label-tail-sensitivity} shows the paired
+initial-label distributions and the threshold sweep behind
+Table~\ref{tab:signed-label-tail-physics}.
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.96\textwidth]{../final_reviewer_closure/figures/initial_label_tail_sensitivity.png}
+\caption{Initial-label tail sensitivity for all eight paired
+\(P_{\rm init}\)/seed cases. The quantile panel reports the \(|y_i^0|\)
+distribution on the grid \(q=0.001,\ldots,0.999\); the threshold panels use
+the PBME copy of the method-identical inclusion masks at every positive
+threshold \(\eta\). Solid lines are excluded point fractions and dashed
+lines are excluded absolute physical-mass fractions; exact zeros are plotted
+at \(10^{-7}\) only for logarithmic display and do not alter any reported
+error. The first nonzero threshold already excludes about \(10^{-3}\) of the
+absolute physical mass, exceeding the predeclared \(10^{-6}\) allowance, so
+no negligible-mass plateau exists.}
+\label{fig:initial-label-tail-sensitivity}
+\end{figure}
+
+\section{TDSE and grid-QCLE numerical controls}
+\label{sec:results-reference-controls}
+
+TDSE is model-exact only within the displayed domain, time step, periodic FFT
+convention, edge-mass, normalization, and reflected-momentum controls. Grid
+QCLE is a numerical solution of the approximate QCLE equation. Its separate
+temporal and phase-space-grid studies report three levels and both successive
+differences for each observable. The exact domains and discretizations are
+collected in Table~\ref{tab:reference-discretizations}, while
+Tables~\ref{tab:tdse-reference-refinement} and
+\ref{tab:qcle-reference-refinement} give the observable-level comparisons.
+
+The maximum TDSE boundary probability in the outer spatial bands is
+\(1.22\times10^{-24}\), and the maximum negative-momentum probability for the
+high-momentum case is \(6.09\times10^{-27}\), both negligible on the declared
+scale. For grid QCLE, the largest physical marginal fractions in the outer
+5\% bands are \(2.51\times10^{-4}\) in \(R\) and
+\(5.92\times10^{-4}\) in \(P\), below the \(10^{-3}\) criterion. An auxiliary
+phase-space \(|W|\)-weighted edge diagnostic can reach \(7.94\times10^{-2}\)
+because the Wigner density is sign-indefinite and exhibits numerical ringing;
+it is retained as a ringing diagnostic and is not substituted for the physical
+marginal boundary mass. The CFL ratios also remain below unity. For
+\(P_{\rm init}=100\), the nominal TDSE grid levels all resolve to the required
+8192-point grid; that case therefore establishes boundary adequacy and
+numerical repeatability on the chosen grid, but not an independent spatial
+convergence rate.
+
+The expected temporal scaling is approximately second order for the TDSE
+split-operator calculation and approximately fourth order for the grid-QCLE
+classical RK4 calculation. Spatial or phase-space-grid behaviour is assessed
+separately and is not assigned either temporal order. An observed order is
+reported only when both successive differences exceed the same declared
+absolute-plus-relative noise floor, decrease monotonically, and give
+\(0<p\leq6\); more rapid contractions are retained as nonasymptotic rather
+than promoted as convergence evidence.
+
+\input{../final_reviewer_closure/tables/ReferenceSettingsByMomentum.tex}
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l r r r r r L{0.18\textwidth}}
+\caption{Three-level TDSE reference study. Time and spatial/grid refinement are performed separately. $\delta_{12}$ and $\delta_{23}$ are successive absolute differences. Both must exceed $\tau_{\rm noise}=10^{-12}+10^{-12}\max_k|O_k|$; nonmonotone rows and values above the plausibility bound $p\le6$ are retained but not interpreted as convergence orders.}\label{tab:tdse-reference-refinement}\\
+\toprule
+Refinement & $P_{\rm init}$ & Observable & Level 1 & Level 2 & Level 3 & $\delta_{12}$ & $\delta_{23}$ & Interpretation \\
+\midrule
+\endfirsthead
+\multicolumn{9}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Refinement & $P_{\rm init}$ & Observable & Level 1 & Level 2 & Level 3 & $\delta_{12}$ & $\delta_{23}$ & Interpretation \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+time & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.952$ & $0.952$ & $0.952$ & $1.20\times10^{-7}$ & $3.00\times10^{-8}$ & $p=2$ \\
+time & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0481$ & $0.0481$ & $0.0481$ & $1.20\times10^{-7}$ & $3.00\times10^{-8}$ & $p=2$ \\
+time & 20 & electronic trace & $1$ & $1$ & $1$ & $4.14\times10^{-12}$ & $6.22\times10^{-12}$ & non-monotone or unresolved \\
+time & 20 & energy & $0.1$ & $0.1$ & $0.1$ & $4.15\times10^{-13}$ & $6.20\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 20 & $\langle R\rangle$ & $15.3$ & $15.3$ & $15.3$ & $4.91\times10^{-7}$ & $1.23\times10^{-7}$ & $p=2$ \\
+time & 20 & $\langle P\rangle$ & $19.7$ & $19.7$ & $19.7$ & $7.10\times10^{-7}$ & $1.78\times10^{-7}$ & $p=2$ \\
+time & 20 & $\operatorname{var}(R)$ & $2.41$ & $2.41$ & $2.41$ & $1.85\times10^{-6}$ & $4.64\times10^{-7}$ & $p=2$ \\
+time & 20 & $\operatorname{var}(P)$ & $2.07$ & $2.07$ & $2.07$ & $4.00\times10^{-6}$ & $1.00\times10^{-6}$ & $p=2$ \\
+time & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.143$ & $0.143$ & $0.143$ & $1.57\times10^{-6}$ & $3.92\times10^{-7}$ & $p=2$ \\
+time & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.857$ & $0.857$ & $0.857$ & $1.57\times10^{-6}$ & $3.92\times10^{-7}$ & $p=2$ \\
+time & 100 & electronic trace & $1$ & $1$ & $1$ & $1.22\times10^{-12}$ & $2.20\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & energy & $2.5$ & $2.5$ & $2.5$ & $2.86\times10^{-12}$ & $5.44\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $1.81\times10^{-7}$ & $4.54\times10^{-8}$ & $p=2$ \\
+time & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $1.58\times10^{-6}$ & $3.94\times10^{-7}$ & $p=2$ \\
+time & 100 & $\operatorname{var}(R)$ & $1.01$ & $1.01$ & $1.01$ & $4.65\times10^{-8}$ & $1.16\times10^{-8}$ & $p=2$ \\
+time & 100 & $\operatorname{var}(P)$ & $0.376$ & $0.376$ & $0.376$ & $1.12\times10^{-6}$ & $2.79\times10^{-7}$ & $p=2$ \\
+grid & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.952$ & $0.952$ & $0.952$ & $4.59\times10^{-12}$ & $1.80\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0481$ & $0.0481$ & $0.0481$ & $4.48\times10^{-14}$ & $2.12\times10^{-14}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & electronic trace & $1$ & $1$ & $1$ & $4.64\times10^{-12}$ & $1.77\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & energy & $0.1$ & $0.1$ & $0.1$ & $4.68\times10^{-13}$ & $1.72\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & $\langle R\rangle$ & $15.3$ & $15.3$ & $15.3$ & $1.79\times10^{-12}$ & $3.77\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & $\langle P\rangle$ & $19.7$ & $19.7$ & $19.7$ & $1.43\times10^{-12}$ & $1.17\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & $\operatorname{var}(R)$ & $2.41$ & $2.41$ & $2.41$ & $2.10\times10^{-12}$ & $3.15\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 20 & $\operatorname{var}(P)$ & $2.07$ & $2.07$ & $2.07$ & $5.91\times10^{-12}$ & $3.58\times10^{-12}$ & $p=0.723$ \\
+grid & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.143$ & $0.143$ & $0.143$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.857$ & $0.857$ & $0.857$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & electronic trace & $1$ & $1$ & $1$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & energy & $2.5$ & $2.5$ & $2.5$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & $\operatorname{var}(R)$ & $1.01$ & $1.01$ & $1.01$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+grid & 100 & $\operatorname{var}(P)$ & $0.376$ & $0.376$ & $0.376$ & $0$ & $0$ & roundoff- or saturation-limited; order not interpreted \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l r r r r r L{0.18\textwidth}}
+\caption{Three-level grid QCLE reference study. Time and spatial/grid refinement are performed separately. $\delta_{12}$ and $\delta_{23}$ are successive absolute differences. Both must exceed $\tau_{\rm noise}=10^{-12}+10^{-12}\max_k|O_k|$; nonmonotone rows and values above the plausibility bound $p\le6$ are retained but not interpreted as convergence orders.}\label{tab:qcle-reference-refinement}\\
+\toprule
+Refinement & $P_{\rm init}$ & Observable & Level 1 & Level 2 & Level 3 & $\delta_{12}$ & $\delta_{23}$ & Interpretation \\
+\midrule
+\endfirsthead
+\multicolumn{9}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Refinement & $P_{\rm init}$ & Observable & Level 1 & Level 2 & Level 3 & $\delta_{12}$ & $\delta_{23}$ & Interpretation \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+time & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.948$ & $0.948$ & $0.948$ & $1.27\times10^{-10}$ & $7.86\times10^{-12}$ & $p=4.01$ \\
+time & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.0518$ & $0.0518$ & $0.0518$ & $1.27\times10^{-10}$ & $7.86\times10^{-12}$ & $p=4.01$ \\
+time & 20 & electronic trace & $1$ & $1$ & $1$ & $6.66\times10^{-16}$ & $4.44\times10^{-16}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 20 & energy & $0.1$ & $0.1$ & $0.1$ & $2.08\times10^{-16}$ & $1.39\times10^{-17}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 20 & $\langle R\rangle$ & $15.3$ & $15.3$ & $15.3$ & $1.43\times10^{-10}$ & $9.07\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 20 & $\langle P\rangle$ & $19.7$ & $19.7$ & $19.7$ & $1.21\times10^{-11}$ & $1.13\times10^{-12}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 20 & $\operatorname{var}(R)$ & $2.14$ & $2.14$ & $2.14$ & $4.36\times10^{-9}$ & $2.76\times10^{-10}$ & $p=3.98$ \\
+time & 20 & $\operatorname{var}(P)$ & $1.05$ & $1.05$ & $1.05$ & $1.46\times10^{-9}$ & $1.09\times10^{-10}$ & $p=3.75$ \\
+time & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.143$ & $0.143$ & $0.143$ & $1.68\times10^{-10}$ & $9.50\times10^{-12}$ & $p=4.14$ \\
+time & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.857$ & $0.857$ & $0.857$ & $1.68\times10^{-10}$ & $9.50\times10^{-12}$ & $p=4.14$ \\
+time & 100 & electronic trace & $1$ & $1$ & $1$ & $0$ & $2.22\times10^{-16}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & energy & $2.5$ & $2.5$ & $2.5$ & $2.22\times10^{-15}$ & $4.44\times10^{-16}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $1.78\times10^{-12}$ & $1.05\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $1.96\times10^{-10}$ & $1.22\times10^{-11}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & $\operatorname{var}(R)$ & $1.01$ & $1.01$ & $1.01$ & $1.42\times10^{-11}$ & $7.67\times10^{-13}$ & roundoff- or saturation-limited; order not interpreted \\
+time & 100 & $\operatorname{var}(P)$ & $0.382$ & $0.382$ & $0.382$ & $1.62\times10^{-10}$ & $7.28\times10^{-12}$ & $p=4.48$ \\
+grid & 20 & $\rho_{11}^{\mathrm{SN}}$ & $0.412$ & $1.05$ & $0.948$ & $0.638$ & $0.102$ & $p=2.64$ \\
+grid & 20 & $\rho_{22}^{\mathrm{SN}}$ & $0.595$ & $-0.0502$ & $0.0518$ & $0.645$ & $0.102$ & $p=2.66$ \\
+grid & 20 & electronic trace & $1.01$ & $1$ & $1$ & $0.00719$ & $1.23\times10^{-7}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 20 & energy & $0.101$ & $0.1$ & $0.1$ & $0.00129$ & $3.76\times10^{-5}$ & $p=5.1$ \\
+grid & 20 & $\langle R\rangle$ & $14.2$ & $15.5$ & $15.3$ & $1.37$ & $0.242$ & $p=2.5$ \\
+grid & 20 & $\langle P\rangle$ & $14.7$ & $20.1$ & $19.7$ & $5.33$ & $0.37$ & $p=3.85$ \\
+grid & 20 & $\operatorname{var}(R)$ & $10.7$ & $1.26$ & $2.14$ & $9.47$ & $0.874$ & $p=3.44$ \\
+grid & 20 & $\operatorname{var}(P)$ & $37$ & $0.451$ & $1.05$ & $36.6$ & $0.595$ & $p=5.94$ \\
+grid & 100 & $\rho_{11}^{\mathrm{SN}}$ & $0.107$ & $0.143$ & $0.143$ & $0.0361$ & $6.54\times10^{-5}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 100 & $\rho_{22}^{\mathrm{SN}}$ & $0.808$ & $0.857$ & $0.857$ & $0.0488$ & $5.89\times10^{-5}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 100 & electronic trace & $0.915$ & $1$ & $1$ & $0.085$ & $6.52\times10^{-6}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 100 & energy & $2.29$ & $2.5$ & $2.5$ & $0.213$ & $1.56\times10^{-5}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 100 & $\langle R\rangle$ & $14.9$ & $14.9$ & $14.9$ & $0.00136$ & $1.71\times10^{-4}$ & $p=2.98$ \\
+grid & 100 & $\langle P\rangle$ & $99.1$ & $99.1$ & $99.1$ & $0.0337$ & $2.61\times10^{-5}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 100 & $\operatorname{var}(R)$ & $0.954$ & $1.01$ & $1.01$ & $0.0529$ & $5.98\times10^{-4}$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+grid & 100 & $\operatorname{var}(P)$ & $0.51$ & $0.381$ & $0.382$ & $0.129$ & $0.00106$ & rapid contraction; order not interpreted (not demonstrably asymptotic) \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\section{PBME versus MIDPOINT against common references}
+\label{sec:results-physical-comparison}
+
+Each paired difference is
+\(E_{\mathrm{MIDPOINT,ref}}-E_{\mathrm{PBME,ref}}\), so a negative value
+favours MIDPOINT for that particular metric. Isolated negative differences do
+not establish systematic improvement. Table~\ref{tab:paired-physical-errors}
+reports the paired mean and Student-\(t\) interval for raw and unit-mass density
+errors and for the principal time-dependent observables. Several intervals
+include zero, and resolved comparisons are not consistently in favour of
+MIDPOINT. More fundamentally, a physical success claim also requires
+seed-stable dynamics, raw conservation, and controlled discretization
+sensitivity. Those conditions are not met, so systematic improvement over
+PBME is not demonstrated.
+
+\begin{landscape}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{l r l l r r L{0.23\textwidth}}
+\caption{Paired physical-error comparison against common references.  The reported difference is $\Delta E=E_{\mathrm{MIDPOINT}}-E_{\mathrm{PBME}}$ over the same four independent seeds; negative values favour MIDPOINT for that metric.  Intervals are paired Student-$t$ 95\% intervals with three degrees of freedom.  Raw and unit-mass density errors are distinguished so that shape normalization cannot hide normalization error.}\label{tab:paired-physical-errors}\\
+\toprule
+Reference & $P_{\rm init}$ & Quantity & Error measure & $\langle\Delta E\rangle$ & 95\% interval & Interpretation \\
+\midrule
+\endfirsthead
+\multicolumn{7}{l}{\tablename\ \thetable\ (continued)}\\
+\toprule
+Reference & $P_{\rm init}$ & Quantity & Error measure & $\langle\Delta E\rangle$ & 95\% interval & Interpretation \\
+\midrule
+\endhead
+\midrule
+\multicolumn{7}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+QCLE & 20 & $R$--$P$ density & raw $E_1$ & $0.506$ & $[-0.297,1.31]$ & interval includes zero \\
+QCLE & 20 & $R$--$P$ density & unit-mass shape $E_1$ & $2.61$ & $[-3.87,9.09]$ & interval includes zero \\
+QCLE & 20 & $\rho_{11}^{\mathrm{SN}}$ & time-series RMS error & $0.378$ & $[-0.435,1.19]$ & interval includes zero \\
+QCLE & 20 & $\rho_{22}^{\mathrm{SN}}$ & time-series RMS error & $0.378$ & $[-0.435,1.19]$ & interval includes zero \\
+QCLE & 20 & $\langle P\rangle$ & time-series RMS error & $3.69$ & $[-5.32,12.7]$ & interval includes zero \\
+QCLE & 20 & $\langle R\rangle$ & time-series RMS error & $1.97$ & $[-2.22,6.16]$ & interval includes zero \\
+QCLE & 100 & $R$--$P$ density & raw $E_1$ & $4.89\times10^{20}$ & $[-5.69\times10^{20},1.55\times10^{21}]$ & interval includes zero \\
+QCLE & 100 & $R$--$P$ density & unit-mass shape $E_1$ & $3.07$ & $[2.62,3.52]$ & PBME smaller for this metric \\
+QCLE & 100 & $\rho_{11}^{\mathrm{SN}}$ & time-series RMS error & $51.4$ & $[-103,206]$ & interval includes zero \\
+QCLE & 100 & $\rho_{22}^{\mathrm{SN}}$ & time-series RMS error & $51.4$ & $[-103,206]$ & interval includes zero \\
+QCLE & 100 & $\langle P\rangle$ & time-series RMS error & $144$ & $[-296,584]$ & interval includes zero \\
+QCLE & 100 & $\langle R\rangle$ & time-series RMS error & $108$ & $[-225,441]$ & interval includes zero \\
+TDSE & 20 & $\rho_{11}^{\mathrm{SN}}$ & time-series RMS error & $0.38$ & $[-0.431,1.19]$ & interval includes zero \\
+TDSE & 20 & $\rho_{22}^{\mathrm{SN}}$ & time-series RMS error & $0.38$ & $[-0.431,1.19]$ & interval includes zero \\
+TDSE & 20 & $\langle P\rangle$ & time-series RMS error & $3.7$ & $[-5.3,12.7]$ & interval includes zero \\
+TDSE & 20 & $\langle R\rangle$ & time-series RMS error & $1.98$ & $[-2.22,6.17]$ & interval includes zero \\
+TDSE & 100 & $\rho_{11}^{\mathrm{SN}}$ & time-series RMS error & $51.4$ & $[-103,206]$ & interval includes zero \\
+TDSE & 100 & $\rho_{22}^{\mathrm{SN}}$ & time-series RMS error & $51.4$ & $[-103,206]$ & interval includes zero \\
+TDSE & 100 & $\langle P\rangle$ & time-series RMS error & $144$ & $[-296,584]$ & interval includes zero \\
+TDSE & 100 & $\langle R\rangle$ & time-series RMS error & $108$ & $[-225,441]$ & interval includes zero \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+This conclusion is visible directly in
+Figure~\ref{fig:paired-physical-reference-differences}. The raw-density panel
+is kept separate from the independently normalized shape panel so that shape
+normalization cannot conceal a failed raw integral.
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.96\textwidth]{../final_reviewer_closure/figures/paired_physical_reference_differences.png}
+\caption{Four-seed paired MIDPOINT-minus-PBME differences for density
+\(E_1\) errors against the matched TDSE and grid-QCLE references. Points are
+paired means and bars are two-sided Student-\(t\) 95\% intervals with three
+degrees of freedom. Positive values mean that MIDPOINT has the larger error.
+The raw-density panel uses the signed display transform
+\(\operatorname{sgn}(\Delta E)\log_{10}(1+\lvert\Delta E\rvert)\), whose tick
+labels show the corresponding untransformed magnitude; the shape panel uses
+unit-mass normalization and a linear axis. Shape agreement is therefore not
+used as conservation evidence.}
+\label{fig:paired-physical-reference-differences}
+\end{figure}
+
+\FloatBarrier
+
+\section{Synthesis of the numerical evidence}
+\label{sec:results-synthesis}
+
+The positive identical-cloud reconstruction control establishes that the GP
+can interpolate density values accurately under matched conditions. That
+result does not carry through the sequence required by the physical
+calculation. The manufactured derivative operator is non-monotone with cloud
+size; the fitted density has substantial SEO-image leakage; the dynamical
+response is dominated by cloud-to-cloud variation; and the raw MIDPOINT
+normalization, trace, and energy can drift catastrophically. Controlled TDSE
+and grid-QCLE references do not reveal a consistent physical-error reduction
+relative to PBME. The failure is therefore not inferred from one diagnostic:
+it is the common conclusion of independent operator, representation,
+refinement, replication, conservation, and reference tests.
+
+The defensible result is correspondingly narrow. The tested product-GP,
+moving-cloud MIDPOINT discretization is not a reliable dynamical method for
+this benchmark. This statement concerns the discretization studied here; it
+does not constitute a failure of the continuum mapping-QCLE excess term.

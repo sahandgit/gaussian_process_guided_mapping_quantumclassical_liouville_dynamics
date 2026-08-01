@@ -50,19 +50,20 @@ interpretation that requires ρ̂ ≥ 0 everywhere), this is the wrong tool.
 Use a non-negative KDE (clip negative weights to zero), a log-KDE,
 or a constrained-GP formulation instead.
 
-What the KDE compares well against
-----------------------------------
-The GP surrogate `ρ̂_GP(z) = σ_f² Σ_i α_i ∏_d exp(-½(z_d-Z_{i,d})²/ℓ_d²)`
-has the SAME signed-Gaussian-mixture form as ρ̂_KDE.  The only
-mathematical difference is how the coefficients are determined:
-  *  GP: α = K_y⁻¹ y (or KKT-projected variant) — chosen so the
-         surrogate INTERPOLATES the labels at the support points.
-  *  KDE: weights = ω_i · y_i directly — no interpolation, just
-         smoothing of the label field by Gaussian bumps.
-Both can take negative values when fed signed labels.  Both are smooth.
-Their disagreement at high cloud-vs-kernel mismatch tells you the GP's
-exact-interpolation requirement has driven α into wild sign oscillation
-between support points — a regression artifact, not a physical feature.
+Projected GP comparison contract
+--------------------------------
+For physical low-dimensional marginals, the comparison uses
+``ProjectedNuclearGP`` below.  It conditions a sparse 2D RBF GP on the
+importance-sampling marginal built from exactly the same support,
+``omega*y`` weights and Scott/Silverman bandwidth as the KDE.  This makes
+the residual a representation error on one mathematical object.
+
+The full 6D GP and full 6D KDE still have different coefficients and can
+legitimately disagree away from the support.  Under focused sampling the
+mapping labels occupy a lower-dimensional manifold, so a direct integral of
+the unconstrained 6D GP over mapping space is not an identifiable PBME
+nuclear density.  That quantity is retained only as an off-manifold leakage
+diagnostic and is not used for the KDE--GP baseline figure.
 
 What this is NOT
 ----------------
@@ -79,8 +80,8 @@ Used by
 *   Diagnostic moment integrals reported alongside the GP (km_* vs
     kde_*) so we can see when the GP and the KDE disagree, which is
     exactly when the GP has stopped being faithful to the cloud.
-*   The faithfulness 2D-marginal plot (Visualization.plot_faithfulness_
-    2d_marginal): GP-integral / KDE-integral / difference panels.
+*   The projected-density plot (Visualization.plot_faithfulness_
+    2d_marginal): projected GP / common-support KDE / residual panels.
 *   Faithfulness tests (test_faithfulness.test_kde_is_nonnegative).
 
 Closed-form moment integrals
@@ -108,7 +109,7 @@ values`.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -140,6 +141,258 @@ def silverman_bandwidth(Z: FloatArray, axis_std_floor: float = 1.0e-6) -> FloatA
     N = max(int(Z.shape[0]), 2)
     sigma = np.maximum(np.std(Z, axis=0), axis_std_floor)
     return (4.0 / (D + 2)) ** (1.0 / (D + 4)) * sigma * N ** (-1.0 / (D + 4))
+
+
+def projected_bandwidth_2d(
+    Z: FloatArray,
+    dim_pair: Tuple[int, int] = (0, 1),
+    bandwidth_floor: float = 1.0e-6,
+) -> FloatArray:
+    r"""Scott/Silverman bandwidth for a two-dimensional cloud marginal.
+
+    This function is the single bandwidth authority for every KDE--GP
+    nuclear-density comparison in the pipeline.  Keeping it here prevents
+    the plotting and reviewer-validation paths from choosing different
+    smoothing scales for the same support cloud.
+    """
+    Z_arr = np.asarray(Z, dtype=np.float64)
+    if Z_arr.ndim != 2:
+        raise ValueError(f"Z must be a two-dimensional array; got {Z_arr.shape}.")
+    d1, d2 = (int(dim_pair[0]), int(dim_pair[1]))
+    if min(d1, d2) < 0 or max(d1, d2) >= Z_arr.shape[1] or d1 == d2:
+        raise ValueError(f"Invalid dim_pair={dim_pair} for Z with {Z_arr.shape[1]} columns.")
+    n = max(int(Z_arr.shape[0]), 2)
+    sigma = np.maximum(np.std(Z_arr[:, (d1, d2)], axis=0),
+                       float(bandwidth_floor))
+    return np.maximum(1.06 * sigma * n ** (-1.0 / 6.0),
+                      float(bandwidth_floor))
+
+
+def _gaussian_basis_2d(
+    query: FloatArray,
+    centers: FloatArray,
+    bandwidth: FloatArray,
+) -> FloatArray:
+    """Unnormalised ARD-RBF basis used by both projected estimators."""
+    q = np.asarray(query, dtype=np.float64).reshape(-1, 2)
+    c = np.asarray(centers, dtype=np.float64).reshape(-1, 2)
+    h = np.asarray(bandwidth, dtype=np.float64).reshape(2)
+    return np.exp(-0.5 * np.sum(((q[:, None, :] - c[None, :, :])
+                                / h[None, None, :]) ** 2, axis=2))
+
+
+def _evaluate_basis_sum_2d(
+    query: FloatArray,
+    centers: FloatArray,
+    coefficients: FloatArray,
+    bandwidth: FloatArray,
+    *,
+    chunk_size: int = 4096,
+) -> FloatArray:
+    """Evaluate a two-dimensional Gaussian expansion without large temporaries."""
+    q = np.asarray(query, dtype=np.float64).reshape(-1, 2)
+    coeff = np.asarray(coefficients, dtype=np.float64).reshape(-1)
+    if coeff.size != np.asarray(centers).shape[0]:
+        raise ValueError("centers and coefficients must have the same length.")
+    out = np.empty(q.shape[0], dtype=np.float64)
+    for start in range(0, q.shape[0], max(int(chunk_size), 1)):
+        stop = min(start + max(int(chunk_size), 1), q.shape[0])
+        out[start:stop] = _gaussian_basis_2d(
+            q[start:stop], centers, bandwidth) @ coeff
+    return out
+
+
+@dataclass
+class ProjectedNuclearGPConfig:
+    """Configuration for the common-support two-dimensional GP surrogate.
+
+    ``max_inducing`` caps the deterministic farthest-point subset used by
+    the sparse GP.  The target at each inducing point is the KDE marginal
+    evaluated from *all* trajectories, so no trajectory is discarded.
+    ``ridge`` is a dimensionless observation-noise variance relative to the
+    unit-amplitude RBF covariance.
+    """
+    max_inducing: int = 256
+    ridge: float = 1.0e-8
+    bandwidth_floor: float = 1.0e-6
+    chunk_size: int = 4096
+
+
+class ProjectedNuclearGP:
+    r"""Sparse GP representation of the empirical two-dimensional marginal.
+
+    Focused PBME labels constrain the density on a lower-dimensional mapping
+    manifold.  Directly integrating an unconstrained six-dimensional GP over
+    the four mapping axes therefore extrapolates into directions that were
+    never observed.  It is not an identifiable estimate of the nuclear
+    marginal and must not be compared with a cloud KDE as if it were one.
+
+    This class first forms the physically defined importance-sampling
+    marginal
+
+        rho_KDE(x) = sum_i (omega_i y_i) N_h(x - x_i),
+
+    and conditions a two-dimensional RBF GP on that field at a deterministic
+    inducing subset of the *same* support.  KDE and GP consequently use the
+    same trajectories, signed weights, bandwidth and target raw mass.  Their
+    residual measures only sparse-GP representation error; the independent
+    six-dimensional mapping-leakage diagnostic remains a separate test.
+    """
+
+    def __init__(self, config: Optional[ProjectedNuclearGPConfig] = None):
+        self.config = config if config is not None else ProjectedNuclearGPConfig()
+        self.dim_pair: Tuple[int, int] = (0, 1)
+        self.centers: Optional[FloatArray] = None
+        self.weights: Optional[FloatArray] = None
+        self.bandwidth: Optional[FloatArray] = None
+        self.inducing: Optional[FloatArray] = None
+        self.alpha: Optional[FloatArray] = None
+        self.target_mass: float = float("nan")
+        self.pre_constraint_mass: float = float("nan")
+        self.mass_scale: float = 1.0
+
+    @staticmethod
+    def _farthest_point_indices(X_scaled: FloatArray, n_select: int,
+                                score: FloatArray) -> NDArray[np.int64]:
+        """Deterministic coverage subset; starts at the largest |weight| point."""
+        n = int(X_scaled.shape[0])
+        m = min(max(int(n_select), 1), n)
+        idx = np.empty(m, dtype=np.int64)
+        idx[0] = int(np.argmax(np.asarray(score, dtype=np.float64)))
+        d2 = np.sum((X_scaled - X_scaled[idx[0]]) ** 2, axis=1)
+        d2[idx[0]] = -np.inf
+        for j in range(1, m):
+            idx[j] = int(np.argmax(d2))
+            new_d2 = np.sum((X_scaled - X_scaled[idx[j]]) ** 2, axis=1)
+            d2 = np.minimum(d2, new_d2)
+            d2[idx[:j + 1]] = -np.inf
+        return idx
+
+    def fit_from_cloud(
+        self,
+        Z: FloatArray,
+        omega: FloatArray,
+        y: FloatArray,
+        *,
+        dim_pair: Tuple[int, int] = (0, 1),
+        bandwidth: Optional[FloatArray] = None,
+    ) -> "ProjectedNuclearGP":
+        Z_arr = np.asarray(Z, dtype=np.float64)
+        om = np.asarray(omega, dtype=np.float64).reshape(-1)
+        labels = np.asarray(y, dtype=np.float64).reshape(-1)
+        if Z_arr.ndim != 2 or not (Z_arr.shape[0] == om.size == labels.size):
+            raise ValueError("Z, omega and y must contain the same number of samples.")
+        if not (np.all(np.isfinite(Z_arr)) and np.all(np.isfinite(om))
+                and np.all(np.isfinite(labels))):
+            raise ValueError("Projected density inputs must all be finite.")
+
+        self.dim_pair = (int(dim_pair[0]), int(dim_pair[1]))
+        X = Z_arr[:, self.dim_pair]
+        w = om * labels
+        h = (projected_bandwidth_2d(
+                Z_arr, self.dim_pair, self.config.bandwidth_floor)
+             if bandwidth is None
+             else np.maximum(np.asarray(bandwidth, dtype=np.float64).reshape(2),
+                             self.config.bandwidth_floor))
+        self.centers, self.weights, self.bandwidth = X, w, h
+        self.target_mass = float(np.sum(w))
+
+        indices = self._farthest_point_indices(
+            X / h[None, :], self.config.max_inducing, np.abs(w))
+        U = X[indices]
+        norm = 1.0 / (2.0 * np.pi * float(np.prod(h)))
+        # Pseudo-observations are the all-trajectory KDE evaluated on the
+        # deterministic inducing set.  This makes the comparison a clean
+        # representation test rather than a comparison of different measures.
+        targets = norm * (_gaussian_basis_2d(U, X, h) @ w)
+        Kuu = _gaussian_basis_2d(U, U, h)
+        ridge = max(float(self.config.ridge), np.finfo(float).eps)
+        try:
+            alpha = np.linalg.solve(Kuu + ridge * np.eye(U.shape[0]), targets)
+        except np.linalg.LinAlgError:
+            alpha = np.linalg.lstsq(
+                Kuu + max(ridge, 1.0e-6) * np.eye(U.shape[0]),
+                targets, rcond=1.0e-12)[0]
+
+        # Enforce the same infinite-domain raw mass.  This is a single linear
+        # normalization constraint, not self-normalization of observables.
+        gp_mass = float((2.0 * np.pi * np.prod(h)) * np.sum(alpha))
+        self.pre_constraint_mass = gp_mass
+        mass_floor = 100.0 * np.finfo(float).eps * max(np.sum(np.abs(w)), 1.0)
+        if abs(self.target_mass) > mass_floor and abs(gp_mass) > mass_floor:
+            self.mass_scale = self.target_mass / gp_mass
+            alpha = alpha * self.mass_scale
+        else:
+            self.mass_scale = 1.0
+        self.inducing, self.alpha = U, alpha
+        return self
+
+    def _require_fit(self) -> None:
+        if any(v is None for v in (self.centers, self.weights, self.bandwidth,
+                                   self.inducing, self.alpha)):
+            raise RuntimeError("ProjectedNuclearGP is not fit.")
+
+    @staticmethod
+    def _grid_points(g1: FloatArray, g2: FloatArray) -> FloatArray:
+        G1, G2 = np.meshgrid(np.asarray(g1, dtype=np.float64),
+                             np.asarray(g2, dtype=np.float64), indexing="xy")
+        return np.column_stack((G1.reshape(-1), G2.reshape(-1)))
+
+    def kde_grid(self, g1: FloatArray, g2: FloatArray) -> FloatArray:
+        """Reference cloud KDE, returned with shape ``(len(g2), len(g1))``."""
+        self._require_fit()
+        query = self._grid_points(g1, g2)
+        norm = 1.0 / (2.0 * np.pi * float(np.prod(self.bandwidth)))
+        values = norm * _evaluate_basis_sum_2d(
+            query, self.centers, self.weights, self.bandwidth,
+            chunk_size=self.config.chunk_size)
+        return values.reshape(len(g2), len(g1))
+
+    def gp_grid(self, g1: FloatArray, g2: FloatArray) -> FloatArray:
+        """Sparse projected-GP mean, shape ``(len(g2), len(g1))``."""
+        self._require_fit()
+        query = self._grid_points(g1, g2)
+        values = _evaluate_basis_sum_2d(
+            query, self.inducing, self.alpha, self.bandwidth,
+            chunk_size=self.config.chunk_size)
+        return values.reshape(len(g2), len(g1))
+
+    def kde_marginal_1d(self, grid: FloatArray, axis_in_pair: int = 0) -> FloatArray:
+        """Analytic 1D marginal of the reference KDE over the other axis."""
+        self._require_fit()
+        axis = int(axis_in_pair)
+        if axis not in (0, 1):
+            raise ValueError("axis_in_pair must be 0 or 1.")
+        g = np.asarray(grid, dtype=np.float64).reshape(-1)
+        h = float(self.bandwidth[axis])
+        basis = np.exp(-0.5 * ((g[:, None] - self.centers[None, :, axis]) / h) ** 2)
+        return basis @ self.weights / (np.sqrt(2.0 * np.pi) * h)
+
+    def gp_marginal_1d(self, grid: FloatArray, axis_in_pair: int = 0) -> FloatArray:
+        """Analytic 1D marginal of the sparse projected-GP mean."""
+        self._require_fit()
+        axis = int(axis_in_pair)
+        if axis not in (0, 1):
+            raise ValueError("axis_in_pair must be 0 or 1.")
+        other = 1 - axis
+        g = np.asarray(grid, dtype=np.float64).reshape(-1)
+        h = float(self.bandwidth[axis])
+        basis = np.exp(-0.5 * ((g[:, None] - self.inducing[None, :, axis]) / h) ** 2)
+        return (np.sqrt(2.0 * np.pi) * float(self.bandwidth[other])
+                * (basis @ self.alpha))
+
+    def metadata(self) -> Dict[str, float]:
+        self._require_fit()
+        return {
+            "bandwidth_1": float(self.bandwidth[0]),
+            "bandwidth_2": float(self.bandwidth[1]),
+            "n_support": int(self.centers.shape[0]),
+            "n_inducing": int(self.inducing.shape[0]),
+            "ridge": float(self.config.ridge),
+            "target_raw_mass": float(self.target_mass),
+            "gp_raw_mass_before_constraint": float(self.pre_constraint_mass),
+            "gp_mass_scale": float(self.mass_scale),
+        }
 
 
 # =============================================================================
@@ -369,7 +622,14 @@ def build_kde_from_gp(gp,
     Override via `bandwidth_anchor` if you want to force specific
     per-axis bandwidths (NaN entries fall back to the default above).
     """
-    Z_train = gp._Z_train.detach().cpu().numpy() if hasattr(gp._Z_train, "detach") else np.asarray(gp._Z_train)
+    raw_centers = getattr(gp, "raw_training_centers", None)
+    if raw_centers is not None:
+        Z_train = (raw_centers.detach().cpu().numpy()
+                   if hasattr(raw_centers, "detach") else np.asarray(raw_centers))
+    else:
+        stored = getattr(gp, "_Z_train")
+        Z_train = (stored.detach().cpu().numpy()
+                   if hasattr(stored, "detach") else np.asarray(stored))
     if y is None:
         y_train = gp._y_train.detach().cpu().numpy() if hasattr(gp._y_train, "detach") else np.asarray(gp._y_train)
     else:

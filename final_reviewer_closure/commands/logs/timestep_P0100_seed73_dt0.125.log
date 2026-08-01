@@ -1,0 +1,54 @@
+COMMAND: C:\Users\SahandNik\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\run.py --out D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125 --P0 100.0 --n_train 1000 --dt 0.125 --no_auto_dt --t_final 600.0 --seed 73 --snapshot_every 2400 --density_mode full --sampling_mode focused --surrogate product --l2_regularization 0.05 --R0 -15.0 --sigma_R 1.0 --mass 2000.0 --hbar 1.0 --refit_hyper_policy breathing --skip_figures --no_abs_target --quiet
+========================================================================
+  OUTPUT DIRECTORY (absolute): D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125
+  cwd when launched:           D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline
+  Density mode:                FULL  (legacy single-GP surrogate)
+
+  !!! Long midpoint runs with --density_mode full tend to show
+      large α oscillations and density-reconstruction jumps.
+      Pass --density_mode diff for the baseline+correction path.
+  Sampling mode:               FOCUSED  (focused: uncoupled, w_i=1, populations bounded by Casimir + Q)
+  Hyper policy:                breathing
+  lengthscale_prior_weight:    0.1
+  lengthscale_prior_clip:      0.5
+  breathing_anchor_policy:     'ewma'
+  breathing_anchor_mad_factor: 0.4
+  breathing_anchor_ewma_beta:  0.9
+  mass, hbar:                  2000, 1
+  scattering t_c=M|R0|/|P0|:   300 a.u.
+  M/|P0| time-per-bohr:        20 a.u./bohr
+  requested dt upper bound:    0.125
+  auto-dt:                     off
+  resolved dt:                 0.125  (n_steps=4800, total T=600)
+========================================================================
+[run] --sampling_mode focused: forcing --refit_hyper_policy adaptive (was 'breathing'; the cloud-ratio trigger is required to handle post-crossing bifurcation without GP-derivative blowup).
+[run] Sampling + fitting initial GP  (N=1000, seed=73, sampling_mode='focused')...
+[run]   initial fit done (24.8s)
+[run] sampling: abs_target=off  ω-clip: off
+[run] MInt np/jax consistency: {'available': True, 'ok': True, 'n_samples': 64, 'max_abs_diff': 6.661338147750939e-16, 'max_rel_diff': 3.065899367593353e-15}
+
+[run] ==== PBME ====
+[run]   saved to D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125/pbme.npz
+
+[run] ==== Midpoint (QCLE) ====
+[run]   weight_scheme=midpoint  label_scheme=weight  flow_fraction=0.0 (axes=P_only, grad_floor=1e-08, step_cap=0.5)
+[run]   -> QCLE correction ACTIVE via the correction-weight label integrator (weight_scheme='midpoint'): every step, Q updates the per-trajectory weight w, the GP refits to w*y, and the density shape + all observables carry the correction. Only the OPTIONAL flow-displacement channel (flow_fraction=0) and the experimental linear b-ODE (label_scheme='weight') are off, so fc_* diagnostics are 0 by construction — the label-integrator activity is in dw_*/w_*/label_dy_* instead. Pass --flow_fraction > 0 or --label_scheme linear to engage the alternative channels.
+[run]   saved to D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125/midpoint.npz
+
+[run] Figure generation skipped by --skip_figures.
+
+  Time-series figures (0):
+
+  1D marginals (0):
+
+  2D marginals (0):
+
+========================================================================
+  DONE in 5681.6s
+  All files written to: D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125
+  Total figures: 0
+  Data files:    D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125/pbme.npz    D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125/pbme.json
+                 D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125/midpoint.npz  D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125/midpoint.json
+========================================================================
+  Figure caption catalog: D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125\THESIS_FIGURE_CAPTIONS.md
+  Figure metadata catalog: D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\dynamics\timestep\P0100\seed73_dt0.125\figure_catalog.json

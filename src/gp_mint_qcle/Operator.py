@@ -133,6 +133,18 @@ Legacy autodiff path
 # removed and can be found in tests/test_operator_consistency.py.
 """
 
+# --- UTF-8 console safety: prevent UnicodeEncodeError on Windows cp1252 ---
+# Banners/diagnostics below print non-ASCII physics notation (α, ρ̂, Δ, →, ħ).
+# Reconfigure the console streams to UTF-8 so direct execution of this module
+# does not abort under Windows' default cp1252 encoding.  No-op where unsupported.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+# --------------------------------------------------------------------------
+
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -145,10 +157,12 @@ import jax.numpy as jnp
 
 from .Mint import D, PBMEMIntDynamics
 from .Monodromy import (
+    MonodromyTools,
     _get_jax_step_fn,
     _I_R, _I_P, _I_R0, _I_R1, _I_P0, _I_P1,
     _I_R_MAP, _I_P_MAP,
 )
+import jax
 
 
 FloatArray = NDArray[np.float64]
@@ -593,6 +607,14 @@ def compute_L_matrix(
             "vanilla GP path.  For diff-GP, build L separately for "
             "gp0 and gp_delta and sum (same kernel structure)."
         )
+    if getattr(gp, "_is_product", False):
+        raise TypeError(
+            "compute_L_matrix received a PRODUCT surrogate.  Its "
+            "__getattr__ delegation would silently expose the INNER "
+            "mu-GP's alpha and kernel, dropping every g-profile Leibniz "
+            "term — a wrong answer, not an error.  Use "
+            "compute_L_matrix_product instead."
+        )
     Z_centers, alpha, sigma_f, ell_phys = _extract_vanilla_params(gp)
     M_rp = _rp_metric_of(gp, ell_phys)
 
@@ -819,6 +841,119 @@ def compute_Q(
             np.asarray(dh_j))
 
 
+def compute_Q_chain_rule(
+    Z_eval:   ArrayLike,
+    gp,                              # vanilla GPDensity
+    dt:       float,
+    dynamics: PBMEMIntDynamics,
+    q_sigma_n_scale: float = 1.0,
+) -> Tuple[FloatArray, FloatArray, FloatArray]:
+    """
+    Midpoint QCLE correction WITH the inverse-half-step monodromy chain rule
+    — the scheme actually derived in Chapter 5 (Eqs. Qrr/Qpp-full-chain-rule
+    and the algorithmic summary), as opposed to the endpoint/intrinsic
+    approximation in ``compute_Q``.
+
+        Q[n] = -(ℏ/8) Σ_{λλ'} ∂h̄^{λλ'}/∂R(R_{n+1/2})            # dh at the MIDPOINT
+                       · ( Q^{rr}_{λλ'} + Q^{pp}_{λλ'} )
+
+    With Y(Z)=Φ_{-dt/2}(Z) the inverse MInt half-step (Z ≡ X_{n+1/2} midpoint,
+    Y ≡ X_n footpoint) and the composed pulled-back density g = μ_n∘Y,
+
+        Q^{rr}_{λλ'} = ∂²/∂r_{λ'}∂r_λ [ ∇_P g ]
+                     = ∇³_n μ[M_P, M_{r_λ}, M_{r_{λ'}}]
+                       + M_{P r_λ}^T ∇²_n μ M_{r_{λ'}}
+                       + M_{r_λ}^T ∇²_n μ M_{P r_{λ'}}
+                       + M_{r_{λ'} r_λ}^T ∇²_n μ M_P
+                       + M_{P r_{λ'} r_λ}^T ∇_n μ                # Eq. Qrr-full-chain-rule
+
+    which is exactly the third derivative of the composition g w.r.t. the
+    midpoint variables (general Faà di Bruno).  The half-step Jacobian/Hessian/
+    third-derivative blocks
+        M_{r_λ}      = ∂X_n/∂r_{λ,n+1/2}            = J_cols[I_{r_λ}]
+        M_{P r_λ}    = ∂²X_n/∂P∂r_λ                 = H_pairs[(I_P, I_{r_λ})]
+        M_{r_{λ'}r_λ}= ∂²X_n/∂r_{λ'}∂r_λ            = H_pairs[(I_{r_λ}, I_{r_{λ'}})]
+        M_{P r_{λ'}r_λ}=∂³X_n/∂P∂r_{λ'}∂r_λ         = T_triples[(I_P, I_{r_λ}, I_{r_{λ'}})]
+    are the EXACT (JAX-autodiff) tensors returned by
+    ``Monodromy.MonodromyTools.midpoint_geometry``; the GP derivatives
+    ∇¹·²·³_n μ are the closed-form ARD-RBF derivatives at the footpoint Y.
+
+    The intrinsic ``compute_Q`` is the M→I, M_{··}→0, M_{P··}→0 limit of this
+    (and additionally evaluates dh at the footpoint rather than the midpoint).
+
+    Verified against ``jax.jacfwd³`` of g(Z)=μ(Φ_{-dt/2}(Z)): the assembled
+    Q^{rr}/Q^{pp} and the full correction agree to ~1e-16 / ~1e-21.
+
+    Returns ``(Q, Y, dh)`` matching the ``compute_Q`` contract.  Vanilla
+    ``GPDensity`` only — diff-GP carries an additional baseline pullback and is
+    not handled here (raises ``NotImplementedError``).
+    """
+    if _is_density_diff(gp):
+        raise NotImplementedError(
+            "compute_Q_chain_rule supports vanilla GPDensity only; the diff-GP "
+            "baseline pullback chain rule is not yet implemented."
+        )
+
+    Z_centers, alpha, sigma_f, ell = _extract_vanilla_params(gp)
+    if q_sigma_n_scale > 1.0 + 1e-9 and hasattr(gp, "compute_smooth_alpha_for_q"):
+        alpha = gp.compute_smooth_alpha_for_q(q_sigma_n_scale)
+
+    Z_eval = np.asarray(Z_eval, dtype=np.float64)
+    single = (Z_eval.ndim == 1)
+    if single:
+        Z_eval = Z_eval[None, :]
+
+    # --- inverse half-step geometry: Y(Z)=Φ_{-dt/2}(Z) and J,H,T of the map ---
+    mt = MonodromyTools(dynamics)
+    Y, Jc, Hp, Tt = mt.midpoint_geometry(Z_eval, float(dt))          # all batched on axis 0
+
+    # --- dh = ∂h̄/∂R at the MIDPOINT R = Z_eval[:, _I_R]  (traceless 2×2) ---
+    dh_fn = _get_dh_fn(dynamics)
+    dh = np.asarray(jax.vmap(dh_fn)(jnp.asarray(Z_eval[:, _I_R])), dtype=np.float64)  # (Ne,2,2)
+
+    # --- closed-form GP derivatives ∇¹·²·³_n μ at the footpoint Y ---
+    lam  = 1.0 / ell**2                                              # (D,)
+    diff = Y[:, None, :] - Z_centers[None, :, :]                     # (Ne,N,D)
+    v    = diff * lam[None, None, :]                                 # (Ne,N,D)  v=(Y-Z)/ℓ²
+    kk   = (alpha[None, :] * sigma_f**2
+            * np.exp(-0.5 * np.sum((diff / ell[None, None, :])**2, axis=2)))   # (Ne,N)
+    mu1 = np.einsum('en,end->ed', kk, -v)                                       # (Ne,D)
+    mu2 = (np.einsum('en,ena,enb->eab', kk, v, v)
+           - np.einsum('en,ab->eab', kk, np.diag(lam)))                         # (Ne,D,D)
+    I3  = np.eye(D)
+    mu3 = (-np.einsum('en,ena,enb,enc->eabc', kk, v, v, v)
+           + np.einsum('ab,a,en,enc->eabc', I3, lam, kk, v)
+           + np.einsum('ac,a,en,enb->eabc', I3, lam, kk, v)
+           + np.einsum('bc,b,en,ena->eabc', I3, lam, kk, v))                    # (Ne,D,D,D)
+
+    # --- assemble Q^{rr}_{λλ'}, Q^{pp}_{λλ'} via the chain rule (= Faà di Bruno) ---
+    def _Jcol(i):     return Jc[i]                                  # (Ne,D)
+    def _Hpair(i, j): return Hp[tuple(sorted((i, j)))]              # (Ne,D)
+    def _Ttrip(i, j, k): return Tt[tuple(sorted((i, j, k)))]        # (Ne,D)
+    def _Q3(a, b, c):
+        t3 = np.einsum('eijk,ei,ej,ek->e', mu3, _Jcol(a), _Jcol(b), _Jcol(c))
+        t2 = (np.einsum('eij,ei,ej->e', mu2, _Jcol(a), _Hpair(b, c))
+              + np.einsum('eij,ei,ej->e', mu2, _Jcol(b), _Hpair(a, c))
+              + np.einsum('eij,ei,ej->e', mu2, _Jcol(c), _Hpair(a, b)))
+        t1 = np.einsum('ei,ei->e', mu1, _Ttrip(a, b, c))
+        return t3 + t2 + t1
+
+    rmap = (_I_R0, _I_R1)
+    pmap = (_I_P0, _I_P1)
+    pref = -float(dynamics.params.hbar) / 8.0      # same sign convention as compute_Q
+    Q = np.zeros(Z_eval.shape[0], dtype=np.float64)
+    for li in (0, 1):
+        for lpi in (0, 1):
+            Qrr = _Q3(_I_P, rmap[li], rmap[lpi])
+            Qpp = _Q3(_I_P, pmap[li], pmap[lpi])
+            Q += dh[:, li, lpi] * (Qrr + Qpp)
+    Q *= pref
+
+    if single:
+        return Q[0], Y[0], dh[0]
+    return Q, Y, dh
+
+
 def compute_Q_at_points(
     Z_eval:   ArrayLike,
     gp,                              # GPDensity or GPDensityDiff
@@ -826,6 +961,10 @@ def compute_Q_at_points(
     q_sigma_n_scale: float = 1.0,
 ) -> Tuple[FloatArray, FloatArray, FloatArray]:
     """
+    # Reference-profile product surrogate (2026-07-04): the mapping
+    # curvature the operator differentiates is analytic in g; dispatch
+    # to the Leibniz-rule path.
+
     No-pullback variant of ``compute_Q``: evaluate the intrinsic QCLE
     midpoint operator [iL'_m ρ_sur] directly at the supplied points,
     with NO internal backward half-step.
@@ -875,9 +1014,218 @@ def compute_Q_at_points(
                            Y[n] == Z_eval[n] exactly).
     dbarh_dR : (N, 2, 2)   ∂h̄^{αβ}/∂R evaluated at Z_eval[n, R].
     """
+    if getattr(gp, "_is_product", False):
+        return product_Q_at_points(Z_eval, gp, dynamics)
+
     return compute_Q(Z_eval, gp=gp, dt=0.0, dynamics=dynamics,
                      q_sigma_n_scale=q_sigma_n_scale)
 
+
+
+# =============================================================================
+# Finite-difference validation of the extra QCLE coupling term Q  (Task 5)
+# =============================================================================
+#
+# The analytic Q (``compute_Q`` / ``compute_Q_at_points``) contracts the
+# CLOSED-FORM ARD-RBF third derivative of ρ̂ with ∂h̄/∂R.  The routines below
+# recompute the SAME contraction but take the third derivatives of ρ̂ by central
+# FINITE DIFFERENCES of the scalar field z ↦ ρ̂(z) — i.e. they "apply the
+# finite differences in the density" and assemble the coupling term from them.
+# Agreement between the two is an end-to-end check that the extra Liouvillian
+# coupling term is implemented correctly (kernel third-derivative formula AND
+# the (P, r_α r_β) / (P, p_α p_β) index contraction with ∂h̄/∂R).
+#
+# Because ∂h̄/∂R is taken from the identical model function in both paths, any
+# residual is attributable to the third-derivative evaluation alone.
+
+def _coupling_term_indices() -> Tuple[int, list, list]:
+    """(P-index, [r_0,r_1] indices, [p_0,p_1] indices) for the Q contraction."""
+    return int(_I_P), [int(_I_R0), int(_I_R1)], [int(_I_P0), int(_I_P1)]
+
+
+def _contract_third_with_dh(T: FloatArray, dh: FloatArray) -> float:
+    r"""Prefactor-free Q contraction of a third-derivative tensor with ∂h̄/∂R:
+
+        Σ_{α,β} dh^{αβ} [ T[P, r_β, r_α] + T[P, p_β, p_α] ].
+
+    ``T`` is the fully symmetric (D,D,D) tensor ∂³ρ/∂z∂z∂z, so the index order
+    within each mapping block is immaterial.  ``dh`` is the 2×2 coupling
+    derivative.  Returns a scalar (the bracket WITHOUT the −ℏ/8 prefactor).
+    """
+    iP, r_idx, p_idx = _coupling_term_indices()
+    T  = np.asarray(T,  dtype=np.float64)
+    dh = np.asarray(dh, dtype=np.float64)
+    M_r = T[iP][np.ix_(r_idx, r_idx)]      # (2,2): T[P, r_α, r_β]
+    M_p = T[iP][np.ix_(p_idx, p_idx)]      # (2,2): T[P, p_α, p_β]
+    return float(np.sum(dh * M_r) + np.sum(dh * M_p))
+
+
+def _fd_coupling_term_at_point(
+    gp,
+    z: ArrayLike,
+    dynamics: PBMEMIntDynamics,
+    h_hess:  float = 2.0e-4,
+    h_third: float = 2.0e-3,
+) -> float:
+    r"""Finite-difference value of the intrinsic coupling term Q at one point z.
+
+        Q_fd(z) = -(ℏ/8) Σ_{α,β} ∂h̄^{αβ}/∂R(z_R)
+                   · [ ∂³ρ̂/(∂z_P ∂z_{r_β} ∂z_{r_α})
+                     + ∂³ρ̂/(∂z_P ∂z_{p_β} ∂z_{p_α}) ](z)_FD ,
+
+    with the third derivatives obtained by central finite differences of the
+    scalar density field (no analytic kernel formula, no chain rule through Y).
+    ∂h̄/∂R is the identical model function used by the analytic path.
+
+    Vanilla GPDensity only (``rho_value`` uses the single-kernel expansion).
+    """
+    from .GPDerivatives import rho_value, _fd_third_from_value   # lazy: pulls torch
+
+    z = np.asarray(z, dtype=np.float64).reshape(D)
+    hbar = float(dynamics.params.hbar)
+    pref = -hbar / 8.0
+    dh_fn = _get_dh_fn(dynamics)
+    dh = np.asarray(dh_fn(z[int(_I_R)]), dtype=np.float64)      # (2,2)
+
+    value_func = lambda zz: float(rho_value(gp, zz))
+    T_fd = _fd_third_from_value(value_func, z, h_hess=h_hess, h_third=h_third)
+    return pref * _contract_third_with_dh(T_fd, dh)
+
+
+def coupling_term_finite_difference(
+    gp,
+    Z_eval: ArrayLike,
+    dynamics: PBMEMIntDynamics,
+    h_hess:  float = 2.0e-4,
+    h_third: float = 2.0e-3,
+) -> FloatArray:
+    """Batch FD evaluation of the intrinsic coupling term Q at each row of
+    ``Z_eval`` — the finite-difference analogue of ``compute_Q_at_points``.
+
+    Returns an (N,) array.  Vanilla GPDensity only.
+    """
+    Zb = np.asarray(Z_eval, dtype=np.float64).reshape(-1, D)
+    return np.array(
+        [_fd_coupling_term_at_point(gp, Zb[n], dynamics,
+                                    h_hess=h_hess, h_third=h_third)
+         for n in range(Zb.shape[0])],
+        dtype=np.float64,
+    )
+
+
+def test_coupling_term_against_finite_differences(
+    n_train:  int   = 90,
+    seed:     int   = 0,
+    n_query:  int   = 16,
+    R0:       float = 1.2,        # avoided-crossing region: ∂h̄/∂R appreciable
+    P0:       float = 8.0,
+    sigma_R:  float = 1.0,
+    h_hess:   float = 2.0e-4,
+    h_third:  float = 2.0e-3,
+    rel_tol:  float = 2.0e-2,
+    abs_floor: float = 1.0e-12,
+) -> dict:
+    r"""Validate the extra QCLE coupling term Q against finite differences of ρ̂.
+
+    Strategy
+    --------
+    Fit a small ARD-RBF surrogate to SEO-signed MMST samples of a wave packet
+    placed in the dual-Tully avoided-crossing region (so ∂h̄/∂R, and therefore
+    Q, are non-trivially nonzero and the comparison is well conditioned).  At a
+    set of off-support query points evaluate
+
+        Q_analytic = compute_Q_at_points(...)          (closed-form 3rd deriv)
+        Q_fd       = coupling_term_finite_difference(...) (central FD of ρ̂)
+
+    and require agreement.  The acceptance criterion is scale-adaptive:
+
+        max_n |Q_an - Q_fd|  ≤  rel_tol · rms_n|Q_an|  +  abs_floor,
+
+    which is meaningful even though |Q| is intrinsically small (ρ̂ is largest
+    where ∂h̄/∂R is moderate), and is not dominated by individual query points
+    where Q happens to pass through zero.
+
+    Returns a summary dict; raises AssertionError if the bound is exceeded.
+    """
+    from .Sampling import GaussianWavePacketParams, MappingInitParams, MMSTSampler
+    from .Mint import PBMEMIntParams, PBMEMIntDynamics, pack_z
+    from .Models import TullyModel, TullyParams
+    from .GP_Density import GPDensity, GPDensityConfig
+
+    rng = np.random.default_rng(seed)
+
+    model = TullyModel(TullyParams.defaults("dual"))
+    dynamics = PBMEMIntDynamics(
+        model=model, params=PBMEMIntParams(mass=2000.0, hbar=1.0))
+
+    sampler = MMSTSampler(
+        GaussianWavePacketParams(R0=[float(R0)], P0=[float(P0)],
+                                 sigma_R=[float(sigma_R)], hbar=1.0),
+        MappingInitParams(nstates=2, init_state=0, hbar=1.0, gamma=0.5),
+    )
+    s = sampler.sample_seo_signed(n_samples=int(n_train), rng=rng)
+    Z0 = pack_z(s.R, s.P, s.r, s.p)
+    y0 = s.target_density
+
+    cfg = GPDensityConfig(
+        n_opt_steps=0, fix_sigma_n=True, init_log_sigma_n=-4.0,
+        reinit_lengthscales=True, feature_zscore=False,
+        recompute_feature_zscore=False, interpolate_targets=False,
+        constraints_enabled=False,
+    )
+    gp = GPDensity(cfg, dynamics=dynamics)
+    gp.fit(Z_train=Z0, y_train=y0, moment_targets={},
+           optimize=False, apply_constraints=False)
+
+    # Off-support query points: jitter around the cloud mean (stays in-support
+    # for ρ̂ while not sitting exactly on any kernel center).
+    base = np.mean(Z0, axis=0)
+    Q_pts = base[None, :] + 0.15 * rng.standard_normal((int(n_query), D))
+
+    Q_an, _, _ = compute_Q_at_points(Q_pts, gp=gp, dynamics=dynamics)
+    Q_an = np.asarray(Q_an, dtype=np.float64).reshape(-1)
+    Q_fd = coupling_term_finite_difference(gp, Q_pts, dynamics,
+                                           h_hess=h_hess, h_third=h_third)
+
+    abs_err = np.abs(Q_an - Q_fd)
+    rms_Q   = float(np.sqrt(np.mean(Q_an ** 2)))
+    max_abs = float(np.max(abs_err))
+    bound   = rel_tol * rms_Q + abs_floor
+
+    # Per-point relative error only where |Q| is an appreciable fraction of the
+    # RMS scale (robust; near-zero crossings are reported but not asserted on).
+    sig = np.abs(Q_an) > max(0.1 * rms_Q, abs_floor)
+    rel_sig = abs_err[sig] / np.abs(Q_an[sig]) if np.any(sig) else np.array([0.0])
+    med_rel = float(np.median(rel_sig))
+    max_rel = float(np.max(rel_sig))
+
+    print("[QCLE coupling-term FD test]")
+    print(f"  n_train         = {n_train}")
+    print(f"  n_query         = {n_query}   (R0={R0}, P0={P0})")
+    print(f"  rms|Q_analytic| = {rms_Q:.6e}")
+    print(f"  max|Q_an-Q_fd|  = {max_abs:.6e}   (bound {bound:.6e})")
+    print(f"  rel err (|Q|>0.1·rms): median {med_rel:.3e}, max {max_rel:.3e}")
+
+    if rms_Q <= abs_floor:
+        raise AssertionError(
+            "Coupling-term FD test is vacuous: rms|Q_analytic| ≈ 0.  Move the "
+            "wave packet into the avoided-crossing region (increase R0 toward "
+            "the coupling maximum) so ∂h̄/∂R and Q are nonzero.")
+    if max_abs > bound:
+        raise AssertionError(
+            f"Coupling-term FD test failed: max|Q_an-Q_fd| {max_abs:.3e} "
+            f"> bound {bound:.3e} (rel_tol={rel_tol:.1e} · rms|Q|={rms_Q:.3e}).")
+
+    return {
+        "n_train": int(n_train),
+        "n_query": int(n_query),
+        "rms_Q_analytic": rms_Q,
+        "max_abs_error": max_abs,
+        "median_rel_error": med_rel,
+        "max_rel_error": max_rel,
+        "bound": bound,
+        "passed": True,
+    }
 
 
 # =============================================================================
@@ -974,3 +1322,308 @@ class QCLECorrection:
         Q, Y, dh = compute_Q_at_points(Z_eval, gp=gp, dynamics=self.dynamics,
                                         q_sigma_n_scale=self.q_sigma_n_scale)
         return CorrectionData(Y=Y, dbarh_dR=dh, Q=Q)
+
+    def build_chain_rule(self, Z_eval: ArrayLike, dt: float, gp=None) -> CorrectionData:
+        """
+        Thesis-faithful midpoint correction WITH the inverse-half-step
+        monodromy chain rule (Eqs. Qrr/Qpp-full-chain-rule).
+
+        ``Z_eval`` is the MIDPOINT cloud X_{n+1/2}; the pulled-back density is
+        μ_n composed with Φ_{-dt/2}, and Q carries the full chain rule through
+        the half-step monodromy (J,H,T from Monodromy.midpoint_geometry).  Pass
+        the START-of-step GP μ_n as ``gp`` (the footpoint X_n = Φ_{-dt/2}(Z_eval)
+        is where μ_n is differentiated).  Unlike ``build``/``build_at_points``,
+        ∂h̄/∂R is evaluated at the midpoint R = Z_eval[:, R], per the derivation.
+
+        Returns CorrectionData(Y, dbarh_dR, Q); Y is the footpoint X_n.
+        Vanilla GPDensity only.
+        """
+        if gp is None:
+            raise TypeError(
+                "QCLECorrection.build_chain_rule requires the GP surrogate: "
+                "`op.build_chain_rule(Z_mid, dt=dt, gp=mu_n)`."
+            )
+        Q, Y, dh = compute_Q_chain_rule(Z_eval, gp=gp, dt=float(dt),
+                                        dynamics=self.dynamics,
+                                        q_sigma_n_scale=self.q_sigma_n_scale)
+        return CorrectionData(Y=Y, dbarh_dR=dh, Q=Q)
+
+
+# =============================================================================
+# Smoke test — finite-difference validation of the QCLE coupling term (Task 5)
+# =============================================================================
+
+if __name__ == "__main__":
+    summary = test_coupling_term_against_finite_differences()
+    print("\n[summary]")
+    print(summary)
+
+
+# =============================================================================
+# Excess-term flux (continuity form) — added 2026-07
+# =============================================================================
+
+def compute_flux_at_points(Z, gp, dynamics):
+    r"""
+    Momentum-space flux J_P of the excess mapping-QCLE term, evaluated on the
+    GP surrogate at the given phase-space points.
+
+    The excess term is EXACTLY a bath-momentum divergence.  Because
+    d(hbar h)/dR depends on R only and mapping derivatives commute with
+    d/dP, NBK Eq. (10) [J. Chem. Phys. 133, 134115 (2010)] can be written
+
+        Q = -iL' rho = -d/dP [ J_P ],
+
+        J_P(z) = (hbar/8) sum_{ll'} (d hbar_bar^{ll'}/dR)
+                 [ d^2 rho / dr_l dr_l' + d^2 rho / dp_l dp_l' ].
+
+    The full mapping-QCLE is then an exact continuity equation
+        d rho/dt + div( rho v_H ) + d(J_P)/dP = 0,
+    with hydrodynamic velocity u_P = J_P / rho on top of the divergence-free
+    Hamiltonian field v_H.  The corrected flow is COMPRESSIBLE
+    (d u_P/dP != 0), so density is not constant along its characteristics:
+    D rho/Dt = -rho d(u_P)/dP.  Liouville's theorem holds only for the
+    Hamiltonian part; the excess flux is the back reaction of the quantum
+    subsystem on the environment (NBK Sec. III).
+
+    Returns
+    -------
+    J : (N,) flux values; rho : (N,) surrogate values; dPrho : (N,) d rho/dP.
+    All from the SAME analytic derivative bundle, so u = J/rho and the
+    Lagrangian rate  k = Q + f*u*dPrho  are mutually consistent.
+    """
+    if getattr(gp, "_is_product", False):
+        return product_flux_at_points(Z, gp, dynamics)
+
+    import numpy as _np
+    from .GPDerivatives import rho_derivative_bundle as _bundle
+
+    Z = _np.asarray(Z, dtype=_np.float64)
+    grad, hess, _ = _bundle(gp, Z)
+    grad = _np.atleast_2d(_np.asarray(grad, dtype=_np.float64))
+    hess = _np.asarray(hess, dtype=_np.float64)
+    if hess.ndim == 2:
+        hess = hess[None, ...]
+
+    # Traceless dh_bar/dR at the bath coordinates (same convention as the
+    # Q contraction: trace part of h lives in V0, not in the excess term).
+    model = dynamics.model
+    dH = _np.asarray(model.d_diabatic_potential_dR(Z[:, 0]), dtype=_np.float64)
+    tr = 0.5 * (dH[..., 0, 0] + dH[..., 1, 1])
+    dh_bar = dH.copy()
+    dh_bar[..., 0, 0] -= tr
+    dh_bar[..., 1, 1] -= tr
+
+    hbar = float(getattr(dynamics.params, "hbar", 1.0))
+    # mapping blocks: r -> dims (2,3), p -> dims (4,5)
+    H_rr = hess[:, 2:4, 2:4]
+    H_pp = hess[:, 4:6, 4:6]
+    J = (hbar / 8.0) * _np.einsum("nab,nab->n", dh_bar, H_rr + H_pp)
+
+    rho = _np.asarray(gp.predict(Z), dtype=_np.float64).reshape(-1)
+    dPrho = grad[:, 1]
+    return J, rho, dPrho
+
+
+# =============================================================================
+# Leibniz-rule operator and flux on the product surrogate
+# (merged from the former GP_DensityProduct module, 2026-07-05).
+# gpp is a GPDensity in product mode (rho_hat = g*mu); its
+# profile_derivs_current supplies the analytic profile derivatives.
+# =============================================================================
+
+def _traceless_dh(dynamics, R: FloatArray) -> FloatArray:
+    dH = np.asarray(dynamics.model.d_diabatic_potential_dR(R),
+                    dtype=np.float64)
+    tr = 0.5 * (dH[..., 0, 0] + dH[..., 1, 1])
+    dh = dH.copy()
+    dh[..., 0, 0] -= tr
+    dh[..., 1, 1] -= tr
+    return dh
+
+
+def product_Q_at_points(Z: ArrayLike, gpp: "GPDensityProduct",
+                        dynamics) -> Tuple[FloatArray, FloatArray, FloatArray]:
+    """
+    QCLE excess rate Q = -(hbar/8) dhbar : [d_r d_r' + d_p d_p'] d_P (g mu)
+    on the product surrogate, by the Leibniz rule.  Signature mirrors
+    Operator.compute_Q_at_points: returns (Q, Y=Z, dhbar).
+
+    Uses profile_derivs_current so that in TRANSPORTED mode the profile's
+    bath-momentum derivatives (generated by the flow) are included; in
+    STATIC mode those entries are exactly zero and this reduces to the
+    original mapping-only Leibniz expansion.
+    """
+    from .GPDerivatives import rho_derivative_bundle
+
+    Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+    N = Z.shape[0]
+    hbar = gpp._hbar
+
+    grad, hess, third = rho_derivative_bundle(gpp._inner, Z)
+    grad = np.atleast_2d(np.asarray(grad, dtype=np.float64))
+    hess = np.asarray(hess, dtype=np.float64).reshape(N, 6, 6)
+    third = np.asarray(third, dtype=np.float64).reshape(N, 6, 6, 6)
+
+    g, dg, d2g = gpp.profile_derivs_current(Z)      # dg (N,6), d2g (N,6,6)
+    dh = _traceless_dh(dynamics, Z[:, 0])                          # (N,2,2)
+
+    iP = 1
+    Q = np.zeros(N)
+    for blk in (0, 2):          # x-index offset: 0 -> r block, 2 -> p block
+        d = 2 + blk             # phase-space dim offset (r dims 2..3, p 4..5)
+        for l in range(2):
+            for lp in range(2):
+                a, b = d + l, d + lp                              # z indices
+                # Full third-order product rule for d_a d_b d_P (g * mu):
+                #   g_abP mu + g_ab mu_P + g_aP mu_b + g_a mu_bP
+                #   + g_bP mu_a + g_b mu_aP + g_P mu_ab + g mu_abP
+                # STATIC mode: every g-derivative touching P vanishes and
+                # g_ab is the mapping Hessian -> reduces to the original
+                # 4-term expression.  TRANSPORTED mode: g_aP, g_bP, g_P are
+                # the flow-generated bath-momentum couplings (v1 keeps the
+                # third-order profile term g_abP at zero, consistent with
+                # the neglected mapping-rotation Hessian; all first/second
+                # profile derivatives are exact via the chain rule).
+                term = (
+                    d2g[:, a, b] * grad[:, iP]     # g_ab mu_P
+                    + d2g[:, a, iP] * grad[:, b]   # g_aP mu_b
+                    + dg[:, a] * hess[:, b, iP]    # g_a mu_bP
+                    + d2g[:, b, iP] * grad[:, a]   # g_bP mu_a
+                    + dg[:, b] * hess[:, a, iP]    # g_b mu_aP
+                    + dg[:, iP] * hess[:, a, b]    # g_P mu_ab
+                    + g * third[:, a, b, iP]       # g   mu_abP
+                )
+                Q += dh[:, l, lp] * term
+    Q *= -(hbar / 8.0)
+    return Q, Z, dh
+
+
+def product_flux_at_points(Z: ArrayLike, gpp: "GPDensityProduct",
+                           dynamics) -> Tuple[FloatArray, FloatArray,
+                                              FloatArray]:
+    """
+    Continuity-form flux J_P, density rho_hat, and d rho_hat/dP on the
+    product surrogate.  Mirrors Operator.compute_flux_at_points.
+    """
+    from .GPDerivatives import rho_derivative_bundle
+
+    Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+    N = Z.shape[0]
+    hbar = gpp._hbar
+
+    grad, hess, _ = rho_derivative_bundle(gpp._inner, Z)
+    grad = np.atleast_2d(np.asarray(grad, dtype=np.float64))
+    hess = np.asarray(hess, dtype=np.float64).reshape(N, 6, 6)
+
+    g, dg, d2g = gpp.profile_derivs_current(Z)      # (N,), (N,6), (N,6,6)
+    dh = _traceless_dh(dynamics, Z[:, 0])
+    mu = np.asarray(gpp._inner.predict(Z), dtype=np.float64).reshape(-1)
+
+    J = np.zeros(N)
+    for blk in (0, 2):
+        d = 2 + blk
+        for l in range(2):
+            for lp in range(2):
+                a, b = d + l, d + lp
+                # d_a d_b (g mu) = g_ab mu + g_a mu_b + g_b mu_a + g mu_ab
+                term = (d2g[:, a, b] * mu
+                        + dg[:, a] * grad[:, b]
+                        + dg[:, b] * grad[:, a]
+                        + g * hess[:, a, b])
+                J += dh[:, l, lp] * term
+    J *= (hbar / 8.0)
+
+    rho = g * mu
+    # d rho/dP = g_P mu + g mu_P  (g_P nonzero only in transported mode)
+    dPrho = dg[:, 1] * mu + g * grad[:, 1]
+    return J, rho, dPrho
+
+
+def compute_L_matrix_product(
+    Z_eval:   ArrayLike,
+    gpp,                      # GPDensityProduct
+    dynamics: PBMEMIntDynamics,
+) -> FloatArray:
+    r"""
+    Product-surrogate analogue of ``compute_L_matrix``: the (M, N) matrix
+    L such that the QCLE excess rate on the product surrogate
+    rho_hat = g * mu, mu(z) = sum_j k(z, z_j) alpha_j, satisfies
+
+        Q_m = sum_j L[m, j] alpha_j        (alpha = the INNER mu-GP's alpha)
+
+    exactly — same 7-term Leibniz expansion as ``product_Q_at_points``
+    (v1 convention: the pure-profile third derivative g_abP is kept at
+    zero, consistent with the neglected mapping-rotation Hessian), with
+    the alpha-contraction removed so the per-center kernel derivative
+    tensors are exposed.  Works for both STATIC and TRANSPORTED profile
+    modes through ``profile_derivs_current`` (the footpoint Jacobian is
+    frozen between MInt legs, so within a splitting leg L is constant).
+
+    Combined with the inner solve alpha = K_y^{-1}(b / g_s) (the product
+    refit fits mu to labels divided by the safe profile g_s), the label-
+    product ODE  b_dot = Q  has the exactly linear, leg-constant generator
+
+        A = L_prod  K_y^{-1}  diag(1 / g_s(Z_train)),
+
+    which is what the exact-exponential Strang leg exponentiates.
+    """
+    from .GPDerivatives import _prepare
+
+    Z = np.atleast_2d(np.asarray(Z_eval, dtype=np.float64))
+    M = Z.shape[0]
+    hbar = gpp._hbar
+
+    # Per-center kernel objects of the INNER GP at the eval points:
+    #   K   (M, N)      k(Z_m, Z_j)
+    #   V   (M, N, D)   (Z_m - Z_j)_d / ell_d^2
+    #   lam (D,)        1 / ell_d^2
+    K_t, V_t, lam_t, _alpha_t, _W_t, _single = _prepare(gpp._inner, Z)
+    K   = K_t.detach().cpu().numpy().astype(np.float64)
+    V   = V_t.detach().cpu().numpy().astype(np.float64)
+    lam = lam_t.detach().cpu().numpy().astype(np.float64)
+
+    g, dg, d2g = gpp.profile_derivs_current(Z)      # (M,), (M,6), (M,6,6)
+    dh = _traceless_dh(dynamics, Z[:, 0])           # (M,2,2)
+
+    iP = 1
+
+    def mu_a(a):                       # per-center d mu / dz_a : (M, N)
+        return -V[:, :, a] * K
+
+    def mu_ab(a, b):                   # per-center d2 mu / dz_a dz_b
+        out = V[:, :, a] * V[:, :, b] * K
+        if a == b:
+            out = out - lam[a] * K
+        return out
+
+    def mu_abP(a, b):                  # per-center d3 mu / dz_a dz_b dz_P
+        out = -V[:, :, a] * V[:, :, b] * V[:, :, iP] * K
+        if a == b:
+            out = out + lam[a] * V[:, :, iP] * K
+        if a == iP:
+            out = out + lam[a] * V[:, :, b] * K
+        if b == iP:
+            out = out + lam[b] * V[:, :, a] * K
+        return out
+
+    L = np.zeros((M, K.shape[1]), dtype=np.float64)
+    for blk in (0, 2):
+        d = 2 + blk
+        for l in range(2):
+            for lp in range(2):
+                a, b = d + l, d + lp
+                # 7-term Leibniz (g_abP == 0 by the v1 convention),
+                # term-for-term identical to product_Q_at_points:
+                term = (
+                      d2g[:, a, b][:, None]   * mu_a(iP)
+                    + d2g[:, a, iP][:, None]  * mu_a(b)
+                    + dg[:, a][:, None]       * mu_ab(b, iP)
+                    + d2g[:, b, iP][:, None]  * mu_a(a)
+                    + dg[:, b][:, None]       * mu_ab(a, iP)
+                    + dg[:, iP][:, None]      * mu_ab(a, b)
+                    + g[:, None]              * mu_abP(a, b)
+                )
+                L += dh[:, l, lp][:, None] * term
+    L *= -(hbar / 8.0)
+    return L

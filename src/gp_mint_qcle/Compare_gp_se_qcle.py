@@ -18,8 +18,10 @@ A finished GP run directory containing
 
 The initial conditions for SE and QCLE are taken from CLI flags (or
 defaults that match run.py: R0 = -15, P0 = 40, sigma_R = 1.0).  SE and
-QCLE are integrated with the same dt and n_steps as the GP run, so the
-four methods land on a directly-comparable observable grid.
+QCLE are integrated on the same resolved physical time grid as the GP run.
+When a GP run is present, the comparison driver infers dt and T directly from
+the saved Collector time array; otherwise it resolves them from --t_final /
+--scattering-cycles / --dt just as run.py does.
 
 Observables (same schema across all four methods)
 -------------------------------------------------
@@ -52,6 +54,18 @@ Usage
 """
 from __future__ import annotations
 
+# --- UTF-8 console safety: prevent UnicodeEncodeError on Windows cp1252 ---
+# Banners/diagnostics below print non-ASCII physics notation (α, ρ̂, Δ, →, ħ).
+# Reconfigure the console streams to UTF-8 so direct execution of this module
+# does not abort under Windows' default cp1252 encoding.  No-op where unsupported.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+# --------------------------------------------------------------------------
+
 import os, sys, time, json, argparse
 from typing import Dict, Tuple, List, Optional
 
@@ -60,6 +74,7 @@ import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from .Models import TullyModel, TullyParams
+from .KDEDensity import ProjectedNuclearGP
 from .qcle_grid_tully import QCLEGridSolver, QCLEGridParams, QCLEGridState
 
 
@@ -70,7 +85,7 @@ from .qcle_grid_tully import QCLEGridSolver, QCLEGridParams, QCLEGridState
 # Switch FIG_MODE to "talk" before generating slide figures.
 # ============================================================================
 # ============================================================================
-# JCP / research-quality figure constants
+# JCP / UofT thesis figure constants
 # ============================================================================
 _W1  = 3.375   # JCP single column [in]
 _W15 = 5.0     # JCP 1.5 column
@@ -84,6 +99,61 @@ _TITLE_FONT  = 9.0
 import warnings as _warnings
 _warnings.filterwarnings("ignore", message=r".*timestamp seems very low.*",
                          category=UserWarning)
+
+
+def qcle_boundary_masses(
+    rho_total: np.ndarray,
+    dR: float,
+    dP: float,
+    fraction: float = 0.05,
+) -> Dict[str, float]:
+    """Return robust marginal and phase-space QCLE boundary diagnostics.
+
+    A Wigner density is signed, but its physical position and momentum
+    marginals are the quantities whose boundary occupancy determines whether
+    the computational box truncates the scattering packet.  We integrate the
+    signed Wigner density to each marginal first and then take absolute values
+    so small numerical negative lobes cannot cancel across a boundary band.
+    The stricter integral of ``abs(W)`` over phase-space boundary strips is
+    retained separately as a numerical-ringing diagnostic; it is not a
+    probability and therefore is not used as the domain-adequacy gate.
+    """
+    rho = np.asarray(rho_total, dtype=float)
+    if rho.ndim != 2 or min(rho.shape) < 1:
+        raise ValueError("rho_total must be a non-empty two-dimensional array")
+    if not (np.isfinite(dR) and dR > 0 and np.isfinite(dP) and dP > 0):
+        raise ValueError("dR and dP must be finite and positive")
+    if not (0.0 < fraction <= 0.5):
+        raise ValueError("fraction must lie in (0, 0.5]")
+
+    n_R, n_P = rho.shape
+    n_edge_R = max(1, int(np.ceil(fraction * n_R)))
+    n_edge_P = max(1, int(np.ceil(fraction * n_P)))
+    marginal_R = np.sum(rho, axis=1) * dP
+    marginal_P = np.sum(rho, axis=0) * dR
+
+    def absolute_edge_fraction(values: np.ndarray, n_edge: int) -> float:
+        magnitude = np.abs(values)
+        total = float(np.sum(magnitude))
+        edge = float(np.sum(magnitude[:n_edge]) + np.sum(magnitude[-n_edge:]))
+        return edge / max(total, 1e-30)
+
+    rho_abs = np.abs(rho)
+    phase_total = float(np.sum(rho_abs) * dR * dP)
+    phase_R = float(
+        (np.sum(rho_abs[:n_edge_R, :]) + np.sum(rho_abs[-n_edge_R:, :]))
+        * dR * dP
+    ) / max(phase_total, 1e-30)
+    phase_P = float(
+        (np.sum(rho_abs[:, :n_edge_P]) + np.sum(rho_abs[:, -n_edge_P:]))
+        * dR * dP
+    ) / max(phase_total, 1e-30)
+    return {
+        "marginal_R": absolute_edge_fraction(marginal_R, n_edge_R),
+        "marginal_P": absolute_edge_fraction(marginal_P, n_edge_P),
+        "phase_space_R": phase_R,
+        "phase_space_P": phase_P,
+    }
 
 # Okabe–Ito colour-blind-safe qualitative palette.  Referenced by
 # _apply_rcparams() to build the Matplotlib prop_cycle.  Defined at module
@@ -108,15 +178,15 @@ _PALETTE = {
 # match the local map previously used only inside _plot_phasespace_with_marginals.
 METHOD_COLOR = {
     "SE":       "#333333",   # split-operator TDSE (exact reference)
-    "QCLE":     "#0072B2",   # grid QCLE (exact quantum-classical reference)
-    "PBME":     "#E69F00",   # GP-PBME
+    "QCLE":     "#009E73",   # grid QCLE (exact quantum-classical reference)
+    "PBME":     "#0072B2",   # GP-PBME
     "midpoint": "#D55E00",   # GP midpoint (QCLE-corrected)
 }
 METHOD_LS = {
     "SE":       "-",
-    "QCLE":     "--",
-    "PBME":     "-.",
-    "midpoint": ":",
+    "QCLE":     "-",
+    "PBME":     "-",
+    "midpoint": "-",
 }
 METHOD_LW = {
     "SE":       2.0,
@@ -194,6 +264,16 @@ def _save_pub(fig, stem: str) -> None:
     kw = dict(dpi=300, bbox_inches="tight", pad_inches=0.02)
     fig.savefig(stem + ".pdf", **kw)
     fig.savefig(stem + ".png", **kw)
+    try:
+        from .Reproducibility import write_figure_metadata
+        title = os.path.basename(stem).replace("_", " ") or "Figure"
+        write_figure_metadata(
+            stem + ".pdf", title=title, data_sources=[],
+            scale_policy="shared across compared methods where color/intensity encodes magnitude",
+            normalization="stated by axis and legend labels",
+        )
+    except Exception as exc:
+        _warnings.warn(f"Could not write figure metadata sidecar: {exc}")
 
 
 def _setup_ax(ax, xlabel: str, ylabel: str) -> None:
@@ -329,9 +409,229 @@ MASS_DEFAULT = 2000.0
 HBAR_DEFAULT = 1.0
 
 
+def _positive_abs_p0(P0: float) -> float:
+    pabs = abs(float(P0))
+    if not np.isfinite(pabs) or pabs <= 0.0:
+        raise ValueError("P0 must be non-zero for scattering time-grid controls.")
+    return pabs
+
+
+def _collision_time(R0: float, P0: float, mass: float) -> float:
+    """Return the incoming classical collision time M|R0|/|P0|."""
+    return float(mass) * abs(float(R0)) / _positive_abs_p0(P0)
+
+
+def _resolve_reference_grid_from_args(args, P0: float) -> Tuple[float, int, float]:
+    """Resolve dt, n_steps, T when no GP Collector time grid is available."""
+    pabs = _positive_abs_p0(P0)
+    dt_nominal = float(args.dt)
+    if dt_nominal <= 0.0 or not np.isfinite(dt_nominal):
+        raise ValueError("dt must be positive.")
+    dt_eff = dt_nominal
+    if bool(getattr(args, "auto_dt", False)):
+        pref = _positive_abs_p0(getattr(args, "auto_dt_ref_p0", 40.0))
+        scaled = float(args.auto_dt_ref) * (pabs / pref) ** float(args.auto_dt_power)
+        dt_eff = min(dt_nominal, scaled)
+        dt_eff = max(float(args.dt_min), min(float(args.dt_max), dt_eff))
+    tc = _collision_time(args.R0, P0, args.mass)
+    if getattr(args, "t_final", None) is not None:
+        T = float(args.t_final)
+    elif getattr(args, "scattering_cycles", None) is not None:
+        T = float(args.scattering_cycles) * tc
+    else:
+        # Preserve legacy endpoint if auto_dt lowers dt: --n_steps * requested --dt.
+        T = float(args.n_steps) * dt_nominal
+    if T <= 0.0 or not np.isfinite(T):
+        raise ValueError("resolved final time must be positive.")
+    n_steps = max(1, int(np.ceil(T / dt_eff - 1.0e-12)))
+    dt_exact = T / float(n_steps)
+    return float(dt_exact), int(n_steps), float(T)
+
+
+def _infer_time_grid_from_runs(runs: Dict[str, Dict[str, np.ndarray]],
+                               args, P0: float) -> Tuple[float, int, float, str]:
+    """Prefer the saved GP trajectory time grid, otherwise use CLI controls."""
+    if not bool(getattr(args, "ignore_gp_time_grid", False)):
+        for key in ("midpoint", "PBME"):
+            if key in runs and "t" in runs[key]:
+                t = np.asarray(runs[key]["t"], dtype=np.float64).reshape(-1)
+                t = t[np.isfinite(t)]
+                if t.size >= 2:
+                    diffs = np.diff(t)
+                    diffs = diffs[diffs > 1.0e-14]
+                    if diffs.size:
+                        dt = float(np.median(diffs))
+                        T = float(t[-1])
+                        n_steps = int(round(T / dt))
+                        if n_steps > 0:
+                            dt = T / float(n_steps)
+                            return dt, n_steps, T, f"Collector time grid from {key}.npz"
+    dt, n_steps, T = _resolve_reference_grid_from_args(args, P0)
+    return dt, n_steps, T, "CLI-resolved time grid"
+
+
+def _parse_density_times(spec: str, *, R0: float, P0: float, mass: float,
+                         T_final: float, include_final: bool = False) -> List[float]:
+    """Parse density snapshot times. 'auto' means 0, t_c, 2 t_c."""
+    text = (spec or "").strip().lower()
+    tc = _collision_time(R0, P0, mass)
+    if text in ("", "none", "off"):
+        vals: List[float] = []
+    elif text in ("auto", "collision", "scattering"):
+        vals = [0.0, tc, 2.0 * tc]
+    elif text in ("final", "t_final", "end"):
+        vals = [T_final]
+    else:
+        vals = [float(x.strip()) for x in spec.split(",") if x.strip()]
+    if include_final:
+        vals.append(float(T_final))
+    out: List[float] = []
+    seen = set()
+    for v in vals:
+        if not np.isfinite(v):
+            continue
+        vv = min(max(0.0, float(v)), float(T_final))
+        if vv != float(v):
+            print(f"[compare] WARNING: requested density-time t={float(v):g} a.u. is "
+                  f"outside the run's saved range [0, {float(T_final):g}] a.u. and was "
+                  f"dropped (clamped to t={vv:g}). The trajectory does not contain "
+                  f"that time — extend n_steps/dt in run.py to reach it.")
+        key = round(vv, 10)
+        if key in seen:
+            continue
+        out.append(vv); seen.add(key)
+    return sorted(out)
+
+
+def _nearest_time_index(run: Dict[str, np.ndarray], t_tgt: float) -> int:
+    t = np.asarray(run.get("t", []), dtype=np.float64).reshape(-1)
+    if t.size == 0:
+        return 0
+    return int(np.argmin(np.abs(t - t_tgt)))
+
+
+def _finite_quantile_bounds(values: np.ndarray, qlo: float = 0.001,
+                            qhi: float = 0.999) -> Optional[Tuple[float, float]]:
+    a = np.asarray(values, dtype=np.float64).reshape(-1)
+    a = a[np.isfinite(a)]
+    if a.size == 0:
+        return None
+    if a.size == 1:
+        v = float(a[0]); return v, v
+    return float(np.quantile(a, qlo)), float(np.quantile(a, qhi))
+
+
+def _dynamic_rp_window(runs: Dict[str, Dict[str, np.ndarray]],
+                       cloud_snaps: Dict[str, List[Dict]],
+                       ti: int, t_tgt: float, *,
+                       R0: float, P0: float, sigma_R: float, hbar: float,
+                       mass: float) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    """Data-driven (R,P) plot window enclosing clouds and moment envelopes."""
+    sigma_P = hbar / (2.0 * sigma_R)
+    R_c = R0 + (P0 / mass) * t_tgt
+    R_bounds: List[Tuple[float, float]] = []
+    P_bounds: List[Tuple[float, float]] = []
+    dR_spread = np.sqrt(sigma_R**2 + (t_tgt * sigma_P / mass) ** 2)
+    R_bounds.append((R_c - 4.0 * dR_spread, R_c + 4.0 * dR_spread))
+    P_bounds.append((P0 - 5.0 * max(sigma_P, 1.0), P0 + 5.0 * max(sigma_P, 1.0)))
+    for r in runs.values():
+        if "t" not in r:
+            continue
+        idx = _nearest_time_index(r, t_tgt)
+        for mean_key, var_key, store, floor in (
+            ("R_mean", "R_var", R_bounds, sigma_R),
+            ("P_mean", "P_var", P_bounds, sigma_P),
+        ):
+            if mean_key in r and var_key in r:
+                mu_arr = np.asarray(r[mean_key], dtype=np.float64).reshape(-1)
+                va_arr = np.asarray(r[var_key], dtype=np.float64).reshape(-1)
+                if idx < mu_arr.size and idx < va_arr.size:
+                    mu = float(mu_arr[idx]); var = float(va_arr[idx])
+                    if np.isfinite(mu) and np.isfinite(var):
+                        sig = np.sqrt(max(var, 0.0))
+                        half = max(5.0 * sig, 3.0 * floor)
+                        store.append((mu - half, mu + half))
+    for snaps in cloud_snaps.values():
+        if ti < len(snaps):
+            Z = np.asarray(snaps[ti].get("Z", []), dtype=np.float64)
+            if Z.ndim == 2 and Z.shape[1] >= 2 and Z.shape[0] > 0:
+                rb = _finite_quantile_bounds(Z[:, 0])
+                pb = _finite_quantile_bounds(Z[:, 1])
+                if rb is not None: R_bounds.append(rb)
+                if pb is not None: P_bounds.append(pb)
+    R_lo = min(b[0] for b in R_bounds); R_hi = max(b[1] for b in R_bounds)
+    P_lo = min(b[0] for b in P_bounds); P_hi = max(b[1] for b in P_bounds)
+    def _pad(lo: float, hi: float, min_half: float, frac: float = 0.08) -> Tuple[float, float]:
+        if hi < lo:
+            lo, hi = hi, lo
+        cen = 0.5 * (lo + hi)
+        half = max(0.5 * (hi - lo) * (1.0 + frac), min_half)
+        return float(cen - half), float(cen + half)
+    return (_pad(R_lo, R_hi, max(6.0 * sigma_R, 2.0)),
+            _pad(P_lo, P_hi, max(6.0 * sigma_P, 3.0)))
+
+
+def _subsample_cloud_for_overlay(Z: np.ndarray, max_points: int = 2500) -> np.ndarray:
+    Z = np.asarray(Z, dtype=np.float64)
+    if Z.ndim != 2 or Z.shape[1] < 2 or Z.shape[0] == 0:
+        return np.empty((0, 2), dtype=np.float64)
+    if Z.shape[0] <= max_points:
+        return Z[:, :2]
+    stride = int(np.ceil(Z.shape[0] / max_points))
+    return Z[::stride, :2]
+
+
 # ============================================================================
 # SE driver — TDSE with per-step observables on the SAME time grid as GP
 # ============================================================================
+def tdse_grid_metadata(
+    R0: float,
+    P0: float,
+    sigma_R: float,
+    dt: float,
+    n_steps: int,
+    *,
+    mass: float = MASS_DEFAULT,
+    hbar: float = HBAR_DEFAULT,
+    model: Optional[TullyModel] = None,
+    R_pad: float = 25.0,
+    n_grid_min: int = 4096,
+) -> Dict[str, float]:
+    """Return the exact deterministic grid selected by :func:`run_tdse`."""
+    if model is None:
+        model = TullyModel(TullyParams.defaults("dual"))
+    params = model.params
+    velocity = max(P0, 1.0) / mass
+    total_time = n_steps * dt
+    travel = abs(velocity) * total_time
+    R_lo = min(R0 - 6.0 * sigma_R, R0 - R_pad)
+    R_upper = max(
+        R0 + travel + 6.0 * sigma_R + R_pad,
+        R0 + R_pad,
+    )
+    length = R_upper - R_lo
+    maximum_gap = max(params.A + params.C, params.A)
+    dynamic_momentum = np.sqrt(P0 ** 2 + 2.0 * mass * maximum_gap)
+    sigma_P = hbar / (2.0 * sigma_R)
+    required_k_max = (dynamic_momentum + 8.0 * sigma_P) / hbar
+    n_grid_actual = max(
+        n_grid_min,
+        int(2 ** np.ceil(np.log2(2.0 * length * required_k_max / np.pi))),
+    )
+    n_grid_actual = min(n_grid_actual, 32768)
+    dR = length / n_grid_actual
+    return {
+        "R_min": float(R_lo),
+        # The FFT grid excludes the duplicated periodic upper endpoint.
+        "R_max": float(R_upper - dR),
+        "R_periodic_upper_endpoint": float(R_upper),
+        "dR": float(dR),
+        "n_grid_actual": int(n_grid_actual),
+        "k_max": float(np.pi / dR),
+        "k_max_required": float(required_k_max),
+    }
+
+
 def run_tdse(
     R0: float, P0: float, sigma_R: float,
     dt: float, n_steps: int,
@@ -360,20 +660,17 @@ def run_tdse(
     p = model.params
 
     # ---------- nuclear R-grid ----------------------------------------
-    v0 = max(P0, 1.0) / mass
-    t_total = n_steps * dt
-    travel = abs(v0) * t_total
-    R_lo = min(R0 - 6.0 * sigma_R, R0 - R_pad)
-    R_hi = max(R0 + travel + 6.0 * sigma_R + R_pad, R0 + R_pad)
+    grid_meta = tdse_grid_metadata(
+        R0, P0, sigma_R, dt, n_steps,
+        mass=mass, hbar=hbar, model=model, R_pad=R_pad,
+        n_grid_min=n_grid_min,
+    )
+    R_lo = grid_meta["R_min"]
+    R_hi = grid_meta["R_periodic_upper_endpoint"]
     Lx = R_hi - R_lo
-    # Need k_max > 2.5 P0 plus headroom for the upper-state momentum kick.
-    dV_max = max(p.A + p.C, p.A)
-    P_dyn = np.sqrt(P0 ** 2 + 2.0 * mass * dV_max)
-    sigma_P = hbar / (2.0 * sigma_R)
-    k_max_needed = (P_dyn + 8.0 * sigma_P) / hbar
-    nR = max(n_grid_min, int(2 ** np.ceil(np.log2(2.0 * Lx * k_max_needed / np.pi))))
-    nR = min(nR, 32768)
-    dR = Lx / nR
+    nR = int(grid_meta["n_grid_actual"])
+    dR = grid_meta["dR"]
+    k_max_needed = grid_meta["k_max_required"]
     R = R_lo + np.arange(nR) * dR
     k = 2.0 * np.pi * np.fft.fftfreq(nR, d=dR)
     if verbose:
@@ -436,6 +733,8 @@ def run_tdse(
     P_var_t    = np.zeros(n_save)
     energy_t   = np.zeros(n_save)
     trace_t    = np.zeros(n_save)
+    edge_mass_t = np.zeros(n_save)
+    negative_momentum_probability_t = np.zeros(n_save)
 
     def measure(idx, t_now, psi):
         """One-pass observables computation."""
@@ -466,6 +765,9 @@ def run_tdse(
         P_mean = float(np.sum(P_axis * rho_k) * dk) / max(Z, 1e-30)
         P2     = float(np.sum(P_axis * P_axis * rho_k) * dk) / max(Z, 1e-30)
         P_var  = max(P2 - P_mean ** 2, 0.0)
+        negative_momentum_probability = float(
+            np.sum(rho_k[P_axis < 0.0]) * dk
+        ) / max(Z, 1e-30)
         # diabatic-frame energy: <H> = <T> + <V>
         # <T> = ∫ Σ_λ |∂_R psi_λ|² / (2m) dR  via spectral form ℏ²k²/2m
         ekin = float(np.sum(rho_k * (hbar * k) ** 2) * dk) / (2.0 * mass)
@@ -473,6 +775,10 @@ def run_tdse(
             np.sum(V11 * rho00 + V22 * rho11 + 2.0 * V12 * np.real(psi[0] * np.conj(psi[1])))
         ) * dR
         E_tot = ekin + epot
+        n_edge = max(1, int(np.ceil(0.05 * nR)))
+        edge_mass = float(
+            (np.sum(rho_total[:n_edge]) + np.sum(rho_total[-n_edge:])) * dR
+        ) / max(Z, 1e-30)
 
         t_out[idx]    = t_now
         P0_t[idx]     = P_a
@@ -485,6 +791,8 @@ def run_tdse(
         R_var_t[idx]  = R_var
         P_var_t[idx]  = P_var
         energy_t[idx] = E_tot
+        edge_mass_t[idx] = edge_mass
+        negative_momentum_probability_t[idx] = negative_momentum_probability
 
     # ----- snapshot recording -----
     # If t_snapshots is given, the loop also stores psi(R) at the closest
@@ -532,6 +840,8 @@ def run_tdse(
         R_mean=R_mean_t[:idx], P_mean=P_mean_t[:idx],
         R_var=R_var_t[:idx],   P_var=P_var_t[:idx],
         trace=trace_t[:idx],   energy=energy_t[:idx],
+        edge_mass_5pct=edge_mass_t[:idx],
+        negative_momentum_probability=negative_momentum_probability_t[:idx],
         # snapshot bundle for marginal-density panels
         snap_R=R, snap_dR=dR, snap_psi=snap_psi, snap_t=np.asarray(snap_t),
         snap_k=k, snap_Lx=Lx, snap_hbar=hbar,
@@ -632,6 +942,10 @@ def run_qcle(
     P_var_t   = np.zeros(n_save)
     energy_t  = np.zeros(n_save)
     trace_t   = np.zeros(n_save)
+    edge_R_mass_t = np.zeros(n_save)
+    edge_P_mass_t = np.zeros(n_save)
+    edge_phase_space_R_mass_t = np.zeros(n_save)
+    edge_phase_space_P_mass_t = np.zeros(n_save)
 
     def measure(idx, t_now, st):
         A, C, bR_, bI_ = st.A, st.C, st.bR, st.bI
@@ -653,6 +967,9 @@ def run_qcle(
         epot = float(np.sum(V11[:, None] * A
                             + V22[:, None] * C
                             + 2.0 * V12[:, None] * bR_) * cA)
+        boundary = qcle_boundary_masses(rho_tot, solver.dR, solver.dP)
+        edge_R_mass = boundary["marginal_R"]
+        edge_P_mass = boundary["marginal_P"]
         t_out[idx]    = t_now
         P0_t[idx]     = P_a
         P1_t[idx]     = P_b
@@ -664,6 +981,10 @@ def run_qcle(
         R_var_t[idx]  = R_var
         P_var_t[idx]  = P_var
         energy_t[idx] = ekin + epot
+        edge_R_mass_t[idx] = edge_R_mass
+        edge_P_mass_t[idx] = edge_P_mass
+        edge_phase_space_R_mass_t[idx] = boundary["phase_space_R"]
+        edge_phase_space_P_mass_t[idx] = boundary["phase_space_P"]
 
     # initial
     # ----- snapshot recording -----
@@ -703,6 +1024,11 @@ def run_qcle(
         R_mean=R_mean_t[:idx], P_mean=P_mean_t[:idx],
         R_var=R_var_t[:idx],   P_var=P_var_t[:idx],
         trace=trace_t[:idx],   energy=energy_t[:idx],
+        edge_R_mass_5pct=edge_R_mass_t[:idx],
+        edge_P_mass_5pct=edge_P_mass_t[:idx],
+        edge_phase_space_R_mass_5pct=edge_phase_space_R_mass_t[:idx],
+        edge_phase_space_P_mass_5pct=edge_phase_space_P_mass_t[:idx],
+        cfl_dt_max=np.asarray([solver.cfl_dt_max()["min"]], dtype=float),
         # snapshot bundle for marginal-density panels
         snap_Rg=Rg, snap_dR=solver.dR, snap_dP=solver.dP,
         snap_R_axis=Rmesh[:, 0], snap_P_axis=Pmesh[0, :],
@@ -733,9 +1059,25 @@ def load_collector_run(npz_path: str) -> Dict[str, np.ndarray]:
     Missing keys are silently skipped (they don't exist in PBME runs, for
     example).
     """
-    d = dict(np.load(npz_path))
+    # This loader reads ONLY the per-step time-series members (t, lw_*,
+    # cloud_weighted_*, nm_*, faith_*, fc_*, label_*, …).  The periodic
+    # ``snap_*`` snapshot members — positions, labels, GP coefficients at
+    # every saved step — are never touched here, yet ``dict(np.load(...))``
+    # used to decompress and materialise all of them at once, which on a long,
+    # finely-sampled run is hundreds of MB and the direct cause of the
+    # MemoryError during comparison-figure generation.  Reading only the
+    # non-snapshot members from the open NpzFile keeps this cheap.
+    with np.load(npz_path) as z:
+        d = {k: z[k] for k in z.files if not k.startswith("snap_")}
 
     def _prefer(*keys: str) -> np.ndarray:
+        """Return the first present key's array as float64; raise if none exist.
+
+        Closes over the materialised `d` above so callers can list a
+        preference order of schema-equivalent keys (e.g. the self-normalized
+        ``lw_*`` estimator first, then the raw ``cloud_weighted_*`` sum, then
+        the GP-analytic fallback).
+        """
         for key in keys:
             if key in d:
                 return np.asarray(d[key], dtype=np.float64)
@@ -793,12 +1135,12 @@ def load_collector_run(npz_path: str) -> Dict[str, np.ndarray]:
 def _plot_overlay(ax, runs: Dict[str, Dict[str, np.ndarray]], key: str,
                   ylabel: str, title: Optional[str] = None,
                   hline: Optional[float] = None) -> None:
+    del title
     for name, r in runs.items():
         ax.plot(r["t"], r[key], **_curve(name))
     ax.set_xlabel(r"Time  [a.u.]")
     ax.set_ylabel(ylabel)
-    if title is not None:
-        ax.set_title(title)
+    ax.set_title("")
     if hline is not None:
         ax.axhline(hline, color="0.6", lw=0.5, ls="-")
 
@@ -887,63 +1229,113 @@ def _bath_marginals_1d(snap: Dict[str, np.ndarray],
     for seo_signed) when the bath integral yields all-zero or NaN, so the
     panel at least shows something plausible with an annotation.
     """
-    alpha = snap.get("alpha")
-    Z_centers = snap.get("Z")
-    ell = snap.get("lengthscales")
-    sigma_f = snap.get("sigma_f")
-    if any(v is None for v in (alpha, Z_centers, ell, sigma_f)):
-        return None, None
+    # Preferred path for every modern snapshot: project the saved physical
+    # cloud measure first, then integrate the common-support 2D GP.  This is
+    # identifiable for focused PBME and uses the same object as the KDE
+    # baseline.  The analytic 6D branch below remains only for legacy files
+    # that lack the saved labels or measure.
+    rho_2d = _density_2d_from_gp_moment_projection(snap, R_grid, P_grid)
+    if rho_2d is not None:
+        # Conditional expression is intentionally lazy: NumPy >=2.4 removes
+        # ``np.trapz``, so passing it as an eager ``getattr`` default fails
+        # even when ``np.trapezoid`` exists.
+        trap = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+        rho_R = trap(rho_2d, P_grid, axis=1)
+        rho_P = trap(rho_2d, R_grid, axis=0)
+        return rho_R, rho_P
 
-    alpha     = np.asarray(alpha,     dtype=np.float64).reshape(-1)
-    Z_centers = np.asarray(Z_centers, dtype=np.float64)
-    ell       = np.asarray(ell,       dtype=np.float64).reshape(-1)
-    sigma_f   = float(np.asarray(sigma_f).reshape(-1)[0])
+    def _component(alpha, Z_centers, ell, sigma_f, feature_zscore, feat_std):
+        """(rho_R, rho_P) contribution of one kernel set, or (None, None)."""
+        if any(v is None for v in (alpha, Z_centers, ell, sigma_f)):
+            return None, None
 
-    if Z_centers.shape[1] != 6 or ell.size != 6:
-        return None, None
+        alpha     = np.asarray(alpha,     dtype=np.float64).reshape(-1)
+        Z_centers = np.asarray(Z_centers, dtype=np.float64)
+        ell       = np.asarray(ell,       dtype=np.float64).reshape(-1)
+        sigma_f   = float(np.asarray(sigma_f).reshape(-1)[0])
 
-    # Physical lengthscales (undo z-score normalisation when active).
+        if Z_centers.shape[1] != 6 or ell.size != 6:
+            return None, None
+
+        # Physical lengthscales (undo z-score normalisation when active).
+        is_zscored = (feature_zscore is not None
+                      and int(np.asarray(feature_zscore).reshape(-1)[0]) == 1)
+        if is_zscored and feat_std is not None and np.asarray(feat_std).size == 6:
+            fs = np.asarray(feat_std, dtype=np.float64).reshape(-1)
+            ell_phys = ell * fs
+        else:
+            ell_phys = ell.copy()
+
+        ell_R, ell_P = ell_phys[0], ell_phys[1]
+        ell_map      = ell_phys[2:6]                              # (4,)
+        x_j          = Z_centers[:, 2:6]                         # (N, 4)  mapping centres
+
+        # Per-mapping-axis Gaussian-moment constants (same as 2D bath function).
+        a_d    = 1.0/hbar + 1.0/(2.0 * ell_map**2)               # (4,)
+        inv2l2 = 1.0/(2.0 * ell_map**2)                          # (4,)
+        mu_d   = (x_j * inv2l2[None, :]) / a_d[None, :]          # (N, 4)
+        C_d    = -x_j**2 * inv2l2[None, :] \
+                  * (1.0 - inv2l2[None, :] / a_d[None, :])       # (N, 4)
+
+        log_sqrt_pi_over_a = 0.5 * np.log(np.pi / a_d)           # (4,)
+        log_Pj = np.sum(C_d, axis=1) + float(np.sum(log_sqrt_pi_over_a))  # (N,)
+        M_j    = np.sum(mu_d**2 + 0.5/a_d[None, :], axis=1) - hbar       # (N,)
+
+        # Combined per-centre weight  w_j = alpha_j * M_j * exp(log_Pj).
+        w_j = alpha * M_j * np.exp(log_Pj)                       # (N,)
+
+        pref_base = 8.0 * (sigma_f**2) / hbar
+
+        # R-marginal: integrate ρ_bath(R, P) over P analytically.
+        #   Int dP exp(-0.5 (P - P_j)^2 / ell_P^2) = sqrt(2 pi) ell_P
+        pref_R = pref_base * np.sqrt(2.0 * np.pi) * ell_P
+        diff_R = R_grid[:, None] - Z_centers[None, :, 0]         # (nR, N)
+        G_R    = np.exp(-0.5 * (diff_R / ell_R)**2)              # (nR, N)
+        rho_R  = pref_R * (G_R * w_j[None, :]).sum(axis=1)       # (nR,)
+
+        # P-marginal: integrate ρ_bath(R, P) over R analytically.
+        pref_P = pref_base * np.sqrt(2.0 * np.pi) * ell_R
+        diff_P = P_grid[:, None] - Z_centers[None, :, 1]         # (nP, N)
+        G_P    = np.exp(-0.5 * (diff_P / ell_P)**2)              # (nP, N)
+        rho_P  = pref_P * (G_P * w_j[None, :]).sum(axis=1)       # (nP,)
+        return rho_R, rho_P
+
     fz = snap.get("feature_zscore")
     feat_std = snap.get("feature_std")
-    is_zscored = (fz is not None and int(np.asarray(fz).reshape(-1)[0]) == 1)
-    if is_zscored and feat_std is not None and np.asarray(feat_std).size == 6:
-        fs = np.asarray(feat_std, dtype=np.float64).reshape(-1)
-        ell_phys = ell * fs
-    else:
-        ell_phys = ell.copy()
 
-    ell_R, ell_P = ell_phys[0], ell_phys[1]
-    ell_map      = ell_phys[2:6]                              # (4,)
-    x_j          = Z_centers[:, 2:6]                         # (N, 4)  mapping centres
+    # Primary component.  For vanilla GPDensity snapshots snap["alpha"] IS
+    # the full density coefficient vector; for density-diff snapshots it is
+    # the CORRECTION coefficient α_δ only (Collector.Snapshot docstring).
+    rho_R, rho_P = _component(snap.get("alpha"), snap.get("Z"),
+                              snap.get("lengthscales"), snap.get("sigma_f"),
+                              fz, feat_std)
 
-    # Per-mapping-axis Gaussian-moment constants (same as 2D bath function).
-    a_d    = 1.0/hbar + 1.0/(2.0 * ell_map**2)               # (4,)
-    inv2l2 = 1.0/(2.0 * ell_map**2)                          # (4,)
-    mu_d   = (x_j * inv2l2[None, :]) / a_d[None, :]          # (N, 4)
-    C_d    = -x_j**2 * inv2l2[None, :] \
-              * (1.0 - inv2l2[None, :] / a_d[None, :])       # (N, 4)
+    # Density-diff regime: add the frozen baseline component
+    # ρ̂(z) = Σ α₀ k₀(z, Z₀) + Σ α_δ k_δ(z, Z) so the rendered marginal is
+    # the FULL density, not just the correction.
+    idd = snap.get("is_density_diff")
+    is_diff = (idd is not None and int(np.asarray(idd).reshape(-1)[0]) == 1)
+    if is_diff:
+        rho_R_b, rho_P_b = _component(
+            snap.get("alpha_base"), snap.get("Z0"),
+            snap.get("lengthscales_base"), snap.get("sigma_f_base"),
+            # Baseline GP never uses feature z-scoring in the diff pipeline;
+            # its stored lengthscales are physical.
+            None, None)
+        if rho_R_b is not None:
+            if rho_R is None:
+                rho_R, rho_P = rho_R_b, rho_P_b
+            else:
+                rho_R = rho_R + rho_R_b
+                rho_P = rho_P + rho_P_b
+        else:
+            print("[_bath_marginals_1d] WARNING: density-diff snapshot is "
+                  "missing baseline GP fields (alpha_base/Z0/...); the "
+                  "rendered marginal is the CORRECTION δ̂ only — re-save the "
+                  "run with the updated Collector to fix.")
 
-    log_sqrt_pi_over_a = 0.5 * np.log(np.pi / a_d)           # (4,)
-    log_Pj = np.sum(C_d, axis=1) + float(np.sum(log_sqrt_pi_over_a))  # (N,)
-    M_j    = np.sum(mu_d**2 + 0.5/a_d[None, :], axis=1) - hbar       # (N,)
-
-    # Combined per-centre weight  w_j = alpha_j * M_j * exp(log_Pj).
-    w_j = alpha * M_j * np.exp(log_Pj)                       # (N,)
-
-    pref_base = 8.0 * (sigma_f**2) / hbar
-
-    # R-marginal: integrate ρ_bath(R, P) over P analytically.
-    #   Int dP exp(-0.5 (P - P_j)^2 / ell_P^2) = sqrt(2 pi) ell_P
-    pref_R = pref_base * np.sqrt(2.0 * np.pi) * ell_P
-    diff_R = R_grid[:, None] - Z_centers[None, :, 0]         # (nR, N)
-    G_R    = np.exp(-0.5 * (diff_R / ell_R)**2)              # (nR, N)
-    rho_R  = pref_R * (G_R * w_j[None, :]).sum(axis=1)       # (nR,)
-
-    # P-marginal: integrate ρ_bath(R, P) over R analytically.
-    pref_P = pref_base * np.sqrt(2.0 * np.pi) * ell_R
-    diff_P = P_grid[:, None] - Z_centers[None, :, 1]         # (nP, N)
-    G_P    = np.exp(-0.5 * (diff_P / ell_P)**2)              # (nP, N)
-    rho_P  = pref_P * (G_P * w_j[None, :]).sum(axis=1)       # (nP,)
+    if rho_R is None:
+        return None, None
 
     # Guard: if the bath integral is numerically degenerate (should not
     # happen in normal runs) fall back to the flat marginal so the panel
@@ -969,36 +1361,72 @@ def _cloud_snapshots_from_npz(npz_path: str,
     evaluate the analytic 2D marginal of ρ̂ on (R, P) rather than a 2D
     KDE of the cloud.
     """
-    d = dict(np.load(npz_path))
-    # All available snapshot times
-    snap_steps = sorted({int(k.split("_")[1]) for k in d.keys()
-                          if k.startswith("snap_") and "_t" in k})
-    snap_times = np.asarray([float(d[f"snap_{s:06d}_t"][0]) for s in snap_steps])
+    # Memory-safe selective read.  Only ONE snapshot per requested target
+    # time is ever needed (the nearest in time), so materialising every
+    # snapshot via ``dict(np.load(...))`` — the previous behaviour — wasted
+    # hundreds of MB on long runs and risked MemoryError.  Instead open the
+    # archive lazily: the per-snapshot time stamps are tiny 1-element members
+    # (``snap_XXXXXX_t``), so reading just those to locate the nearest steps
+    # is cheap, and only the selected snapshots' full members are then
+    # decompressed.
     out: List[Dict] = []
-    for tt in t_targets:
-        i = int(np.argmin(np.abs(snap_times - tt)))
-        s = snap_steps[i]
-        prefix = f"snap_{s:06d}"
-        out.append(dict(
-            t=float(d[f"{prefix}_t"][0]),
-            Z=d[f"{prefix}_Z"],
-            y=d[f"{prefix}_y"],
-            # GP surrogate parameters (present in all runs since the
-            # collector saves them every snapshot)
-            alpha=d.get(f"{prefix}_alpha"),
-            lengthscales=d.get(f"{prefix}_lengthscales"),
-            sigma_f=d.get(f"{prefix}_sigma_f"),
-            feature_mean=d.get(f"{prefix}_feature_mean"),
-            feature_std=d.get(f"{prefix}_feature_std"),
-            # feature_zscore needed by _bath_marginals_1d to convert
-            # stored (normalised-space) lengthscales to physical units.
-            # Returns None from old NPZ files; _bath_marginals_1d
-            # treats None as False (no z-scoring), which is correct
-            # for the default feature_zscore=False pipeline runs.
-            feature_zscore=d.get(f"{prefix}_feature_zscore"),
-            # IS weight (focused-mode: omega_i = 1/(N q(z_i^0))).
-            weight=d.get(f"{prefix}_weight"),
-        ))
+    with np.load(npz_path) as z:
+        keys = set(z.files)
+        snap_steps = sorted({int(k.split("_")[1]) for k in keys
+                             if k.startswith("snap_") and k.endswith("_t")})
+        if not snap_steps:
+            return out
+        snap_times = np.asarray([float(z[f"snap_{s:06d}_t"][0])
+                                 for s in snap_steps])
+
+        def _read(prefix: str, name: str):
+            key = f"{prefix}_{name}"
+            return z[key] if key in keys else None
+
+        for tt in t_targets:
+            i = int(np.argmin(np.abs(snap_times - tt)))
+            s = snap_steps[i]
+            prefix = f"snap_{s:06d}"
+            out.append(dict(
+                t=float(z[f"{prefix}_t"][0]),
+                Z=z[f"{prefix}_Z"],
+                y=z[f"{prefix}_y"],
+                # GP surrogate parameters (present in all runs since the
+                # collector saves them every snapshot)
+                alpha=_read(prefix, "alpha"),
+                lengthscales=_read(prefix, "lengthscales"),
+                sigma_f=_read(prefix, "sigma_f"),
+                feature_mean=_read(prefix, "feature_mean"),
+                feature_std=_read(prefix, "feature_std"),
+                # feature_zscore needed by _bath_marginals_1d to convert
+                # stored (normalised-space) lengthscales to physical units.
+                # Returns None from old NPZ files; _bath_marginals_1d
+                # treats None as False (no z-scoring), which is correct
+                # for the default feature_zscore=False pipeline runs.
+                feature_zscore=_read(prefix, "feature_zscore"),
+                # IS weight (focused-mode: omega_i = 1/(N q(z_i^0))).
+                weight=_read(prefix, "weight"),
+                geometric_measure=_read(prefix, "geometric_measure"),
+                proposal_density=_read(prefix, "proposal_density"),
+                is_product=_read(prefix, "is_product"),
+                product_hbar=_read(prefix, "product_hbar"),
+                product_init_state=_read(prefix, "product_init_state"),
+                product_nstates=_read(prefix, "product_nstates"),
+                product_g_floor_rel=_read(prefix, "product_g_floor_rel"),
+                product_transported=_read(prefix, "product_transported"),
+                # Density-difference regime.  CRITICAL: for diff runs the
+                # top-level `alpha` is the CORRECTION coefficient vector
+                # α_δ ONLY (see Collector.Snapshot docstring).  Rendering
+                # the density from `alpha` alone silently plots the
+                # correction instead of ρ̂ = ρ̂₀ + δ̂.  The baseline fields
+                # below let _bath_marginals_1d / the 2D renderer assemble
+                # the FULL density (baseline + correction).
+                is_density_diff=_read(prefix, "is_density_diff"),
+                alpha_base=_read(prefix, "alpha_base"),
+                Z0=_read(prefix, "Z0"),
+                sigma_f_base=_read(prefix, "sigma_f_base"),
+                lengthscales_base=_read(prefix, "lengthscales_base"),
+            ))
     return out
 
 
@@ -1144,7 +1572,6 @@ def panel_density_marginals(runs: Dict[str, Dict[str, np.ndarray]],
                     ax_R.plot(R_grid, _normalize(rho_R_c, R_grid), **_curve(name))
                     ax_P.plot(P_grid, _normalize(rho_P_c, P_grid), **_curve(name))
 
-        ax_R.set_title(rf"$t = {t_tgt:g}$  a.u.")
         ax_R.set_xlabel(r"$R$  [a.u.]")
         ax_P.set_xlabel(r"$P$  [a.u.]")
         if col == 0:
@@ -1156,8 +1583,6 @@ def panel_density_marginals(runs: Dict[str, Dict[str, np.ndarray]],
         ax_P.set_ylim(bottom=0)
 
     axes[0, 0].legend(loc="best")
-    fig.suptitle(r"Nuclear density marginals — SE / QCLE / PBME / midpoint  "
-                 r"(diabatic trace, normalised)")
     _save_pub(fig, os.path.join(out_dir, "panel_density_marginals"))
     plt.close(fig)
     print(f"  -> panel_density_marginals.{{pdf,png}}")
@@ -1505,62 +1930,73 @@ def _density_2d_from_gp_bath_marginal(
 
     Returns None when the snapshot lacks GP parameters.
     """
-    alpha = snap.get("alpha")
-    Z_centers = snap.get("Z")
-    ell = snap.get("lengthscales")
-    sigma_f = snap.get("sigma_f")
-    if any(v is None for v in (alpha, Z_centers, ell, sigma_f)):
-        return None
+    def _component_2d(alpha, Z_centers, ell, sigma_f, feature_zscore, feat_std):
+        if any(v is None for v in (alpha, Z_centers, ell, sigma_f)):
+            return None
 
-    alpha = np.asarray(alpha, dtype=np.float64).reshape(-1)
-    Z_centers = np.asarray(Z_centers, dtype=np.float64)
-    ell = np.asarray(ell, dtype=np.float64).reshape(-1)
-    sigma_f = float(np.asarray(sigma_f).reshape(-1)[0])
+        alpha = np.asarray(alpha, dtype=np.float64).reshape(-1)
+        Z_centers = np.asarray(Z_centers, dtype=np.float64)
+        ell = np.asarray(ell, dtype=np.float64).reshape(-1)
+        sigma_f = float(np.asarray(sigma_f).reshape(-1)[0])
 
-    if Z_centers.shape[1] != 6 or ell.size != 6:
-        return None
+        if Z_centers.shape[1] != 6 or ell.size != 6:
+            return None
 
-    # Lengthscales: physical if zscore is off, else fold in feature_std.
-    fz = snap.get("feature_zscore")
-    feat_std = snap.get("feature_std")
-    is_zscored = (fz is not None and int(np.asarray(fz).reshape(-1)[0]) == 1)
-    if is_zscored and feat_std is not None and np.asarray(feat_std).size == 6:
-        fs = np.asarray(feat_std, dtype=np.float64).reshape(-1)
-        ell_phys = ell * fs
-    else:
-        ell_phys = ell.copy()
+        # Lengthscales: physical if zscore is off, else fold in feature_std.
+        is_zscored = (feature_zscore is not None
+                      and int(np.asarray(feature_zscore).reshape(-1)[0]) == 1)
+        if is_zscored and feat_std is not None and np.asarray(feat_std).size == 6:
+            fs = np.asarray(feat_std, dtype=np.float64).reshape(-1)
+            ell_phys = ell * fs
+        else:
+            ell_phys = ell.copy()
 
-    ell_R, ell_P = ell_phys[0], ell_phys[1]
-    ell_map = ell_phys[2:6]                                       # (4,)
-    x_j = Z_centers[:, 2:6]                                       # (N, 4)
+        ell_R, ell_P = ell_phys[0], ell_phys[1]
+        ell_map = ell_phys[2:6]                                       # (4,)
+        x_j = Z_centers[:, 2:6]                                       # (N, 4)
 
-    # Per-axis Gaussian-moment constants.
-    a_d  = 1.0/hbar + 1.0/(2.0 * ell_map**2)                       # (4,)
-    inv2l2 = 1.0/(2.0 * ell_map**2)                                # (4,)
-    mu_d = (x_j * inv2l2[None, :]) / a_d[None, :]                  # (N, 4)
-    C_d  = -x_j**2 * inv2l2[None, :] \
-            * (1.0 - inv2l2[None, :] / a_d[None, :])               # (N, 4)
+        # Per-axis Gaussian-moment constants.
+        a_d  = 1.0/hbar + 1.0/(2.0 * ell_map**2)                       # (4,)
+        inv2l2 = 1.0/(2.0 * ell_map**2)                                # (4,)
+        mu_d = (x_j * inv2l2[None, :]) / a_d[None, :]                  # (N, 4)
+        C_d  = -x_j**2 * inv2l2[None, :] \
+                * (1.0 - inv2l2[None, :] / a_d[None, :])               # (N, 4)
 
-    # 𝒫^{j} = Π_d √(π/a_d) e^{C_d^{j}}   — use log to avoid underflow
-    log_sqrt_pi_over_a = 0.5 * np.log(np.pi / a_d)                 # (4,)
-    log_P_j = np.sum(C_d, axis=1) + float(np.sum(log_sqrt_pi_over_a))   # (N,)
+        # 𝒫^{j} = Π_d √(π/a_d) e^{C_d^{j}}   — use log to avoid underflow
+        log_sqrt_pi_over_a = 0.5 * np.log(np.pi / a_d)                 # (4,)
+        log_P_j = np.sum(C_d, axis=1) + float(np.sum(log_sqrt_pi_over_a))   # (N,)
 
-    # M^{j} = Σ_d (μ_d² + 1/(2 a_d)) - ℏ
-    M_j = np.sum(mu_d**2 + 0.5/a_d[None, :], axis=1) - hbar        # (N,)
+        # M^{j} = Σ_d (μ_d² + 1/(2 a_d)) - ℏ
+        M_j = np.sum(mu_d**2 + 0.5/a_d[None, :], axis=1) - hbar        # (N,)
 
-    # Combined per-centre weight α_j · 𝒫^{j} · M^{j}, times overall scale 8 σ_f² / ℏ.
-    # We carry log_P_j separately to avoid blow-up: the combined weight is
-    #     α_j · M_j · exp(log_P_j)
-    w_j = alpha * M_j * np.exp(log_P_j)                            # (N,)
+        # Combined per-centre weight α_j · 𝒫^{j} · M^{j}, times overall scale 8 σ_f² / ℏ.
+        w_j = alpha * M_j * np.exp(log_P_j)                            # (N,)
 
-    # (R, P) Gaussian factor, then assemble: ρ_bath[i,k] = pref · Σ_j w_j G_R[i,j] G_P[k,j]
-    diff_R = R_grid[:, None] - Z_centers[None, :, 0]               # (n_R, N)
-    diff_P = P_grid[:, None] - Z_centers[None, :, 1]               # (n_P, N)
-    G_R = np.exp(-0.5 * (diff_R / ell_R)**2)                       # (n_R, N)
-    G_P = np.exp(-0.5 * (diff_P / ell_P)**2)                       # (n_P, N)
+        # (R, P) Gaussian factor: ρ_bath[i,k] = pref · Σ_j w_j G_R[i,j] G_P[k,j]
+        diff_R = R_grid[:, None] - Z_centers[None, :, 0]               # (n_R, N)
+        diff_P = P_grid[:, None] - Z_centers[None, :, 1]               # (n_P, N)
+        G_R = np.exp(-0.5 * (diff_R / ell_R)**2)                       # (n_R, N)
+        G_P = np.exp(-0.5 * (diff_P / ell_P)**2)                       # (n_P, N)
 
-    pref = 8.0 * (sigma_f**2) / hbar
-    rho_bath = pref * (G_R * w_j[None, :]) @ G_P.T                 # (n_R, n_P)
+        pref = 8.0 * (sigma_f**2) / hbar
+        return pref * (G_R * w_j[None, :]) @ G_P.T                     # (n_R, n_P)
+
+    rho_bath = _component_2d(snap.get("alpha"), snap.get("Z"),
+                             snap.get("lengthscales"), snap.get("sigma_f"),
+                             snap.get("feature_zscore"), snap.get("feature_std"))
+
+    # Density-diff regime: snap["alpha"] is only the δ-correction — add the
+    # frozen baseline component so the panel shows the full ρ̂ = ρ̂₀ + δ̂.
+    idd = snap.get("is_density_diff")
+    if idd is not None and int(np.asarray(idd).reshape(-1)[0]) == 1:
+        rho_b = _component_2d(snap.get("alpha_base"), snap.get("Z0"),
+                              snap.get("lengthscales_base"),
+                              snap.get("sigma_f_base"), None, None)
+        if rho_b is not None:
+            rho_bath = rho_b if rho_bath is None else rho_bath + rho_b
+        else:
+            print("[_density_2d_from_gp_bath_marginal] WARNING: density-diff "
+                  "snapshot lacks baseline GP fields; rendering δ̂ only.")
     return rho_bath
 
 
@@ -1568,106 +2004,48 @@ def _density_2d_from_gp_moment_projection(
         snap: Dict[str, np.ndarray],
         R_grid: np.ndarray,
         P_grid: np.ndarray) -> Optional[np.ndarray]:
-    """
-    Moment-projected GP marginal of the 2D phase-space density on (R, P).
+    """Common-support projected GP estimate of the physical R--P marginal.
 
-    This is the **right** trajectory-method visualization to compare
-    against the SE/QCLE Wigner marginals:
-
-      * It uses the GP's own R- and P-lengthscales as the bandwidth,
-        so the picture is at the resolution the SURROGATE represents
-        the density at (rather than the data-driven Silverman bandwidth
-        from a plain KDE, which oversmooths and hides structure).
-
-      * It evaluates the kernel only at TRAJECTORY POSITIONS with
-        weights ω_i · y_i — i.e. the integrand of the IS estimator
-        the integrator uses for every other observable.  No α
-        coefficients are involved, so there is NO sign-cancellation
-        artifact from the GP RKHS representation.
-
-    Mathematical content
-    --------------------
-    The 2D marginal of the 6D density is
-
-        ρ_2D(R, P) = ∫ dr₀ dr₁ dp₀ dp₁  ρ(R, P, r₀, r₁, p₀, p₁) .
-
-    For the IS estimator with weights ω_i = 1/(N·q(z_i^0)) and labels
-    y_i = ρ(z_i) carried along Liouville trajectories,
-
-        ρ̂_2D(R, P) = Σ_i ω_i y_i δ(R-R_i) δ(P-P_i)
-
-    is the (unbiased) cloud estimator.  For visualization we replace
-    each delta with a 2D Gaussian of bandwidth (ℓ_R, ℓ_P) — the GP's
-    own (R, P)-lengthscales:
-
-        ρ̂_2D(R, P) = 1/(2π ℓ_R ℓ_P) ·
-                     Σ_i ω_i y_i exp(-½ (R-R_i)²/ℓ_R² - ½ (P-P_i)²/ℓ_P²) .
-
-    This is mathematically the convolution of the cloud Riemann-sum
-    estimator with a Gaussian smoothing kernel matched to the GP's
-    own resolution — exactly the smoothing that makes the GP surrogate
-    a smooth function of (R, P) at the relevant length scales.
-
-    The sign of ω_i y_i is always non-negative under focused-mode IS
-    sampling (y_i = ρ(z_i^0) > 0 for any positive initial density, and
-    ω_i is a positive measure), so this estimator is positive by
-    construction.  The visualization can't show false negativity.
-
-    Returns None when the snapshot lacks GP parameters (older NPZ).
+    The projected GP is conditioned on the all-trajectory KDE field using
+    exactly the saved ``omega*y`` measure and the shared Scott/Silverman
+    bandwidth.  This replaces the former direct 6D GP integration, which is
+    non-identifiable for focused PBME because the mapping labels live on a
+    lower-dimensional manifold.
     """
     Z = snap.get("Z")
     y = snap.get("y")
-    ell = snap.get("lengthscales")
-    if Z is None or y is None or ell is None:
+    if Z is None or y is None:
         return None
 
     Z = np.asarray(Z, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64).reshape(-1)
-    ell = np.asarray(ell, dtype=np.float64).reshape(-1)
-    if Z.ndim != 2 or Z.shape[1] != 6 or ell.size != 6:
+    if Z.ndim != 2 or Z.shape[1] != 6 or y.size != Z.shape[0]:
         return None
 
     # Pull ω if it was saved; otherwise default to 1/N (uniform IS).
     # Under focused-mode IS:  ω_i = 1/(N · q(z_i^0)),  which is constant
     # along symplectic flow, so the t=0 value is the value at all times.
-    omega = snap.get("weight")
+    omega = snap.get("geometric_measure")
     if omega is None or np.asarray(omega).size != Z.shape[0]:
-        omega = np.full(Z.shape[0], 1.0 / Z.shape[0], dtype=np.float64)
+        proposal = snap.get("proposal_density")
+        if proposal is not None and np.asarray(proposal).size == Z.shape[0]:
+            proposal = np.asarray(proposal, dtype=np.float64).reshape(-1)
+            omega = 1.0 / (Z.shape[0] * np.maximum(proposal, np.finfo(float).tiny))
+        else:
+            omega = np.full(Z.shape[0], 1.0 / Z.shape[0], dtype=np.float64)
     else:
         omega = np.asarray(omega, dtype=np.float64).reshape(-1)
 
-    # Per-trajectory weight: ω_i · y_i.  These are the same numbers the
-    # integrator uses for every IS observable, e.g.
-    #   ⟨ρ⟩_grid = Σ_i ω_i y_i · 1   (mass)
-    # so ρ̂_2D is just the same sum with an indicator-of-pixel function
-    # smoothed to a Gaussian of bandwidth (ℓ_R, ℓ_P).
-    w = omega * y                                                # (N,)
-
-    # If the GP was fit on z-scored features, lengthscales are in the
-    # normalised space.  Read feature_std to convert back to physical.
-    fs = snap.get("feature_std")
-    if fs is not None and np.asarray(fs).size == 6:
-        fs = np.asarray(fs, dtype=np.float64).reshape(-1)
-        ell_R_phys = float(ell[0] * fs[0])
-        ell_P_phys = float(ell[1] * fs[1])
-    else:
-        ell_R_phys = float(ell[0])
-        ell_P_phys = float(ell[1])
-
-    # Floor to a tiny absolute minimum so a degenerate fit (lengthscale → 0)
-    # can't blow up.  In normal runs the lengthscales are O(σ).
-    ell_R_phys = max(ell_R_phys, 1e-3)
-    ell_P_phys = max(ell_P_phys, 1e-3)
-
-    # Evaluate via separable outer products.
-    R_diff = (R_grid[:, None] - Z[None, :, 0]) / ell_R_phys     # (n_R, N)
-    P_diff = (P_grid[:, None] - Z[None, :, 1]) / ell_P_phys     # (n_P, N)
-    Gr = np.exp(-0.5 * R_diff * R_diff)                          # (n_R, N)
-    Gp = np.exp(-0.5 * P_diff * P_diff)                          # (n_P, N)
-    # ρ_2D[i, k] = pref · Σ_j w_j · Gr[i, j] · Gp[k, j]
-    pref = 1.0 / (2.0 * np.pi * ell_R_phys * ell_P_phys)
-    rho = pref * (Gr * w[None, :]) @ Gp.T                        # (n_R, n_P)
-    return rho
+    saved_hbar = snap.get("product_hbar")
+    hbar = (float(np.asarray(saved_hbar).reshape(-1)[0])
+            if saved_hbar is not None else 1.0)
+    trace_factor = ((np.sum(Z[:, 2:6] ** 2, axis=1) - 2.0 * hbar)
+                    / (2.0 * hbar))
+    projected = ProjectedNuclearGP().fit_from_cloud(
+        Z, omega, y * trace_factor, dim_pair=(0, 1))
+    # The shared estimator returns image ordering (P rows, R columns); this
+    # comparison module uses matrix ordering (R rows, P columns).
+    return projected.gp_grid(R_grid, P_grid).T
 
 
 def _density_2d_from_cloud(Z: np.ndarray, y: np.ndarray,
@@ -1711,6 +2089,7 @@ def _plot_phasespace_with_marginals(
     savepath: str,
     *,
     vmax_quantile: float = 0.98,
+    cloud_points: Optional[Dict[str, np.ndarray]] = None,
 ) -> None:
     """Write the reference-style phase-space comparison figure.
 
@@ -1742,12 +2121,8 @@ def _plot_phasespace_with_marginals(
     import matplotlib.ticker as _mtic
 
     METHOD_ORDER = ["SE", "QCLE", "PBME", "midpoint"]
-    METHOD_COLOR = {
-        "SE":       "#333333",
-        "QCLE":     "#0072B2",
-        "PBME":     "#E69F00",
-        "midpoint": "#D55E00",
-    }
+    METHOD_COLOR = {"SE": "#333333", "QCLE": "#009E73",
+                    "PBME": "#0072B2", "midpoint": "#D55E00"}
     CMAP = "seismic"     # blue(−) → white(0) → red(+), matches reference
 
     methods = [m for m in METHOD_ORDER
@@ -1759,13 +2134,16 @@ def _plot_phasespace_with_marginals(
     dR  = float(R_grid[1] - R_grid[0])
     dP  = float(P_grid[1] - P_grid[0])
 
-    # Per-method symmetric vmax (data-driven)
-    vmaxes: Dict[str, float] = {}
-    for m in methods:
-        rho = np.asarray(densities[m], dtype=float)
-        finite = rho[np.isfinite(rho)]
-        v = float(np.quantile(np.abs(finite), vmax_quantile)) if finite.size else 1.0
-        vmaxes[m] = max(v, 1e-30)
+    # One symmetric scale across ALL compared methods.  Per-method color
+    # normalization can make a weak surrogate look as intense as a reference
+    # and was therefore unsuitable for a comparative thesis panel.
+    finite_abs = [np.abs(np.asarray(densities[m], dtype=float))
+                  for m in methods]
+    finite_abs = np.concatenate([v[np.isfinite(v)] for v in finite_abs])
+    shared_vmax = (float(np.quantile(finite_abs, vmax_quantile))
+                   if finite_abs.size else 1.0)
+    shared_vmax = max(shared_vmax, 1e-30)
+    vmaxes: Dict[str, float] = {m: shared_vmax for m in methods}
 
     # ── figure geometry ───────────────────────────────────────────────────────
     # width per method: 1.0 (P-marg) + 3.5 (2D) + 0.25 (cb) = 4.75 in
@@ -1811,12 +2189,13 @@ def _plot_phasespace_with_marginals(
             cmap=CMAP, vmin=-vmax, vmax=vmax,
             shading="gouraud", rasterized=True,
         )
+        if cloud_points is not None and m in cloud_points:
+            pts = _subsample_cloud_for_overlay(cloud_points[m])
+            if pts.size:
+                ax2d.plot(pts[:, 0], pts[:, 1], ".", ms=0.7, color="k",
+                          alpha=0.18, rasterized=True, zorder=3)
         ax2d.tick_params(labelbottom=False, labelleft=False,
                          which="both", direction="in", length=2.5, width=0.5)
-        ax2d.set_title(
-            rf"$\mathrm{{Tr}}\,\rho_W,\;t = {t:g}$ a.u.",
-            fontsize=_LABEL_FONT, pad=2,
-        )
         for sp in ax2d.spines.values(): sp.set_linewidth(0.5)
 
         # ── colorbar ─────────────────────────────────────────────────────────
@@ -1854,23 +2233,6 @@ def _plot_phasespace_with_marginals(
         axR.yaxis.set_minor_locator(_mtic.AutoMinorLocator())
         for sp in axR.spines.values(): sp.set_linewidth(0.5)
 
-        # Method label above the P-marginal
-        axP.set_title(
-            rf"$\int\rho_W\mathrm{{d}}R$",
-            fontsize=_TICK_FONT - 1, pad=2, loc="center",
-        )
-        # Bold method name as super-title for this column
-        ax2d.text(
-            0.5, 1.09, rf"$\mathbf{{{m}}}$",
-            transform=ax2d.transAxes,
-            ha="center", va="bottom",
-            fontsize=_TITLE_FONT + 1, fontweight="bold",
-        )
-
-    fig.suptitle(
-        rf"Phase-space density  $\mathrm{{Tr}}\,\rho_W(R,P)$  at  $t = {t:g}$ a.u.",
-        fontsize=_TITLE_FONT + 1, y=0.99,
-    )
 
     with _w.catch_warnings():
         _w.simplefilter("ignore", UserWarning)
@@ -1910,15 +2272,17 @@ def panel_phasespace_all_methods(
             cloud_snaps[name] = _cloud_snapshots_from_npz(npz, t_targets)
 
     for ti, t_tgt in enumerate(t_targets):
-        # Zoom window centred on classical packet position
-        R_c      = R0 + (P0 / mass) * t_tgt
-        dR_spread = np.sqrt(sigma_R**2 + (t_tgt * sigma_P / mass)**2)
-        R_half   = max(3.5 * sigma_R, 3.0 * dR_spread)
-        P_half   = 4.0 * max(sigma_P, 1.5)
-        R_grid   = np.linspace(R_c - R_half, R_c + R_half, n_R)
-        P_grid   = np.linspace(P0 - P_half, P0 + P_half, n_P)
+        # Data-driven box: include the actual support cloud and reference
+        # moment envelopes, not just the classical centre.
+        (R_lo, R_hi), (P_lo, P_hi) = _dynamic_rp_window(
+            runs, cloud_snaps, ti, t_tgt,
+            R0=R0, P0=P0, sigma_R=sigma_R, hbar=hbar, mass=mass,
+        )
+        R_grid = np.linspace(R_lo, R_hi, n_R)
+        P_grid = np.linspace(P_lo, P_hi, n_P)
 
         densities: Dict[str, Optional[np.ndarray]] = {}
+        cloud_overlay: Dict[str, np.ndarray] = {}
 
         # SE — Wigner transform of the wavefunction
         if "SE" in runs and runs["SE"].get("snap_psi"):
@@ -1940,19 +2304,22 @@ def panel_phasespace_all_methods(
                 R_grid, P_grid)
             densities["QCLE"] = _gaussian_smooth_2d(rho, sigma_cells=1.0)
 
-        # PBME / midpoint — GP bath-density marginal from snapshots
+        # PBME / midpoint — common-support projected physical marginal.
         for name in ("PBME", "midpoint"):
             if name not in cloud_snaps:
                 continue
             snap = cloud_snaps[name][ti]
-            rho  = _density_2d_from_gp_bath_marginal(snap, R_grid, P_grid, hbar=hbar)
+            rho = _density_2d_from_gp_moment_projection(snap, R_grid, P_grid)
             if rho is None:
                 rho = _density_2d_from_cloud(snap["Z"], snap["y"], R_grid, P_grid)
             densities[name] = rho
+            cloud_overlay[name] = snap["Z"]
 
         stem = os.path.join(out_dir, f"phasespace_t{t_tgt:06.0f}")
-        print(f"  [phasespace] t={t_tgt:g} a.u.  methods present: {list(densities)}")
-        _plot_phasespace_with_marginals(densities, R_grid, P_grid, t_tgt, stem)
+        print(f"  [phasespace] t={t_tgt:g} a.u.  methods present: {list(densities)}  "
+              f"R∈[{R_lo:.2f},{R_hi:.2f}] P∈[{P_lo:.2f},{P_hi:.2f}]")
+        _plot_phasespace_with_marginals(
+            densities, R_grid, P_grid, t_tgt, stem, cloud_points=cloud_overlay)
         print(f"    → {stem}.pdf")
 
 
@@ -1990,35 +2357,29 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
     """
     sigma_P = hbar / (2.0 * sigma_R)
 
-    # Per-column zoom windows (centered on the classical packet position).
-    # Tight enough that the Wigner-FFT periodic-image structure (which
-    # lives outside roughly ±5σ from the wave packet) doesn't enter the
-    # visible region — this lets us avoid NaN masking, which combined
-    # poorly with gouraud shading in earlier versions.
+    # Per-column plotting windows are now data-driven.  The previous
+    # classical-centre window could miss reflected/transmitted branches and
+    # PBME/midpoint support clouds after scattering.
+    cloud_snaps: Dict[str, List[Dict]] = {}
+    for name, npz in [("PBME",     os.path.join(gp_dir, "pbme.npz")),
+                       ("midpoint", os.path.join(gp_dir, "midpoint.npz"))]:
+        if name in runs and os.path.exists(npz):
+            cloud_snaps[name] = _cloud_snapshots_from_npz(npz, t_targets)
+
     R_windows: List[Tuple[float, float]] = []
     P_windows: List[Tuple[float, float]] = []
     R_grids: List[np.ndarray] = []
     P_grids: List[np.ndarray] = []
-    for t_tgt in t_targets:
-        R_c = R0 + (P0 / mass) * t_tgt
-        # R half-width: 3σ_R baseline + small allowance for packet
-        # spread under free flow (≈ σ_R + t·σ_P/m for a coherent state).
-        dR_spread = np.sqrt(sigma_R**2 + (t_tgt * sigma_P / mass) ** 2)
-        R_half = max(3.0 * sigma_R, 3.0 * dR_spread)
-        R_lo, R_hi = R_c - R_half, R_c + R_half
-        # P half-width: 4·max(σ_P, 1.5) covers the diabatic split and
-        # leaves space for asymmetric momentum lobes.  Wider here is
-        # cheap because the FFT replicas in P are spaced by 2π/Δr
-        # which is larger than this for any reasonable r-grid.
-        P_half = 4.0 * max(sigma_P, 1.5)
-        P_lo, P_hi = P0 - P_half, P0 + P_half
+    for ti, t_tgt in enumerate(t_targets):
+        (R_lo, R_hi), (P_lo, P_hi) = _dynamic_rp_window(
+            runs, cloud_snaps, ti, t_tgt,
+            R0=R0, P0=P0, sigma_R=sigma_R, hbar=hbar, mass=mass,
+        )
         R_windows.append((R_lo, R_hi))
         P_windows.append((P_lo, P_hi))
         R_grids.append(np.linspace(R_lo, R_hi, n_R))
         P_grids.append(np.linspace(P_lo, P_hi, n_P))
 
-    # ---------------- cloud snapshots ----------------
-    cloud_snaps: Dict[str, List[Dict]] = {}
     for name, npz in [("PBME",     os.path.join(gp_dir, "pbme.npz")),
                       ("midpoint", os.path.join(gp_dir, "midpoint.npz"))]:
         if name in runs and os.path.exists(npz):
@@ -2033,11 +2394,6 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
     print("  Computing 2D densities on per-column zoom grids "
           "(Wigner transform is the slow step)...")
     densities: Dict[Tuple[str, int], np.ndarray] = {}
-    # Per-panel GP-fit diagnostics so the renderer can annotate the
-    # analytical-marginal panels with the surrogate-faithfulness numbers
-    # (α-sign-cancellation ratio, α min/max).  Only populated for
-    # trajectory rows (PBME, midpoint).
-    gp_diag: Dict[Tuple[str, int], Dict[str, float]] = {}
     for col, t_tgt in enumerate(t_targets):
         R_grid_c = R_grids[col]; P_grid_c = P_grids[col]
         for m in methods_present:
@@ -2070,65 +2426,15 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
                 rho = _gaussian_smooth_2d(rho, sigma_cells=1.0)
             elif m in cloud_snaps:
                 snap = cloud_snaps[m][col]
-                # Bath density Tr_s ρ̂_W(R, P) — the partial-Wigner trace.
-                # This is what QCLE grid plots; using it for PBME and
-                # midpoint makes all four rows the same mathematical object.
-                #
-                # The bath density is the recovery integral
-                #   ρ_bath(R, P) = ∫ dr dp ρ_m(R, P, r, p) Σ_λ g_{λλ}(r, p)
-                # with the kernel  Σ_λ g_{λλ} = (8/ℏ) e^{-x²/ℏ}(x²-ℏ)
-                # for N=2 subsystem states.  See Nassimi-Bonella-Kapral
-                # 2010 Eq. 16-17.  Against the Gaussian GP surrogate the
-                # 4D mapping integral is closed-form (polynomial-times-
-                # Gaussian moments).  Verified to 1e-6 against direct
-                # 4D Riemann quadrature.
-                #
-                # Earlier versions used the FLAT marginal
-                #   ρ_flat(R, P) = ∫ dr dp ρ_m(R, P, r, p)
-                # which omits the recovery kernel and therefore is a
-                # different mathematical object from the QCLE-grid output.
-                # Switching to ρ_bath makes the trajectory rows directly
-                # comparable to SE and QCLE.
-                rho = _density_2d_from_gp_bath_marginal(
-                    snap, R_grid_c, P_grid_c, hbar=hbar)
-                if rho is None:
-                    rho = _density_2d_from_gp_marginal(
-                        snap, R_grid_c, P_grid_c)
-                if rho is None:
-                    rho = _density_2d_from_gp_moment_projection(
-                        snap, R_grid_c, P_grid_c)
+                # Physical electronic-trace nuclear density from the saved
+                # importance-sampling measure, represented by the shared
+                # projected GP.  This is the same object and bandwidth used
+                # by the KDE baseline and is identifiable for focused PBME.
+                rho = _density_2d_from_gp_moment_projection(
+                    snap, R_grid_c, P_grid_c)
                 if rho is None:
                     rho = _density_2d_from_cloud(
                         snap["Z"], snap["y"], R_grid_c, P_grid_c)
-                # Capture GP diagnostics for in-panel annotation.
-                # We report TWO numbers:
-                # 1. The function-space negative-mass fraction
-                #    ∫|min(ρ_2D, 0)| / ∫|ρ_2D|.  This is the right
-                #    measure of "is the marginal unfaithful?" — if it's
-                #    a few percent, the marginal is essentially positive
-                #    and faithfully represents the surrogate.
-                # 2. The α-space sign-cancellation ratio |Σα|/Σ|α|.
-                #    This describes how "redundant" the kernel basis is
-                #    but does NOT imply ringing in the function.  Kept
-                #    for diagnostic context, not as a fidelity verdict.
-                rho_max = float(np.abs(rho).max()) if rho.size else 0.0
-                if rho_max > 0:
-                    rho_pos_mass = float(np.sum(np.maximum(rho, 0.0)))
-                    rho_neg_mass = float(np.sum(np.abs(np.minimum(rho, 0.0))))
-                    neg_frac = (rho_neg_mass /
-                                (rho_pos_mass + rho_neg_mass + 1e-300))
-                else:
-                    neg_frac = 0.0
-                alpha = snap.get("alpha")
-                if alpha is not None:
-                    a = np.asarray(alpha, dtype=np.float64).reshape(-1)
-                    a_abs_sum = float(np.sum(np.abs(a)))
-                    align = (abs(float(np.sum(a))) / a_abs_sum
-                              if a_abs_sum > 1e-300 else float("nan"))
-                    gp_diag[(m, col)] = dict(
-                        neg_frac=neg_frac,
-                        alpha_sign_align=align,
-                    )
             else:
                 rho = None
             densities[(m, col)] = rho
@@ -2163,6 +2469,7 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
                           fc_color: str,
                           cb_label: str,
                           title_suffix: str) -> None:
+        del title_suffix
         fig, axes = plt.subplots(n_methods, n_t,
                                   figsize=(2.8 * n_t + 1.6, 2.6 * n_methods + 0.8),
                                   constrained_layout=True)
@@ -2171,38 +2478,29 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
         if n_t == 1:
             axes = axes.reshape(-1, 1)
 
-        # Per-ROW vmax (across all time columns), not per-column.
-        # SE/QCLE Wigner marginals normalise to ∫ρ dRdP = 1 with peaks ~0.07,
-        # while the GP analytical marginal carries the GP normalisation
-        # (σ_f² · (2π)² · Π ℓ_d · Σ α k) with peaks ~0.5.  Sharing a
-        # column-wide vmax compresses the SE/QCLE rows into the dim end of
-        # viridis.  Per-row vmax lets each method choose its own scale; the
-        # eye then reads STRUCTURE across columns within a row, which is
-        # what matters for the physics comparison.  The four rows are not
-        # directly amplitude-comparable, but that was already true before:
-        # the SE Wigner marginal and the analytical GP marginal are
-        # different mathematical objects (probability density vs the GP's
-        # native unit-system).
-        row_vmax = {}
-        for row_idx, m in enumerate(methods_present):
-            all_vals_row = []
+        # One common magnitude scale across every method and time panel.  All
+        # rows now represent the same normalized nuclear-density object, so a
+        # per-row scale would hide genuine amplitude differences.
+        all_vals = []
+        for m in methods_present:
             for col in range(n_t):
                 r = densities[(m, col)]
                 if r is None: continue
                 rv = np.asarray(r).ravel()
                 rv = rv[np.isfinite(rv)]
                 if sign == "pos":
-                    all_vals_row.append(rv[rv > 0])
+                    all_vals.append(rv[rv > 0])
                 else:
-                    all_vals_row.append(-rv[rv < 0])
-            arr = np.concatenate(all_vals_row) if all_vals_row else np.array([])
-            v = (float(np.quantile(arr, vmax_quantile)) if arr.size else 1.0)
-            row_vmax[m] = max(v, 1.0e-30)
+                    all_vals.append(-rv[rv < 0])
+        arr = np.concatenate(all_vals) if all_vals else np.array([])
+        v_max_common = max(
+            float(np.quantile(arr, vmax_quantile)) if arr.size else 1.0,
+            1.0e-30)
 
         for col, t_tgt in enumerate(t_targets):
             R_grid_c = R_grids[col]; P_grid_c = P_grids[col]
             for row, m in enumerate(methods_present):
-                v_max = row_vmax[m]
+                v_max = v_max_common
                 ax = axes[row, col]
                 rho = densities[(m, col)]
                 if rho is None:
@@ -2280,40 +2578,6 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
                     ax.set_ylabel(rf"$\mathbf{{{m}}}$" + "\n" + r"$P$  [a.u.]")
                 else:
                     ax.tick_params(labelleft=False)
-                if row == 0:
-                    ax.set_title(rf"$t = {t_tgt:g}$  a.u.")
-                # In-panel surrogate-fidelity diagnostic for trajectory rows.
-                # The fidelity measure is the FUNCTION-SPACE negative-mass
-                # fraction ∫|min(ρ_2D, 0)| / ∫|ρ_2D|, NOT the α-space sign
-                # cancellation |Σα|/Σ|α|.  The GP marginal can be smooth
-                # and positive even when α has heavy sign cancellation —
-                # the cancellation acts in α-space but the function value
-                # is the result of that cancellation, which is well-behaved
-                # when the GP fit is faithful.
-                #   neg_frac < 1%   → faithful
-                #   neg_frac 1–10%  → caution (some structure-driven negativity)
-                #   neg_frac > 10%  → unfaithful (ringing dominates)
-                d = gp_diag.get((m, col))
-                if d is not None and show_panel:
-                    nf = d["neg_frac"]
-                    align = d["alpha_sign_align"]
-                    if nf < 0.01:
-                        flag = "faithful"
-                    elif nf < 0.10:
-                        flag = "caution"
-                    else:
-                        flag = "unfaithful — ringing"
-                    ax.text(0.02, 0.98,
-                             rf"$\int|\rho_-|/\int|\rho| = {100*nf:.1f}\%$"
-                             + "\n"
-                             + rf"$|\Sigma\alpha|/\Sigma|\alpha| = {align:.2f}$"
-                             + "\n"
-                             + flag,
-                             transform=ax.transAxes,
-                             ha="left", va="top",
-                             color="white", fontsize=6.5,
-                             bbox=dict(facecolor="black", alpha=0.55,
-                                       edgecolor="none", pad=1.5))
                 if col == n_t - 1 and show_panel:
                     # Per-row colorbar.  We use the last call to
                     # pcolormesh — Python's late binding captures the
@@ -2329,8 +2593,6 @@ def panel_density_marginals_2d(runs: Dict[str, Dict[str, np.ndarray]],
                     cb.set_label(cb_label,
                                   fontsize=plt.rcParams["axes.labelsize"] - 2)
 
-        fig.suptitle(r"Phase-space density  $\rho(R, P, t)$  — "
-                     rf"SE / QCLE / PBME / midpoint    ({title_suffix})")
         _save_pub(fig, os.path.join(out_dir, filename_root))
         plt.close(fig)
         print(f"  -> {filename_root}.{{pdf,png}}")
@@ -2447,7 +2709,7 @@ def _diag_panel_curve(ax, runs, methods, key: str,
             plot_v = np.where(plot_v > 0, plot_v, np.nan)
         ax.plot(t[:n], plot_v, **_curve(m))
         any_data = True
-    ax.set_title(title, fontsize=plt.rcParams["axes.titlesize"] - 1)
+    ax.set_title("")
     ax.set_xlabel(r"Time  [a.u.]")
     ax.set_ylabel(ylabel)
     if log:
@@ -2570,17 +2832,25 @@ def _run_one_p0(
         runs["PBME"] = load_collector_run(npz_pbme)
 
     # ── reference methods ─────────────────────────────────────────────────────
+    # Resolve the reference time grid per P0.  If midpoint/PBME are present,
+    # this uses their actual saved Collector time axis, so SE/QCLE land on the
+    # same physical endpoint even when run.py used automatic dt scaling.
+    dt_eff, n_steps_eff, T_eff, grid_source = _infer_time_grid_from_runs(runs, args, P0)
+    print(f"[compare] time grid: dt={dt_eff:.8g}, n_steps={n_steps_eff}, "
+          f"T={T_eff:.8g} a.u.  ({grid_source})")
+
     density_times: List[float] = (
         [] if args.no_density
-        else sorted({float(s.strip()) for s in args.density_times.split(",")
-                     if s.strip()})
+        else _parse_density_times(
+            args.density_times, R0=args.R0, P0=P0, mass=args.mass,
+            T_final=T_eff, include_final=args.include_final_density)
     )
 
     if not args.no_se:
         print(f"\n[compare] Running SE (TDSE) for P0={P0:g} ...")
         runs["SE"] = run_tdse(
             R0=args.R0, P0=P0, sigma_R=args.sigma_R,
-            dt=args.dt, n_steps=args.n_steps,
+            dt=dt_eff, n_steps=n_steps_eff,
             init_state=args.init_state,
             mass=args.mass, hbar=args.hbar,
             save_every=args.se_save_every,
@@ -2591,7 +2861,7 @@ def _run_one_p0(
         print(f"\n[compare] Running QCLE for P0={P0:g} ...")
         qcle_params = _qcle_params_for_p0(
             P0=P0, R0=args.R0, sigma_R=args.sigma_R,
-            n_steps=args.n_steps, dt=args.dt,
+            n_steps=n_steps_eff, dt=dt_eff,
             mass=args.mass, hbar=args.hbar,
         )
         print(f"          QCLE grid: n_R={qcle_params.n_R}, n_P={qcle_params.n_P}  "
@@ -2599,7 +2869,7 @@ def _run_one_p0(
               f"P∈[{qcle_params.P_min:.1f},{qcle_params.P_max:.1f}]")
         runs["QCLE"] = run_qcle(
             R0=args.R0, P0=P0, sigma_R=args.sigma_R,
-            dt=args.dt, n_steps=args.n_steps,
+            dt=dt_eff, n_steps=n_steps_eff,
             init_state=args.init_state,
             mass=args.mass, hbar=args.hbar,
             save_every=args.qcle_save_every,
@@ -2666,9 +2936,25 @@ def main() -> None:
     parser.add_argument("--hbar",      type=float, default=HBAR_DEFAULT)
     parser.add_argument("--init_state", type=int,  default=0)
     parser.add_argument("--dt",         type=float, default=0.5,
-                        help="Time step [a.u.] — must match the GP run.")
+                        help="Maximum reference timestep [a.u.]. If GP Collector data are present, "
+                             "dt is inferred from the saved run unless --ignore-gp-time-grid is used.")
     parser.add_argument("--n_steps",    type=int,   default=5600,
-                        help="Number of steps — must match the GP run.")
+                        help="Legacy reference step count used only when no GP time grid, --t_final, or --scattering-cycles is supplied.")
+    parser.add_argument("--t_final", type=float, default=None,
+                        help="Reference final time in a.u. Used only when no GP time grid is inferred or when --ignore-gp-time-grid is set.")
+    parser.add_argument("--scattering_cycles", type=float, default=None,
+                        help="Alternative final time: T=scattering_cycles*M*abs(R0)/abs(P0). Ignored by --t_final.")
+    parser.add_argument("--ignore-gp-time-grid", action="store_true",
+                        help="Do not infer dt/T from midpoint.npz or pbme.npz; use CLI time-grid controls instead.")
+    parser.add_argument("--auto_dt", dest="auto_dt", action="store_true",
+                        help="When using CLI time-grid controls, reduce dt for low P0 via momentum scaling.")
+    parser.add_argument("--no_auto_dt", dest="auto_dt", action="store_false")
+    parser.set_defaults(auto_dt=True)
+    parser.add_argument("--auto_dt_ref", type=float, default=0.5)
+    parser.add_argument("--auto_dt_ref_p0", type=float, default=40.0)
+    parser.add_argument("--auto_dt_power", type=float, default=1.0)
+    parser.add_argument("--dt_min", type=float, default=0.02)
+    parser.add_argument("--dt_max", type=float, default=0.5)
     parser.add_argument("--se-save-every",   type=int, default=4)
     parser.add_argument("--qcle-save-every", type=int, default=4)
     parser.add_argument("--talk",       action="store_true",
@@ -2677,8 +2963,12 @@ def main() -> None:
     parser.add_argument("--no-se",     action="store_true", help="Skip SE.")
     parser.add_argument("--no-pbme",   action="store_true",
                         help="Skip PBME (don't load pbme.npz).")
-    parser.add_argument("--density-times", type=str, default="0,500,800,1500",
-                        help="Comma-separated snapshot times for density marginals.")
+    parser.add_argument("--density-times", type=str, default="auto",
+                        help="Snapshot times for density/phase-space panels. Use 'auto' for "
+                             "0, t_c, 2t_c with t_c=M|R0|/|P0|, 'final' for T, "
+                             "or a comma-separated list such as '0,1500,3000,6000'.")
+    parser.add_argument("--include-final-density", action="store_true",
+                        help="Append the resolved final time to the density-times list.")
     parser.add_argument("--no-density", action="store_true",
                         help="Skip density marginal panels.")
     parser.add_argument("--out",        type=str, default=None,
@@ -2698,8 +2988,12 @@ def main() -> None:
     print(f"[compare] GP dir  : {gp_dir}")
     print(f"[compare] Output  : {out_base}")
     print(f"[compare] P0 list : {p0_values}")
-    print(f"[compare] dt={args.dt}, n_steps={args.n_steps}, "
-          f"T={args.dt*args.n_steps:.0f} a.u.")
+    print(f"[compare] requested dt upper bound={args.dt}, legacy n_steps={args.n_steps}")
+    if args.t_final is not None:
+        print(f"[compare] requested fixed T={args.t_final:g} a.u.")
+    elif args.scattering_cycles is not None:
+        print(f"[compare] requested scattering_cycles={args.scattering_cycles:g}")
+    print(f"[compare] density-times spec: {args.density_times!r}")
 
     for P0 in p0_values:
         # If each P0 has its own GP sub-directory (P0_10/, P0_20/, etc.),

@@ -169,6 +169,10 @@ def _gp_ingredients_diff(gp) -> list:
 
 def _safe_norm_from_gp(gp: GPDensity) -> float:
     """Density normalization used to convert raw integrals to normalized expectations."""
+    if getattr(gp, "_is_product", False):
+        from .ProductMoments import product_norm_raw
+        norm = product_norm_raw(gp)
+        return norm if abs(norm) > 1.0e-15 else 1.0
     norm = float(gp.compute_moment_values()["normalization"])
     return norm if abs(norm) > 1.0e-15 else 1.0
 
@@ -214,6 +218,13 @@ def kkt_moments(gp: GPDensity) -> Dict[str, float]:
     of fit quality (α interpolates the labels exactly under apply_kkt=
     False, so fit_r²≈1 regardless of where the raw integral sits).
     """
+    if getattr(gp, "_is_product", False):
+        # Product surrogate rho_hat = g*mu: the vanilla path below would
+        # (via __getattr__ delegation) integrate the inner mu WITHOUT the
+        # profile g — silently wrong by orders of magnitude.  Route to the
+        # closed-form product engine instead (2026-07-10).
+        from .ProductMoments import product_kkt_moments
+        return product_kkt_moments(gp)
     raw = {k: float(v) for k, v in gp.compute_moment_values().items()}
     norm = raw["normalization"] if abs(raw["normalization"]) > 1.0e-15 else 1.0
     return {
@@ -247,6 +258,9 @@ def nuclear_moments(gp) -> Dict[str, float]:
     Split-aware: if `gp` is a GPDensityDiff, we sum the baseline-transported
     and correction contributions before dividing by the total normalization.
     """
+    if getattr(gp, "_is_product", False):
+        from .ProductMoments import product_nuclear_moments
+        return product_nuclear_moments(gp)
     ingredients = _gp_ingredients(gp)
     if isinstance(ingredients, tuple):
         ingredients_list = [ingredients]
@@ -307,6 +321,9 @@ def _quadratic_mapping_moments(gp) -> Dict[str, float]:
     moment + correction-moment, while the normalization in the
     denominator is the TOTAL integral of rho_hat.
     """
+    if getattr(gp, "_is_product", False):
+        from .ProductMoments import product_quadratic_mapping_moments
+        return product_quadratic_mapping_moments(gp)
     ingredients = _gp_ingredients(gp)
 
     # Normalize to list-of-tuples form so the arithmetic is uniform
@@ -687,6 +704,10 @@ def adiabatic_populations(
     ingredient tuple (baseline-transported + correction) and summed
     before dividing by the total normalization.
     """
+    if getattr(gp, "_is_product", False):
+        from .ProductMoments import product_adiabatic_populations
+        return product_adiabatic_populations(gp, dynamics, n_gh=n_gh,
+                                             hbar=hbar)
     hbar = 1.0 if hbar is None else float(hbar)
     ingredients = _gp_ingredients(gp)
     if isinstance(ingredients, tuple):
@@ -832,7 +853,8 @@ def support_point_energies(dynamics: PBMEMIntDynamics,
 def correction_statistics(Q: Optional[FloatArray],
                           y: FloatArray,
                           dt: float,
-                          omega: Optional[FloatArray] = None) -> Dict[str, float]:
+                          omega: Optional[FloatArray] = None,
+                          denominator_rtol: float = np.sqrt(np.finfo(float).eps)) -> Dict[str, float]:
     """
     Aggregate the per-point correction Q_i = (i𝓛' ρ_n)(Y_i) into scalar
     diagnostics for comparison plots.
@@ -866,6 +888,9 @@ def correction_statistics(Q: Optional[FloatArray],
             "q_y_weighted_mean": 0.0,
             "q_y_weighted_rms":  0.0,
             "q_sum_yc":          0.0,
+            "q_weight_denominator": 0.0,
+            "q_weight_denominator_threshold": 0.0,
+            "q_weighted_mean_defined": 0.0,
         }
 
     y_arr = np.asarray(y, dtype=np.float64).reshape(-1)
@@ -894,7 +919,15 @@ def correction_statistics(Q: Optional[FloatArray],
 
     # Signed-weighted mean:  (Σ_i w_i Q_i) / (Σ_i w_i)
     w_sum = float(np.sum(w_arr))
-    if abs(w_sum) > 1.0e-30 * float(np.sum(np.abs(w_arr)) + 1.0e-60):
+    # A scale-aware guard is essential for signed SEO clouds.  Testing only
+    # against an absolute 1e-30 threshold declares a catastrophically
+    # cancelled denominator valid.  tau_N scales with total absolute mass,
+    # and the valid/invalid flag is saved so plots never connect values across
+    # an undefined normalized observable.
+    w_sum_threshold = max(1.0e-15,
+                          float(denominator_rtol) * float(np.sum(np.abs(w_arr))))
+    weighted_mean_defined = bool(np.isfinite(w_sum) and abs(w_sum) > w_sum_threshold)
+    if weighted_mean_defined:
         q_y_weighted_mean = q_sum_yc / w_sum
     else:
         q_y_weighted_mean = float("nan")
@@ -920,6 +953,9 @@ def correction_statistics(Q: Optional[FloatArray],
         "q_y_weighted_mean": q_y_weighted_mean,
         "q_y_weighted_rms":  q_y_weighted_rms,
         "q_sum_yc":          q_sum_yc,
+        "q_weight_denominator": w_sum,
+        "q_weight_denominator_threshold": w_sum_threshold,
+        "q_weighted_mean_defined": float(weighted_mean_defined),
     }
 
 
@@ -1115,21 +1151,41 @@ def compute_all(
     """
     out: Dict[str, float] = {}
 
-    # KKT moments
-    km = kkt_moments(gp)
-    for k, v in km.items(): out[f"km_{k}"] = v
+    # KKT moments.  The row-indexed transported product profile has no global
+    # off-cloud integral; in that regime the raw cloud estimators remain the
+    # authoritative observables and analytic GP values are explicitly NaN.
+    try:
+        km = kkt_moments(gp)
+        for k, v in km.items(): out[f"km_{k}"] = v
+    except NotImplementedError:
+        for k in ("normalization", "trace", "energy", "normalization_raw",
+                  "trace_raw", "energy_raw"):
+            out[f"km_{k}"] = float("nan")
 
     # Nuclear moments
-    nm = nuclear_moments(gp)
-    for k, v in nm.items(): out[f"nm_{k}"] = v
+    try:
+        nm = nuclear_moments(gp)
+        for k, v in nm.items(): out[f"nm_{k}"] = v
+    except NotImplementedError:
+        for k in ("R_mean", "P_mean", "R_sq", "P_sq", "R_var", "P_var"):
+            out[f"nm_{k}"] = float("nan")
 
     # Quadratic mapping moments
-    qm = _quadratic_mapping_moments(gp)
-    for k, v in qm.items(): out[f"qm_{k}"] = v
+    try:
+        qm = _quadratic_mapping_moments(gp)
+        for k, v in qm.items(): out[f"qm_{k}"] = v
+    except NotImplementedError:
+        for k in ("r0_sq", "r1_sq", "p0_sq", "p1_sq", "mapping_radius_sq",
+                  "r0_r1", "p0_p1", "r0_p0", "r1_p1", "r0_p1", "r1_p0"):
+            out[f"qm_{k}"] = float("nan")
 
     # Mapping weights
-    mw = mapping_weights(gp, hbar=dynamics.params.hbar)
-    for k, v in mw.items(): out[f"mw_{k}"] = v
+    try:
+        mw = mapping_weights(gp, hbar=dynamics.params.hbar)
+        for k, v in mw.items(): out[f"mw_{k}"] = v
+    except NotImplementedError:
+        for k in ("w0", "w1", "w_sum", "w_diff"):
+            out[f"mw_{k}"] = float("nan")
 
     # Physical diabatic populations.
     #
@@ -1146,10 +1202,15 @@ def compute_all(
                 out[f"cloud_{k}"] = float("nan")
 
     # gpi_*  — GP analytic kernel-integral, KKT-constrained surrogate.
-    dp_gpi = diabatic_populations_from_gp(gp, hbar=dynamics.params.hbar)
-    for k, v in dp_gpi.items(): out[f"gpi_{k}"] = v
-    # dp_* — primary density-based alias (identical to gpi_*; named for clarity)
-    for k, v in dp_gpi.items(): out[f"dp_{k}"] = v
+    try:
+        dp_gpi = diabatic_populations_from_gp(gp, hbar=dynamics.params.hbar)
+        for k, v in dp_gpi.items(): out[f"gpi_{k}"] = v
+        # dp_* — primary density-based alias (identical to gpi_*; named for clarity)
+        for k, v in dp_gpi.items(): out[f"dp_{k}"] = v
+    except NotImplementedError:
+        for prefix in ("gpi", "dp"):
+            for k in ("P0", "P1", "P_sum", "P_diff"):
+                out[f"{prefix}_{k}"] = float("nan")
 
     # Adiabatic populations (GH-quadrature in R against the GP surrogate)
     try:
@@ -1162,8 +1223,12 @@ def compute_all(
 
     # Coherences (GP analytic; cloud-side coherence at the support points
     # is the same Riemann sum and can be added here if desired)
-    dc = diabatic_coherences(gp, hbar=dynamics.params.hbar)
-    for k, v in dc.items(): out[f"dc_{k}"] = v
+    try:
+        dc = diabatic_coherences(gp, hbar=dynamics.params.hbar)
+        for k, v in dc.items(): out[f"dc_{k}"] = v
+    except NotImplementedError:
+        for k in ("coh_re", "coh_im", "rho00", "rho11", "trace"):
+            out[f"dc_{k}"] = float("nan")
 
     # Energy diagnostics on the support points.
     # spe_E_traj is the per-trajectory equiprobable mean (PBME conservation
@@ -1183,8 +1248,7 @@ def compute_all(
     ce = cloud_estimator_diagnostics(omega, y)
     for k, v in ce.items(): out[f"ce_{k}"] = v
 
-    # Correction statistics.  Pass omega so density-weighted Q diagnostics use
-    # the same cloud estimator measure as the observables.
+    # Correction statistics
     cs = correction_statistics(Q, y=y, dt=dt, omega=omega)
     for k, v in cs.items(): out[f"cs_{k}"] = v
 

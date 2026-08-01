@@ -1,0 +1,15 @@
+python==3.13.14
+numpy==2.4.0
+scipy==1.16.3
+torch==2.9.1
+jax==0.8.2
+matplotlib==3.10.8
+pandas==2.3.3
+
+Declared project requirements:
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+torch>=2.1
+jax>=0.4.20
+pytest>=7.4

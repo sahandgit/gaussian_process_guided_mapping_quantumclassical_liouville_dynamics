@@ -1,0 +1,49 @@
+item,gate,kind,title,thesis_location,evidence_status,evidence_found,escape_hatch,action
+I-1,4,EXTRACT,Complete three-seed manufactured result not shown,"pp. 62, 87-88; Table 6.4",EVIDENCE ON DISK - EXTRACTION REQUIRED,**/manufactured_operator_metrics.json -> 23 file(s),,Emit every seed x N x on/off-support table with means and spreads.
+I-2,5,EXTRACT,Time-step order conclusion cannot be reconstructed,"p. 80, pp. 87-89; Tables 6.3, 6.6",EVIDENCE ON DISK - EXTRACTION REQUIRED,**/step7_dt_P0*/seed*_dt*/run_manifest.json -> 23 file(s),,"One row per method/momentum/seed/observable/step triplet with both differences, guarded order, rejection reason, seed spread."
+I-3,5,EXTRACT,Reference-convergence orders are unassigned,"p. 89, Table 6.8; App. F pp. 184-185",EVIDENCE ON DISK - EXTRACTION REQUIRED,**/reference_convergence_3level.json -> 2 file(s),,Identified table; the -3.391 outlier is the TDSE P0=20 'both' trace row and its differences are at roundoff.
+I-4,5,EXTRACT,MIDPOINT central value at P0=20 absent,"p. 89, Table 6.6",EVIDENCE ON DISK - EXTRACTION REQUIRED,**/step9_repl_P0*/seed*/run_manifest.json -> 12 file(s),,"Report all four seed values, mean and SD for every estimator."
+I-5,7,EXTRACT,Identical-support pass incompletely reported,pp. 87-88; Table 6.5,EVIDENCE ON DISK - EXTRACTION REQUIRED,**/kde_gp_identical_support.json -> 52 file(s),,"Report E1, E2, Einf at both momenta, or state which were not evaluated."
+I-6,3,REGENERATE,41 retained figures have no complete provenance,pp. 83-155; Figs. 6.1-6.41,EVIDENCE ON DISK - EXTRACTION REQUIRED,**/figure_catalog.json -> 48 file(s),,"SUBMISSION BLOCKER. Regenerate each retained scientific figure from a verified manifest, or remove it."
+I-7,3,TEXT,Figure-dependent descriptions not interpretable,pp. 92-148,NO EVIDENCE REQUIRED - THESIS EDIT,,Restrict text to neutral description; do not use as evidence.,Attach a defined metric and number to each retained comparison.
+I-8,3,TEXT,Plotting thresholds undefined,pp. 109-117; Figs. 6.13-6.18,NO EVIDENCE REQUIRED - THESIS EDIT,,,State the numerical threshold and rule in every caption; show insensitivity.
+I-9,,COMPUTE,Diagnostics divide by undocumented |y0| tail,"p. 73, pp. 133-144",CLOSABLE BY REVIEWER-SANCTIONED NARROWING,,Qualify every multiplier and cloud-weight claim as potentially tail-sensitive.,"Report |y0| distribution and minimum, truncation rule, affected fraction of points and mass, threshold sensitivity."
+I-10,,EXTRACT,'Applied source after stabilization' unspecified,pp. 129-131; Fig. 6.29,EVIDENCE MISSING - COMPUTATION REQUIRED,,,"Read the production branch and state the exact formula, or state unambiguously that applied source equals raw source."
+I-11,,EXTRACT,'Physically implausible' analytic observables not reported,pp. 147-148,EVIDENCE ON DISK - EXTRACTION REQUIRED,**/step9_repl_P0*/seed*/run_manifest.json -> 12 file(s),Remove the claim.,Table of raw and normalized analytic-GP and cloud estimates vs references.
+I-12,,EXTRACT,'Only weakly' undefined and conflicts with Table 6.6,p. 147,EVIDENCE ON DISK - EXTRACTION REQUIRED,**/step9_repl_P0*/seed*/run_manifest.json -> 12 file(s),,"Replace the global statement with per-estimator, per-momentum numbers."
+I-13,7,COMPUTE,High-momentum agreement not quantitative,pp. 147-148,CLOSABLE BY REVIEWER-SANCTIONED NARROWING,,Write only that no validated improvement over PBME was demonstrated.,"Seed-resolved L1/L2 field errors and observable errors, or take the escape."
+I-14,8,EXTRACT,Exact reference settings outside the thesis,App. F pp. 184-185,EVIDENCE ON DISK - EXTRACTION REQUIRED,**/reference_convergence_3level.json -> 2 file(s),,"Reproduce grid, domain, dt, t_final, boundary rule in Appendix F."
+I-15,8,ARCHIVE,Immutable configuration / versioned record not identified,p. 87; App. F p. 184,ARCHIVAL ACTION REQUIRED,,,"Freeze a release, record commit/tag/DOI and SHA-256 of every artifact."
+I-16,9,TEXT,Thesis title not uniquely identified across artifact,title page vs PDF metadata,NO EVIDENCE REQUIRED - THESIS EDIT,,,"One exact title in title page, PDF metadata, repository, response, paperwork."
+M-1,2,TEXT,Contribution not separated from known mathematical fact,p. 1,NO EVIDENCE REQUIRED - THESIS EDIT,,,"State the application-specific chain, not the generic identifiability fact."
+M-2,,TEXT,'Projected density is represented' is misleading,"pp. 48-50, 149",NO EVIDENCE REQUIRED - THESIS EDIT,,,Target is projected; the tested surrogate does not remain in its image.
+M-3,,TEXT,'Semi-discretization of the complete generator' too strong,pp. 149-150,NO EVIDENCE REQUIRED - THESIS EDIT,,,Call it an attempted moving-cloud collocation of both formal generator terms.
+M-4,,TEXT,'Corrected method' implies correctness,throughout,NO EVIDENCE REQUIRED - THESIS EDIT,,,Use 'MIDPOINT prototype' / 'tested excess-update branch'.
+M-5,,TEXT,'Four checks form a controlled argument' overstates,p. 87,NO EVIDENCE REQUIRED - THESIS EDIT,,,Say the checks evidence failure under tested settings; list what stays unaudited.
+M-6,6,TEXT,'Support refinement/convergence' used too freely,"pp. 62, 80, 87-88, 155, 158",NO EVIDENCE REQUIRED - THESIS EDIT,,,Call it an independent-cloud enlargement study; state convergence untested.
+M-7,,TEXT,l2=0.01 control does not globally rule out regularization,"pp. 87, 151, 158",NO EVIDENCE REQUIRED - THESIS EDIT,,,"State only: 0.05 -> 0.01 did not remove instability for P0=100, seed 11."
+M-8,5,TEXT,Formal second order is not demonstrated order,"pp. 74, 80-81, 152, 158",NO EVIDENCE REQUIRED - THESIS EDIT,,,State assumptions unverified and positive production order not observed.
+M-9,3,TEXT,'Qualitative visualization' does not admit untraceable images,pp. 104-148,NO EVIDENCE REQUIRED - THESIS EDIT,,,"Regenerate/trace, or remove images and all figure-dependent conclusions."
+M-10,,TEXT,Independent shape normalization conceals the failure,pp. 105-109,NO EVIDENCE REQUIRED - THESIS EDIT,,,Label conclusions shape-only; show raw integral beside each.
+M-11,,TEXT,'Less than ~1% per step' reads as a pointwise bound,p. 130,NO EVIDENCE REQUIRED - THESIS EDIT,,,State it is a ratio of global RMS norms and bounds nothing pointwise.
+M-12,,COMPUTE,'Not confined to negligible-label tails' unsupported,p. 132,EVIDENCE MISSING - COMPUTATION REQUIRED,,,Supply quantile-resolved source contributions and tail-threshold sensitivity.
+M-13,,TEXT,Self-normalized GP normalization too prominent,pp. 144-146,NO EVIDENCE REQUIRED - THESIS EDIT,,,Label as tautological; foreground the raw integral and GP-cloud discrepancy.
+M-14,,TEXT,No explicit estimator hierarchy,pp. 145-148,NO EVIDENCE REQUIRED - THESIS EDIT,,,Define each estimator once with validity domain and admissibility order.
+M-15,,TEXT,'Anchor-cloud estimator is more defensible' too strong,p. 148,NO EVIDENCE REQUIRED - THESIS EDIT,,,Neither estimator is validated in the low-ESS regime.
+M-16,7,TEXT,Undefined proximity language for the reference benchmark,"pp. 92-104, 150",NO EVIDENCE REQUIRED - THESIS EDIT,,,Define by numerical field and observable errors with thresholds.
+M-17,,TEXT,"Causation attributed to the excess update, not the discretization","pp. 151, 158",NO EVIDENCE REQUIRED - THESIS EDIT,,,"Attribute to the tested nonprojected, nonconservative MIDPOINT discretization."
+M-18,7,TEXT,'PBME reconstruction is faithful' broader than the gate,p. 158,NO EVIDENCE REQUIRED - THESIS EDIT,,,State exactly that the declared E1 gate passed on the tested support.
+M-19,,TEXT,Failure attribution not fully isolated,p. 158,NO EVIDENCE REQUIRED - THESIS EDIT,,,Describe as an evidence-supported pathway; causality not uniquely apportioned.
+M-20,8,TEXT,'Reproducible basis' contradicts archive defects,p. 158,NO EVIDENCE REQUIRED - THESIS EDIT,,,Use 'documented but presently incomplete basis for future development'.
+M-21,9,TEXT,Objective broader than the tested construction,p. 25,NO EVIDENCE REQUIRED - THESIS EDIT,,,Name the single product-GP/moving-cloud/MIDPOINT construction and its 1D two-state test.
+M-22,1,TEXT,Chapter 6 opens with the wrong decision question,p. 82,NO EVIDENCE REQUIRED - THESIS EDIT,,,Begin with the four Chapter 1 acceptance criteria and the negative answer.
+M-23,,TEXT,'Full-density representation' ambiguous,"pp. 83, 87",NO EVIDENCE REQUIRED - THESIS EDIT,,,Define at first use as a software architecture; rename to avoid implying exactness.
+M-24,4,COMPUTE,'Selected l2 = 0.01' needs qualification,"pp. 83, 87, 89, App. F",EVIDENCE MISSING - COMPUTATION REQUIRED,,,Call it pilot-selected; repeat the operator test at production 0.05 and pilot 0.01.
+M-25,5,TEXT,Completion counts confused with validation,"p. 88, Table 6.3",NO EVIDENCE REQUIRED - THESIS EDIT,,,Separate run inventory completed from scientific criterion passed.
+L-1,,TEXT,Use one method vocabulary,throughout,NO EVIDENCE REQUIRED - THESIS EDIT,,,
+L-2,,TEXT,Define every estimator at first use and map it to one equation,throughout,NO EVIDENCE REQUIRED - THESIS EDIT,,,
+L-3,,TEXT,Reserve evidentiary words for declared standards,throughout,NO EVIDENCE REQUIRED - THESIS EDIT,,,
+L-4,,TEXT,Correct compound-word and hyphenation defects,"pp. 52, 59",NO EVIDENCE REQUIRED - THESIS EDIT,,,
+L-5,,TEXT,Replace vague antecedents,throughout,NO EVIDENCE REQUIRED - THESIS EDIT,,,
+L-6,,TEXT,Compress repetitive figure narration,Secs. 6.4-6.10,NO EVIDENCE REQUIRED - THESIS EDIT,,,
+L-7,10,TEXT,Make the response document an audit trail,response letter,NO EVIDENCE REQUIRED - THESIS EDIT,,,

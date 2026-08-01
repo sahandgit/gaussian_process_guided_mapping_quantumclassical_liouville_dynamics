@@ -1,0 +1,3 @@
+[execute] scheduling 8 manufactured-fit job(s) with 3 bounded workers and 1 numerical thread(s) per worker
+[execute 1/8] complete: manufactured_l21e-06_N2400_seed125
+[execute 2/8] complete: manufactured_l20.01_N2400_seed123

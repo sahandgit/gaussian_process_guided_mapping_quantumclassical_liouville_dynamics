@@ -248,6 +248,31 @@ def rho_derivative_bundle(gp, Y: ArrayLike) -> tuple[FloatArray, FloatArray, Flo
     third : (D, D, D) or (M, D, D, D)
         ρ_{,abc}(Y)
     """
+    # Query batching is algebraically identical because prediction and every
+    # derivative are pointwise in Y.  A full production evaluation with
+    # M=N=2000 otherwise materializes V with shape (M,N,6), plus large einsum
+    # intermediates, and can exhaust a 16-GB workstation even though the
+    # returned derivative arrays are small.  Batching changes only the peak
+    # memory footprint; kernels, coefficients, dtype, and contractions are
+    # unchanged.
+    Y_array = np.asarray(Y, dtype=np.float64)
+    if Y_array.ndim == 2 and Y_array.shape[0] > 1:
+        if _is_density_diff(gp):
+            n_train = int(gp.gp_delta._Z_train.shape[0])
+        else:
+            n_train = int(gp._Z_train.shape[0])
+        max_query_support_pairs = 750_000
+        if Y_array.shape[0] * n_train > max_query_support_pairs:
+            batch_size = max(1, max_query_support_pairs // max(n_train, 1))
+            chunks = [
+                rho_derivative_bundle(gp, Y_array[start:start + batch_size])
+                for start in range(0, Y_array.shape[0], batch_size)
+            ]
+            return tuple(
+                np.concatenate([chunk[index] for chunk in chunks], axis=0)
+                for index in range(3)
+            )
+
     if _is_density_diff(gp):
         # Baseline-transported contribution
         _, V_b, lam_b, _, W_b, single = _prepare_baseline_transported(gp, Y)

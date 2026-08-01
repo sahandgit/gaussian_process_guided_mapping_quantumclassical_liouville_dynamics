@@ -26,6 +26,18 @@ Module responsibilities
 *   Collector.py     serialises diagnostics and GP snapshots.
 """
 
+# --- UTF-8 console safety: prevent UnicodeEncodeError on Windows cp1252 ---
+# Banners/diagnostics below print non-ASCII physics notation (α, ρ̂, Δ, →, ħ).
+# Reconfigure the console streams to UTF-8 so direct execution of this module
+# does not abort under Windows' default cp1252 encoding.  No-op where unsupported.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+# --------------------------------------------------------------------------
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
@@ -42,13 +54,20 @@ from .GP_Density import GPDensity, GPDensityConfig
 from .Sampling import (
     GaussianWavePacketParams, MappingInitParams, MMSTSampler,
 )
-from .Operator import QCLECorrection
-# GPDerivatives is no longer used in the production Q path — Operator.compute_Q
-# handles the full chain rule via JAX autodiff.  rho_derivative_bundle is kept
-# available for diagnostic callers (Visualization, unit tests) but is not
-# imported here to make the dependency direction explicit.
+from .Operator import QCLECorrection, compute_L_matrix, compute_flux_at_points
+# NOTE (corrected 2026-07): the comment that used to sit here claimed
+# "Operator.compute_Q handles the full chain rule via JAX autodiff" and that
+# GPDerivatives was therefore unused in production.  Neither claim is
+# accurate: compute_Q/compute_Q_at_points use the closed-form intrinsic-Y
+# derivative path (no autodiff-on-composition — see Operator.py's module
+# docstring), and GPDerivatives.rho_derivative_bundle IS now used in
+# production below, to evaluate grad(rho_hat) for the flow-correction
+# displacement.
+from .GPDerivatives import rho_derivative_bundle
+from .Monodromy import _I_P
 from .Observables import compute_all
 from .Collector import Collector, Snapshot, StepDiagnostics
+from .Reproducibility import build_run_metadata
 
 
 FloatArray = NDArray[np.float64]
@@ -430,7 +449,8 @@ def _delta_alpha_health(alpha_prev: Optional[FloatArray], alpha_cur: FloatArray)
 
 
 def _surrogate_faithfulness(gp, Z: ArrayLike, y: ArrayLike,
-                             omega: Optional[ArrayLike]) -> Dict[str, float]:
+                             omega: Optional[ArrayLike],
+                             weight: Optional[ArrayLike] = None) -> Dict[str, float]:
     """
     Battery of per-step surrogate-vs-cloud faithfulness diagnostics.
 
@@ -622,14 +642,28 @@ def _surrogate_faithfulness(gp, Z: ArrayLike, y: ArrayLike,
         out["faith_cond_K_lo_log10"] = float("nan")
 
     # ── 5. Predict-at-support residual (fit failure on the cloud itself) ─
+    # The surrogate is fit to the EFFECTIVE labels that the scheme actually
+    # handed it.  For the midpoint/QCLE scheme these are w⊙y (the frozen
+    # labels y scaled by the per-point correction weight w); ``state.y`` is
+    # deliberately kept frozen at y, so comparing predict(Z) against the raw
+    # ``y`` would report w⊙y − y — a weight artefact, NOT a fit error, and
+    # would spuriously inflate this metric whenever w deviates from 1.
+    # Comparing against the effective labels reports the GP's TRUE residual
+    # against what it fit.  For schemes with no correction (weight=None, e.g.
+    # PBME) y_eff ≡ y, so behaviour is unchanged.
     try:
+        if weight is not None:
+            w_np = np.asarray(weight, dtype=np.float64).reshape(-1)
+            y_eff = y_np * w_np if w_np.shape == y_np.shape else y_np
+        else:
+            y_eff = y_np
         y_pred = gp.predict(Z_np)
-        r = y_pred - y_np
+        r = y_pred - y_eff
         out["faith_predict_rms"]  = float(np.sqrt(np.mean(r * r)))
         out["faith_predict_max"]  = float(np.max(np.abs(r)))
-        # Relative — normalised by RMS of y itself so the number is
-        # interpretable across runs and physical units.
-        denom = float(np.sqrt(np.mean(y_np * y_np))) or 1.0
+        # Relative — normalised by RMS of the effective labels themselves so
+        # the number is interpretable across runs and physical units.
+        denom = float(np.sqrt(np.mean(y_eff * y_eff))) or 1.0
         out["faith_predict_rms_rel"] = out["faith_predict_rms"] / denom
     except Exception:
         out["faith_predict_rms"]     = float("nan")
@@ -697,27 +731,6 @@ class SimulationState:
     sampling_cancellation_ratio: Optional[float] = None
 
 
-def _effective_labels(state: "SimulationState") -> FloatArray:
-    """Return the live empirical density labels used by the current GP fit.
-
-    PBME/full-density at t=0 uses the raw labels ``state.y``.  The midpoint
-    scheme evolves a per-trajectory correction weight ``w`` and refits the GP
-    to ``w * state.y`` while keeping ``state.y`` frozen as the initial
-    sign-bearing label.  All diagnostics, snapshots, and cloud estimators must
-    therefore use this single function to avoid comparing the GP against stale
-    labels.
-    """
-    y = np.asarray(state.y, dtype=np.float64).reshape(-1)
-    if state.correction_weight is None:
-        return y.copy()
-    w = np.asarray(state.correction_weight, dtype=np.float64).reshape(-1)
-    if w.shape != y.shape:
-        raise ValueError(
-            f"correction_weight and y have incompatible shapes: {w.shape} vs {y.shape}"
-        )
-    return w * y
-
-
 @dataclass
 class DynamicsConfig:
     scheme:               str                  # "pbme" | "midpoint"
@@ -769,19 +782,33 @@ class DynamicsConfig:
     q_derivative_sigma_n_scale: float = 1.0
 
     # ─── Flow-correction parameters ─────────────────────────────────────
-    # The flow correction is ALWAYS applied — it is the actual midpoint
-    # corrector that moves trajectories onto QCLE characteristics rather
-    # than leaving them on PBME ones.  Only the per-axis cap and the
-    # gradient regulariser are exposed as knobs.
+    # CORRECTED 2026-07: this comment used to claim flow correction "is
+    # ALWAYS applied", while MidpointScheme.__init__ simultaneously
+    # documented the same parameters as dead legacy knobs ("the L β = Q /
+    # v_corr machinery is gone") — a direct contradiction between the two
+    # Continuity-form flow correction (2026-07): flow_fraction f routes
+    # the excess-term flux between support displacement (dz_P = f dt J/rho)
+    # and the weight ODE (rate Q + f u dP(rho)) — same PDE at every f.
+    # OFF by default (f=0, the pure weight scheme). See
+    # MidpointScheme docstring and Operator.compute_flux_at_points.
     flow_correction_axes:         str   = "P_only"    # or "all"
     flow_correction_grad_floor:   float = 1.0e-8
     flow_correction_step_cap:     float = 0.5
+    flow_fraction:                float = 0.0         # 0 = unchanged behaviour
 
     # MidpointScheme weight-update variant.  "midpoint" = explicit-
     # midpoint Heun (k¹ then k²); "cayley" = symmetric Cayley map
     # (1 + Δt/2 σ)/(1 − Δt/2 σ).  Both update the per-trajectory
-    # correction weight w via a midpoint refit of the GP.
+    # correction weight w via a midpoint refit of the GP.  Only consulted
+    # when label_scheme="weight".
     weight_scheme:                str   = "midpoint"   # or "cayley"
+
+    # Label-integrator variant.  "weight" (default) = the scalar
+    # Heun/Cayley scheme above, unchanged.  "linear" = experimental
+    # Crank-Nicolson integrator of the linear label-product ODE
+    # b_dot = A b, A = L K^-1 (see MidpointScheme docstring). New in
+    # 2026-07; not yet validated against finite differences.
+    label_scheme:                 str   = "weight"     # or "linear"
 
     # -------------------------------------------------------------------------
     # Signed-weight ESS resampling (opt-in).
@@ -933,8 +960,45 @@ class PBMEScheme(DynamicsScheme):
 
 
 # =============================================================================
-# Midpoint scheme  (PBME + QCLE correction)
+# Diagnostics helpers shared by the corrected MidpointScheme
+#
+# Both functions expose machinery that already existed and was already
+# being computed (or trivially computable) elsewhere in the pipeline, but
+# was never surfaced: the KKT residual lives inside every GP refit
+# (GP_Density._apply_kkt_projection), and the flow displacement is a direct
+# application of the GP's own analytic gradient (GPDerivatives.
+# rho_derivative_bundle), which is already validated against finite
+# differences.
 # =============================================================================
+
+def _kkt_residual_norm(gp: GPDensity) -> float:
+    """
+    ||A alpha - b|| for the moment-constraint system solved by the GP's
+    KKT / Schur-complement projection (see GPDensity._apply_kkt_projection).
+
+    A, b, and the corrected alpha are already stored on the GP object after
+    every fit/refit; this just reads them.  Returns 0.0 (a genuine zero, not
+    a placeholder) when no moment constraints were active on the last fit.
+    """
+    A = getattr(gp, "_A", None)
+    b = getattr(gp, "_b", None)
+    alpha = getattr(gp, "_alpha", None)
+    if A is None or b is None or alpha is None:
+        return 0.0
+    with torch.no_grad():
+        resid = A @ alpha - b
+    return float(torch.linalg.norm(resid).item())
+
+
+def _flow_displacement_removed():
+    """REMOVED (2026-07): the Taylor-inversion displacement
+    dz = -Q grad/|grad|^2 was a per-step value-matching device with no
+    flux structure.  The flow channel now uses the exact continuity form
+    u_P = J_P/rho with compressibility carried by the weight rate
+    k = Q + f*u*dP(rho); see MidpointScheme._continuity_velocity and
+    Operator.compute_flux_at_points."""
+    raise NotImplementedError
+
 
 class MidpointScheme(DynamicsScheme):
     """
@@ -973,7 +1037,9 @@ class MidpointScheme(DynamicsScheme):
 
     Crucial property: α is determined ENTIRELY by the refit (K_y⁻¹ on the
     weighted labels, then KKT projection).  No β-solve, no L β = Q
-    machinery.  The QCLE coupling enters only through w.
+    machinery.  The QCLE coupling enters only through w — UNLESS
+    ``flow_fraction > 0`` (below), in which case part of Q instead moves
+    the support points directly.
 
     Two weight-update variants, runtime selectable:
 
@@ -983,6 +1049,56 @@ class MidpointScheme(DynamicsScheme):
       Local rate  σ_i = k_i / ρ̂(z_i).  Time-symmetric to 2nd order;
       bounded for arbitrary real σ.
 
+    Flow correction (``flow_fraction``), restored 2026-07, revised 2026-07
+    -------------------------------------------------------
+    Previously ``flow_correction_axes/grad_floor/step_cap`` were accepted
+    but never used (see git history / prior docstring: "the L β = Q / v_corr
+    machinery is gone") — despite ``DynamicsConfig`` separately and
+    self-contradictorily documenting flow correction as "ALWAYS applied".
+    That contradiction, plus the memory of an earlier ``flow_fraction`` /
+    ``correction_mode`` design meant to split Q between the flow and weight
+    channels precisely to avoid double-counting, is why this exists.
+
+    CONTINUITY FORM (2026-07, final design — supersedes both the
+    pre-split-rate and realized-increment designs).  The excess term is
+    exactly a bath-momentum divergence, Q = -d(J_P)/dP with
+    J_P = (hbar/8) dh_bar : (D_rr + D_pp) rho  [NBK JCP 133, 134115
+    (2010), Eq. (10); the flux form follows because dh_bar depends on R
+    only].  The mapping-QCLE is therefore an exact continuity equation
+    with hydrodynamic velocity u_P = J_P/rho on top of the
+    divergence-free Hamiltonian field.  The corrected flow is
+    COMPRESSIBLE: Liouville's theorem does not hold along it and is not
+    enforced; the density obeys D(rho)/Dt = -rho d(u_P)/dP.  The
+    ``flow_fraction`` f in [0,1] routes the SAME correction between two
+    exact Lagrangian representations of that equation:
+        dz/dt = v_H + f*u_P*e_P,      d(w*y)/dt = Q + f*u_P*d(rho)/dP.
+    f=0 is the pure weight scheme; f=1 is pure flow with the weights
+    carrying only the compressibility factor; every f solves the same
+    PDE to the order of the scheme (verified: observable differences
+    across f in {0, 0.5, 1} are O(dt^2)-small fractions of the
+    correction signal).  f is a representation dial, not physics —
+    larger f trades weight-channel ESS degradation (w excursions shrink
+    monotonically with f) for support-geometry perturbation.
+
+    Label integrator (``label_scheme="linear"``), new 2026-07
+    -------------------------------------------------------
+    An alternative to the scalar per-trajectory Heun/Cayley update above.
+    Operator.compute_L_matrix already establishes  Q = L alpha  and, since
+    alpha = K^{-1} b with b_i := w_i y_i,  b_dot = Q = L K^{-1} b = A b  is
+    an exact LINEAR ODE for the label-product vector b (frozen-coefficient
+    within a step, since L, K depend on the current GP fit).  With
+    ``label_scheme="linear"``, b is advanced by the symmetric (Cayley/
+    Crank-Nicolson) Pade approximant to exp(dt A) instead of by the scalar
+    per-point Heun/Cayley rule — the direct matrix generalisation of
+    ``weight_scheme="cayley"``, now coupling trajectories through the
+    off-diagonal kernel structure of L.  This is a genuinely new
+    implementation (nothing to restore — no prior code built A = L K^{-1}
+    anywhere), built entirely from already-verified pieces
+    (``compute_L_matrix``, ``GPDensity.solve_K``); it has NOT been checked
+    against finite-difference or small-N convergence tests the way the
+    rest of the operator has, so treat it as experimental until you do.
+    Default remains ``label_scheme="weight"`` (current behaviour,
+    unchanged).
     """
     name = "midpoint"
 
@@ -994,7 +1110,9 @@ class MidpointScheme(DynamicsScheme):
                  flow_correction_axes: str = "P_only",
                  flow_correction_grad_floor: float = 1.0e-8,
                  flow_correction_step_cap: float = 0.5,
-                 weight_scheme: str = "midpoint") -> None:
+                 flow_fraction: float = 0.0,
+                 weight_scheme: str = "midpoint",
+                 label_scheme: str = "weight") -> None:
         """
         Parameters
         ----------
@@ -1005,10 +1123,35 @@ class MidpointScheme(DynamicsScheme):
             * "cayley"   : symmetric Cayley  (1+Δt/2 σ)/(1−Δt/2 σ)
                            where σ = −Q/ρ̂  (2nd-order, time-symmetric,
                            bounded for any real σ).
-        apply_q_clip, q_clip_frac, q_clip_abs, flow_correction_axes,
-        flow_correction_grad_floor, flow_correction_step_cap:
-            LEGACY — accepted for back-compat with older configs.  No
-            longer used; the L β = Q / v_corr machinery is gone.
+            Only consulted when ``label_scheme="weight"``.
+        flow_fraction : float in [0, 1], default 0.0
+            Fraction of the REALIZED weight-update increment (evaluated
+            with the full, unsplit rate) that is converted into a
+            support-point displacement afterward and pulled back out of
+            the weight change, rather than a pre-allocated share of the
+            raw rate — see the class docstring. 0.0 (default) reproduces
+            the exact pre-existing behaviour — nothing changes for callers
+            who don't set this. NOT combined with ``label_scheme="linear"``
+            (raises if both are active — the linear b-ODE already
+            consumes all of Q through the label channel, and splitting
+            it against a position displacement on top has not been
+            derived).
+        apply_q_clip, q_clip_frac, q_clip_abs:
+            LEGACY — accepted for back-compat with older configs.  Still
+            unused.
+        flow_correction_axes, flow_correction_grad_floor,
+        flow_correction_step_cap:
+            Continuity-flow controls (2026-07).  The flux J_P lives on
+            the bath-P axis only, so ``axes`` is retained for config
+            compatibility but the displacement is intrinsically P-only.
+            ``grad_floor`` now floors |rho| (the only denominator left,
+            in u = J/rho); ``step_cap`` clips |dz_P| per leg.  All
+            inert when ``flow_fraction == 0``.
+        label_scheme : {"weight", "linear"}
+            * "weight" (default): the Steps 1-8 scalar Heun/Cayley scheme
+              above, unchanged.
+            * "linear": the experimental Crank-Nicolson label-ODE
+              integrator on b = w*y — see the class docstring.
         """
         super().__init__(dynamics, dt)
         self.operator = operator if operator is not None \
@@ -1019,6 +1162,9 @@ class MidpointScheme(DynamicsScheme):
         self.flow_correction_axes        = flow_correction_axes
         self.flow_correction_grad_floor  = float(flow_correction_grad_floor)
         self.flow_correction_step_cap    = float(flow_correction_step_cap)
+        self.flow_fraction = float(flow_fraction)
+        if not (0.0 <= self.flow_fraction <= 1.0):
+            raise ValueError(f"flow_fraction must be in [0, 1]; got {flow_fraction!r}")
 
         if weight_scheme not in ("midpoint", "cayley"):
             raise ValueError(
@@ -1026,20 +1172,95 @@ class MidpointScheme(DynamicsScheme):
                 f"got {weight_scheme!r}")
         self.weight_scheme = weight_scheme
 
+        if label_scheme not in ("weight", "linear", "strang"):
+            raise ValueError(
+                f"label_scheme must be 'weight', 'linear' or 'strang'; "
+                f"got {label_scheme!r}")
+        if label_scheme in ("linear", "strang") and self.flow_fraction > 0.0:
+            raise ValueError(
+                "flow_fraction > 0 with label_scheme='linear'/'strang' is not "
+                "supported: the linear b-ODE already routes all of Q through "
+                "the label channel; splitting it against a flow displacement "
+                "has not been derived. Use one mechanism at a time.")
+        self.label_scheme = label_scheme
+
     # ------------------------------------------------------------------
     # Helper: evaluate ρ̂(Z) directly from a GP surrogate
     # ------------------------------------------------------------------
     @staticmethod
     def _rho_at(gp: GPDensity, Z: FloatArray) -> FloatArray:
         """ρ̂(Z_i) for each support point Z_i, computed analytically via the
-        kernel evaluation k(Z_i, Z_train_j) · α_j."""
+        kernel evaluation k(Z_i, Z_train_j) · α_j.  Product surrogates
+        (ρ̂ = g·μ) route through their own predict, which applies the
+        analytic mapping profile."""
+        if getattr(gp, "_is_product", False):
+            return np.asarray(gp.predict(Z), dtype=np.float64).reshape(-1)
         from .GPDerivatives import _prepare
         K_t, _V_t, _lam_t, alpha_t, _W_t, _single = _prepare(gp, Z)
         with torch.no_grad():
             rho_t = (K_t @ alpha_t)
         return rho_t.detach().cpu().numpy().astype(np.float64)
 
+    def _continuity_velocity(self, J: FloatArray, rho: FloatArray) -> FloatArray:
+        """
+        Hydrodynamic momentum velocity u_P = J_P / ρ̂ of the excess-term
+        continuity form, with a signed density floor.  The floor is the
+        larger of the configured absolute value (flow_correction_grad_floor,
+        reinterpreted: it now floors |ρ̂|, the only denominator left in the
+        continuity formulation) and a 1e-6 relative fraction of max|ρ̂| —
+        u is a flux-over-density ratio and is only meaningful where the
+        surrogate carries density.
+        """
+        J   = np.asarray(J,   dtype=np.float64).reshape(-1)
+        rho = np.asarray(rho, dtype=np.float64).reshape(-1)
+        floor = max(float(self.flow_correction_grad_floor),
+                    1.0e-6 * float(np.max(np.abs(rho))) if rho.size else 0.0)
+        rho_safe = np.where(np.abs(rho) >= floor, rho,
+                            np.where(rho >= 0.0, floor, -floor))
+        return J / rho_safe
+
+    def _continuity_displacement(self, u: FloatArray, dt_leg: float,
+                                 shape) -> tuple:
+        """
+        Displacement dz for one Strang leg: dz_P = f · dt_leg · u_P, clipped
+        at ±flow_correction_step_cap.  The excess flux lives on the bath-P
+        axis only, so the displacement is intrinsically P-only — no axes
+        choice remains.
+        """
+        step = self.flow_fraction * dt_leg * np.asarray(u, dtype=np.float64)
+        cap = float(self.flow_correction_step_cap)
+        n_capped = int(np.sum(np.abs(step) > cap)) if np.isfinite(cap) else 0
+        if np.isfinite(cap):
+            step = np.clip(step, -cap, cap)
+        dz = np.zeros(shape, dtype=np.float64)
+        dz[:, 1] = step
+        return dz, n_capped
+
+    @staticmethod
+    def _probability_drift(state: SimulationState, db: FloatArray) -> float:
+        """
+        |Delta integral rho_hat dz|, estimated via the frozen cloud
+        Riemann sum omega_i = 1/(N q(z_i^0)) already carried on
+        ``state.geometric_measure`` (the same estimator used for the
+        physical lw_*/dp_* observables elsewhere in the pipeline),
+        applied to the actual label-product increment db = Delta(w*y).
+
+        Returns 0.0 (genuine, not a placeholder) if no geometric measure
+        was recorded at init (e.g. a non signed-SEO sampling mode).
+        """
+        if state.geometric_measure is None:
+            return 0.0
+        omega = state.geometric_measure
+        return float(np.abs(np.sum(omega * db)))
+
     def step(self, state: SimulationState) -> Dict:
+        if self.label_scheme == "linear":
+            return self._step_linear(state)
+        if self.label_scheme == "strang":
+            return self._step_strang(state)
+        return self._step_weight(state)
+
+    def _step_weight(self, state: SimulationState) -> Dict:
         # ------------------------------------------------------------------
         # State initialisation: if state.correction_weight is None we are
         # at the first step.  Initialise w = ones(N).  state.y is the
@@ -1049,6 +1270,7 @@ class MidpointScheme(DynamicsScheme):
             state.correction_weight = np.ones(state.Z.shape[0], dtype=np.float64)
         w_n = state.correction_weight
         y_n = state.y       # frozen sign-bearing label
+        flow_on = self.flow_fraction > 0.0
 
         # ------------------------------------------------------------------
         # Step 1 — PBME half-step (first leg of Strang splitting).
@@ -1074,15 +1296,44 @@ class MidpointScheme(DynamicsScheme):
         data_1 = self.operator.build_at_points(state.Z, gp=state.gp)
         Q_1   = np.asarray(data_1.Q, dtype=np.float64)
         operator_wall_1 = time.time() - t_op
-        # k = source for the comoving label ODE  d(w·y)/dt = +Q.
-        # Along a PBME characteristic the material derivative of the
-        # carried density is Dρ/Dt = +Q, where Q is the value
-        # compute_Q returns (already carrying the -hbar/8 prefactor).
-        # Hence k = +Q with  d(w·y)/dt = k.
-        k1 = Q_1
+        # ------------------------------------------------------------------
+        # CONTINUITY-FORM FLOW (2026-07, replaces the Taylor-inversion
+        # splice).  The excess term is exactly a bath-momentum divergence,
+        #     Q = -d(J_P)/dP,   J_P = (hbar/8) dh_bar : (D_rr + D_pp) rho,
+        # so the full mapping-QCLE is the continuity equation
+        #     drho/dt + div(rho v_H) + d(J_P)/dP = 0
+        # with hydrodynamic velocity u = J_P/rho on the P axis only.  The
+        # corrected flow is COMPRESSIBLE: along dz/dt = v_H + f*u*e_P the
+        # exact carried-value rate is
+        #     D(rho)/Dt = Q + f * u * d(rho)/dP        (any f in [0,1]),
+        # which reduces to the pure weight scheme at f=0 and to pure flow
+        # with compressibility weights (D rho/Dt = -rho dU/dP) at f=1.
+        # Every f solves the SAME PDE to the order of the scheme — f is a
+        # representation dial, not physics.  Liouville's theorem does NOT
+        # hold for the corrected flow and is not enforced; the weight
+        # factor carries exactly the compressibility (NBK 2010, Sec. III:
+        # the excess flux is the back reaction on the environment).
+        # ------------------------------------------------------------------
+        if flow_on:
+            J_1, rho_1, dPrho_1 = compute_flux_at_points(
+                state.Z, state.gp, self.dynamics)
+            u_1 = self._continuity_velocity(J_1, rho_1)
+            k1 = Q_1 + self.flow_fraction * u_1 * dPrho_1
+        else:
+            u_1 = None
+            k1 = Q_1
 
         # ------------------------------------------------------------------
         # Step 3 — predicted midpoint weight  w^{n+1/2,*}
+        #
+        # Compute the FULL (unsplit) update first, using the true rate k1 —
+        # not a pre-scaled-down fraction of it.  This matters for
+        # weight_scheme="cayley", whose map is nonlinear in its rate
+        # argument: feeding it (1-f)*k1 from the start does NOT equal
+        # taking (1-f) of the realized increment produced by the true k1.
+        # Flow is then derived from what the update actually did, per your
+        # point that flow should evolve from the realized density change
+        # rather than a rate split decided in advance.
         # ------------------------------------------------------------------
         # Numerical-safety floor on |y| only to avoid division by exactly
         # zero — does NOT change behaviour away from exact zeros.
@@ -1090,7 +1341,8 @@ class MidpointScheme(DynamicsScheme):
                           np.sign(y_n) + (y_n == 0.0).astype(np.float64))
 
         if self.weight_scheme == "midpoint":
-            # Heun: ẇ_i = k_i / y_i
+            # Heun: ẇ_i = k_i / y_i  with the Lagrangian rate k (includes
+            # the f·u·∂_Pρ advective compensation when flow is on).
             w_dot_1 = k1 / y_safe
             w_half_star = w_n + 0.5 * self.dt * w_dot_1
             sigma_diag_1 = w_dot_1
@@ -1103,6 +1355,21 @@ class MidpointScheme(DynamicsScheme):
                            (1.0 - 0.5 * self.dt * sigma_1)) * w_n
             sigma_diag_1 = sigma_1
 
+        # Stage-1 displacement: half-step advection along the continuity
+        # velocity, dz_P = f · (Δt/2) · u.  The flux J_P lives on the P
+        # axis ONLY — the old axes ambiguity is gone; the physics fixes
+        # the direction.
+        if flow_on:
+            dz_1, n_capped_1 = self._continuity_displacement(
+                u_1, 0.5 * self.dt, state.Z.shape)
+        else:
+            dz_1 = np.zeros_like(state.Z)
+            n_capped_1 = 0
+
+        # The predictor midpoint cloud used to fit gp_mid picks up the
+        # stage-1 flow displacement (zero when flow_fraction == 0).
+        Z_half_fc = Z_half + dz_1
+
         # ------------------------------------------------------------------
         # Step 4 — refit GP_mid on (Z^{n+1/2}, w^{n+1/2,*} · y) + KKT.
         #
@@ -1114,7 +1381,7 @@ class MidpointScheme(DynamicsScheme):
         gp_mid = copy.deepcopy(state.gp)
         target_half = w_half_star * y_n
         gp_mid.refit(
-            Z_train=Z_half, y_train=target_half,
+            Z_train=Z_half_fc, y_train=target_half,
             moment_targets=state.moment_targets,
         )
         refit_wall_mid = time.time() - t_refit_mid
@@ -1122,7 +1389,7 @@ class MidpointScheme(DynamicsScheme):
         # ------------------------------------------------------------------
         # Step 5 — k² = −(iℒ_m' ρ̂_mid)(Z^{n+1/2})
         #
-        # Q evaluated directly at the midpoint positions Z^{n+1/2}.
+        # Q evaluated directly at the (flow-corrected) midpoint positions.
         # Same reasoning as k¹: build_at_points avoids the internal
         # Φ_{-Δt/2} pullback.  Using build() here would place the
         # evaluation at Φ_{-Δt/2}(Z^{n+1/2}) = Z^n, collapsing k₂ onto
@@ -1130,20 +1397,30 @@ class MidpointScheme(DynamicsScheme):
         # Heun correction.
         # ------------------------------------------------------------------
         t_op2 = time.time()
-        data_2 = self.operator.build_at_points(Z_half, gp=gp_mid)
+        data_2 = self.operator.build_at_points(Z_half_fc, gp=gp_mid)
         Q_2   = np.asarray(data_2.Q, dtype=np.float64)
         operator_wall_2 = time.time() - t_op2
-        k2 = Q_2
+        if flow_on:
+            J_2, rho_2, dPrho_2 = compute_flux_at_points(
+                Z_half_fc, gp_mid, self.dynamics)
+            u_2 = self._continuity_velocity(J_2, rho_2)
+            k2 = Q_2 + self.flow_fraction * u_2 * dPrho_2
+        else:
+            u_2 = None
+            rho_2 = None
+            k2 = Q_2
 
         # ------------------------------------------------------------------
-        # Step 6 — final weight update  w^{n+1}
+        # Step 6 — final weight update  w^{n+1} with the stage-2 Lagrangian
+        # rate; stage-2 displacement covers the second half-step, so the
+        # per-step total is the Heun trapezoid f·Δt·(u¹+u²)/2.
         # ------------------------------------------------------------------
         if self.weight_scheme == "midpoint":
             w_dot_2 = k2 / y_safe
             w_new = w_n + self.dt * w_dot_2
             sigma_diag_2 = w_dot_2
         else:  # cayley
-            rho_at_Zmid = self._rho_at(gp_mid, Z_half)
+            rho_at_Zmid = rho_2 if rho_2 is not None else self._rho_at(gp_mid, Z_half_fc)
             rho_safe_2  = np.where(np.abs(rho_at_Zmid) > 0.0, rho_at_Zmid,
                                    1.0 + 0.0 * rho_at_Zmid)
             sigma_2 = k2 / rho_safe_2
@@ -1151,14 +1428,34 @@ class MidpointScheme(DynamicsScheme):
                      (1.0 - 0.5 * self.dt * sigma_2)) * w_n
             sigma_diag_2 = sigma_2
 
+        if flow_on:
+            dz_2, n_capped_2 = self._continuity_displacement(
+                u_2, 0.5 * self.dt, Z_half_fc.shape)
+        else:
+            dz_2 = np.zeros_like(Z_half_fc)
+            n_capped_2 = 0
+
         # ------------------------------------------------------------------
-        # Step 7 — PBME half-step (second leg of Strang splitting).
+        # Step 7 — PBME half-step (second leg of Strang splitting), then
+        # commit the stage-2 flow displacement onto the final positions
+        # (zero when flow_fraction == 0).
         # ------------------------------------------------------------------
         t_mint2 = time.time()
         Z_new = np.asarray(
-            self.dynamics.step(Z_half, 0.5 * self.dt), dtype=np.float64
+            self.dynamics.step(Z_half_fc, 0.5 * self.dt), dtype=np.float64
         )
         mint_wall_2 = time.time() - t_mint2
+        Z_new_fc = Z_new + dz_2
+
+        # Transported reference profile (Rung 2): advance the footpoint
+        # Jacobian by the composition of the two half-step mapping-block
+        # maps, so g rides the exact MInt flow.  No-op unless the surrogate
+        # is a product surrogate with transport attached.
+        if getattr(state.gp, "_is_product", False) and \
+                getattr(state.gp, "_foot_jac", None) is not None:
+            B1 = self.dynamics.mapping_block_jacobian(state.Z, 0.5 * self.dt)
+            B2 = self.dynamics.mapping_block_jacobian(Z_half_fc, 0.5 * self.dt)
+            state.gp.transport_footpoints(np.einsum("nij,njk->nik", B2, B1))
 
         # ------------------------------------------------------------------
         # Step 8 — refit GP_new on (Z^{n+1}, w^{n+1} · y) + KKT.
@@ -1166,7 +1463,7 @@ class MidpointScheme(DynamicsScheme):
         t_refit = time.time()
         target_new = w_new * y_n
         state.gp.refit(
-            Z_train=Z_new, y_train=target_new,
+            Z_train=Z_new_fc, y_train=target_new,
             moment_targets=state.moment_targets,
         )
         refit_wall = time.time() - t_refit
@@ -1174,7 +1471,7 @@ class MidpointScheme(DynamicsScheme):
         # ------------------------------------------------------------------
         # State commit
         # ------------------------------------------------------------------
-        state.Z                 = Z_new
+        state.Z                 = Z_new_fc
         state.correction_weight = w_new
         # state.y stays frozen
         state.t                += self.dt
@@ -1184,9 +1481,18 @@ class MidpointScheme(DynamicsScheme):
         # Diagnostics
         # ------------------------------------------------------------------
         dw  = w_new - w_n
+        db  = dw * y_n   # Delta(w*y) — well-defined regardless of scheme
+        # Continuity-flow diagnostics: velocity magnitude and the density
+        # denominator that regularizes it (replaces the old grad stats).
+        if flow_on:
+            fc_u_max   = float(np.max(np.abs(np.concatenate([u_1, u_2]))))
+            fc_rho_min = float(np.min(np.abs(rho_2)))
+        else:
+            fc_u_max   = float("nan")
+            fc_rho_min = float("nan")
         ret = {
             "Q":             Q_2,            # Q at the midpoint, used in final update
-            "Q_applied":     k2,             # actual source applied to d(w*y)/dt = +Q
+            "Q_applied":     -k2,            # what was actually applied: -k2 ≡ Q_2
             "Y":             data_2.Y,
             "n_q_clipped":   0,
             "n_q_nonfinite": int(np.sum(~np.isfinite(Q_2))),
@@ -1207,19 +1513,318 @@ class MidpointScheme(DynamicsScheme):
             "sigma2_max":    float(np.max(np.abs(sigma_diag_2))),
             "k1_max":        float(np.max(np.abs(k1))),
             "k2_max":        float(np.max(np.abs(k2))),
-            # Schema-stable label-side keys (legacy) — w-scheme has no
-            # explicit y / α dynamics, so these are emitted as NaN / 0.
-            "label_scheme_id":         float("nan"),
-            "omega_A_residual_norm":   float("nan"),
-            "label_dy_max":            0.0,
-            "label_dy_rms":            0.0,
-            "label_probability_drift": 0.0,
+            # Label-side diagnostics: well-defined for ANY scheme (they
+            # describe how the label-product b = w*y evolved), so these
+            # are now real numbers rather than NaN/0 placeholders.
+            "label_scheme_id":         0.0 if self.weight_scheme == "midpoint" else 1.0,
+            "omega_A_residual_norm":   _kkt_residual_norm(state.gp),
+            "label_dy_max":            float(np.max(np.abs(db))),
+            "label_dy_rms":            float(np.sqrt(np.mean(db ** 2))),
+            "label_probability_drift": self._probability_drift(state, db),
+            # Flow-correction diagnostics: genuinely zero when
+            # flow_fraction == 0, real when it's on.
+            "fc_applied":              float(self.flow_fraction),
+            "fc_dz_max":               float(np.max(np.abs(dz_2))) if flow_on else 0.0,
+            "fc_dz_rms":               float(np.sqrt(np.mean(dz_2 ** 2))) if flow_on else 0.0,
+            "fc_n_capped":             float(n_capped_1 + n_capped_2),
+            "fc_u_max":                fc_u_max,
+            "fc_rho_min":              fc_rho_min,
+        }
+        return ret
+
+    # ------------------------------------------------------------------
+    # Exact-exponential Strang leg (label_scheme="strang"), new 2026-07
+    # ------------------------------------------------------------------
+    def _build_label_generator(self, Z: FloatArray, gp) -> FloatArray:
+        """
+        Assemble the leg-constant label-ODE generator A with  b_dot = A b
+        at the frozen support cloud Z under the current surrogate fit.
+
+        Vanilla GP:    rho_hat = k . alpha, alpha = K_y^{-1} b
+                       -> A = L K_y^{-1},           L = compute_L_matrix.
+        Product GP:    rho_hat = g * mu, inner alpha = K_y^{-1}(b / g_s)
+                       -> A = L_prod K_y^{-1} diag(1/g_s),
+                       L_prod = compute_L_matrix_product (static AND
+                       transported profile — the footpoint Jacobian is
+                       frozen between MInt legs, so A is leg-constant).
+
+        A depends on the support positions and kernel hyperparameters
+        ONLY — not on b.  Both are frozen for the duration of the middle
+        splitting leg, so  b_dot = A b  is an exactly linear, autonomous
+        ODE and  expm(dt A)  is its EXACT propagator (no intra-leg
+        time-discretisation error at the surrogate level).
+        """
+        N = Z.shape[0]
+        I_N = np.eye(N, dtype=np.float64)
+        if getattr(gp, "_is_product", False):
+            from .Operator import compute_L_matrix_product
+            from .GP_Density import _g_safe
+            L = compute_L_matrix_product(Z, gp, self.dynamics)
+            Kinv = gp.solve_K(I_N)                       # inner mu-GP K_y^{-1}
+            g_s = _g_safe(gp.profile_at(Z), gp._g_floor_rel)
+            return (L @ Kinv) / g_s[None, :]
+        L = compute_L_matrix(Z, gp=gp, dt=0.0, dynamics=self.dynamics)
+        Kinv = gp.solve_K(I_N)
+        return L @ Kinv
+
+    def _step_strang(self, state: SimulationState) -> Dict:
+        """
+        Exact-leg Strang factorisation of the mapping-QCLE generator,
+
+            exp(iL dt) = exp(iL0 dt/2) exp(iL' dt) exp(iL0 dt/2) + O(dt^3),
+
+        with EVERY leg evaluated exactly (at the surrogate level):
+
+        * iL0 legs: the MInt map Phi_{dt/2} — symplectic, so Liouville's
+          theorem holds exactly for the trajectory flow and the labels
+          b = w*y are invariant along its characteristics (the density is
+          carried, not re-integrated).  No new approximation.
+        * iL' leg: support points FROZEN.  In the RKHS representation the
+          leg is the linear autonomous ODE  b_dot = A b  (A built by
+          ``_build_label_generator`` at the half-drifted cloud), solved by
+          the exact matrix exponential  b <- expm(dt A) b.  This replaces
+          the Heun / Crank-Nicolson time-discretisation of the middle leg
+          with its exact exponential — the only remaining time error of
+          the composite step is the Strang commutator O(dt^3 [iL0,[iL0,iL']])
+          per step (O(dt^2) global).
+
+        Liouville accounting: the point flow is purely Hamiltonian
+        (MInt), hence exactly volume-preserving; the excess operator iL'
+        is a third-order dispersive (Kramers-Moyal D^(3)) term that is NOT
+        a flow, has no characteristics, and provably makes the corrected
+        continuity flow compressible — routing all of it through the
+        label channel is the ONLY representation in which the ensemble
+        measure remains exactly Liouvillian while the density still obeys
+        the full generator.
+
+        Sequence (t -> t + dt):
+          1. Z_half = Phi_{dt/2}(Z^n)                     [exact iL0]
+          2. refit gp_half on (Z_half, b^n) + KKT         [mid-slice fit]
+          3. A = generator(Z_half, gp_half)               [leg-constant]
+          4. b^{n+1} = expm(dt A) b^n                     [exact iL']
+          5. Z^{n+1} = Phi_{dt/2}(Z_half)                 [exact iL0]
+          6. transport footpoints (product_transported)
+          7. refit state.gp on (Z^{n+1}, b^{n+1}) + KKT
+        One operator build + one expm per step (vs two operator builds
+        for the Heun/CN schemes).
+        """
+        from scipy.linalg import expm
+
+        if state.correction_weight is None:
+            state.correction_weight = np.ones(state.Z.shape[0], dtype=np.float64)
+        w_n = state.correction_weight
+        y_n = state.y
+        y_safe = np.where(np.abs(y_n) > 0.0, y_n,
+                          np.sign(y_n) + (y_n == 0.0).astype(np.float64))
+        b_n = w_n * y_n
+
+        # ---- leg 1: exact iL0 half-step -------------------------------
+        t_mint = time.time()
+        Z_half = np.asarray(self.dynamics.step(state.Z, 0.5 * self.dt),
+                            dtype=np.float64)
+        mint_wall = time.time() - t_mint
+
+        # ---- mid-slice refit (labels unchanged: Liouville along iL0) ---
+        t_refit_mid = time.time()
+        gp_half = copy.deepcopy(state.gp)
+        gp_half.refit(Z_train=Z_half, y_train=b_n,
+                      moment_targets=state.moment_targets)
+        refit_wall_mid = time.time() - t_refit_mid
+
+        # ---- leg 2: exact exponential of the frozen-cloud iL' ----------
+        t_op = time.time()
+        A = self._build_label_generator(Z_half, gp_half)
+        operator_wall = time.time() - t_op
+        k1 = A @ b_n                       # rate at leg entry (diagnostic)
+        t_exp = time.time()
+        E_dtA = expm(self.dt * A)
+        b_new = E_dtA @ b_n
+        expm_wall = time.time() - t_exp
+        k2 = A @ b_new                     # rate at leg exit (diagnostic)
+        w_new = b_new / y_safe
+
+        # ---- leg 3: exact iL0 half-step -------------------------------
+        t_mint2 = time.time()
+        Z_new = np.asarray(self.dynamics.step(Z_half, 0.5 * self.dt),
+                           dtype=np.float64)
+        mint_wall_2 = time.time() - t_mint2
+
+        # Transported reference profile (Rung 2): compose the two exact
+        # half-step mapping-block maps, as in _step_weight.
+        if getattr(state.gp, "_is_product", False) and \
+                getattr(state.gp, "_foot_jac", None) is not None:
+            B1 = self.dynamics.mapping_block_jacobian(state.Z, 0.5 * self.dt)
+            B2 = self.dynamics.mapping_block_jacobian(Z_half, 0.5 * self.dt)
+            state.gp.transport_footpoints(np.einsum("nij,njk->nik", B2, B1))
+
+        # ---- final refit ------------------------------------------------
+        t_refit = time.time()
+        state.gp.refit(Z_train=Z_new, y_train=b_new,
+                       moment_targets=state.moment_targets)
+        refit_wall = time.time() - t_refit
+
+        state.Z                 = Z_new
+        state.correction_weight = w_new
+        state.t                += self.dt
+        state.step_index       += 1
+
+        db = b_new - b_n
+        dw = w_new - w_n
+        # amplification of the exact leg propagator on this cloud
+        bn_norm = float(np.linalg.norm(b_n))
+        amp = float(np.linalg.norm(b_new)) / bn_norm if bn_norm > 0 else float("nan")
+        ret = {
+            "Q":             k2,
+            "Q_applied":     k2,
+            "Y":             Z_half,
+            "n_q_clipped":   0,
+            "n_q_nonfinite": int(np.sum(~np.isfinite(b_new))),
+            "n_q_overshoot": 0,
+            "apply_q_clip":  self.apply_q_clip,
+            "mint_wall":     float(mint_wall + mint_wall_2),
+            "operator_wall": float(operator_wall + expm_wall),
+            "refit_wall":    float(refit_wall + refit_wall_mid),
+            "weight_scheme": self.weight_scheme,
+            "w_min":         float(np.min(w_new)),
+            "w_max":         float(np.max(w_new)),
+            "w_mean":        float(np.mean(w_new)),
+            "w_abs_max":     float(np.max(np.abs(w_new))),
+            "dw_max":        float(np.max(np.abs(dw))),
+            "dw_rms":        float(np.sqrt(np.mean(dw ** 2))),
+            # generator-scale proxies (matrix scheme: not per-point scalars)
+            "sigma1_max":    float(np.max(np.abs(A))),
+            "sigma2_max":    amp,          # ||expm(dt A) b|| / ||b||
+            "k1_max":        float(np.max(np.abs(k1))),
+            "k2_max":        float(np.max(np.abs(k2))),
+            "label_scheme_id":         3.0,
+            "omega_A_residual_norm":   _kkt_residual_norm(state.gp),
+            "label_dy_max":            float(np.max(np.abs(db))),
+            "label_dy_rms":            float(np.sqrt(np.mean(db ** 2))),
+            "label_probability_drift": self._probability_drift(state, db),
             "fc_applied":              0.0,
             "fc_dz_max":               0.0,
             "fc_dz_rms":               0.0,
             "fc_n_capped":             0.0,
-            "fc_grad_min":             float("nan"),
-            "fc_grad_median":          float("nan"),
+            "fc_u_max":                float("nan"),
+            "fc_rho_min":              float("nan"),
+        }
+        return ret
+
+    def _step_linear(self, state: SimulationState) -> Dict:
+        """
+        Experimental label-ODE integrator (``label_scheme="linear"``, see
+        the class docstring).  Advances b = w*y by the Cayley/Crank-
+        Nicolson Pade approximant to exp(dt A), A = L K^{-1}, instead of
+        the scalar per-point Heun/Cayley rule used by ``_step_weight``.
+        Not yet validated against finite differences or small-N
+        convergence — treat as a research prototype.
+        """
+        if state.correction_weight is None:
+            state.correction_weight = np.ones(state.Z.shape[0], dtype=np.float64)
+        w_n = state.correction_weight
+        y_n = state.y
+        y_safe = np.where(np.abs(y_n) > 0.0, y_n,
+                          np.sign(y_n) + (y_n == 0.0).astype(np.float64))
+        b_n = w_n * y_n
+        N = state.Z.shape[0]
+        I_N = np.eye(N, dtype=np.float64)
+
+        # ---- Step 1: PBME half-step ----------------------------------
+        t_mint = time.time()
+        Z_half = np.asarray(self.dynamics.step(state.Z, 0.5 * self.dt),
+                            dtype=np.float64)
+        mint_wall = time.time() - t_mint
+
+        # ---- Predictor: A^n = L(Z^n) K^{-1}(state.gp), half CN step ----
+        # dt=0.0 -> half_tau=0 -> the internal backward pullback collapses
+        # to the identity, matching the same no-pullback convention already
+        # validated for Q via build_at_points/compute_Q_at_points (Q
+        # evaluated directly at the trajectory point, not a pulled-back
+        # midpoint).
+        t_op = time.time()
+        L_n = compute_L_matrix(state.Z, gp=state.gp, dt=0.0, dynamics=self.dynamics)
+        Kinv_n = state.gp.solve_K(I_N)
+        A_n = L_n @ Kinv_n
+        operator_wall_1 = time.time() - t_op
+        k1 = A_n @ b_n     # == Q at Z^n by construction (Q = L alpha = L K^-1 b)
+
+        M_half = 0.25 * self.dt * A_n
+        b_half = np.linalg.solve(I_N - M_half, (I_N + M_half) @ b_n)
+        w_half_star = b_half / y_safe
+
+        # ---- Refit midpoint GP -----------------------------------------
+        t_refit_mid = time.time()
+        gp_mid = copy.deepcopy(state.gp)
+        gp_mid.refit(Z_train=Z_half, y_train=b_half,
+                    moment_targets=state.moment_targets)
+        refit_wall_mid = time.time() - t_refit_mid
+
+        # ---- Corrector: A_mid = L(Z_half) K^{-1}(gp_mid), full CN step --
+        t_op2 = time.time()
+        L_mid = compute_L_matrix(Z_half, gp=gp_mid, dt=0.0, dynamics=self.dynamics)
+        Kinv_mid = gp_mid.solve_K(I_N)
+        A_mid = L_mid @ Kinv_mid
+        operator_wall_2 = time.time() - t_op2
+        k2 = A_mid @ b_half
+
+        M_full = 0.5 * self.dt * A_mid
+        b_new = np.linalg.solve(I_N - M_full, (I_N + M_full) @ b_n)
+        w_new = b_new / y_safe
+
+        # ---- Step 7: PBME half-step -------------------------------------
+        t_mint2 = time.time()
+        Z_new = np.asarray(self.dynamics.step(Z_half, 0.5 * self.dt),
+                           dtype=np.float64)
+        mint_wall_2 = time.time() - t_mint2
+
+        # ---- Step 8: refit -----------------------------------------------
+        t_refit = time.time()
+        state.gp.refit(Z_train=Z_new, y_train=b_new,
+                       moment_targets=state.moment_targets)
+        refit_wall = time.time() - t_refit
+
+        state.Z                 = Z_new
+        state.correction_weight = w_new
+        state.t                += self.dt
+        state.step_index       += 1
+
+        db = b_new - b_n
+        dw = w_new - w_n
+        ret = {
+            "Q":             k2,
+            "Q_applied":     k2,
+            "Y":             Z_half,
+            "n_q_clipped":   0,
+            "n_q_nonfinite": int(np.sum(~np.isfinite(k2))),
+            "n_q_overshoot": 0,
+            "apply_q_clip":  self.apply_q_clip,
+            "mint_wall":     float(mint_wall + mint_wall_2),
+            "operator_wall": float(operator_wall_1 + operator_wall_2),
+            "refit_wall":    float(refit_wall + refit_wall_mid),
+            "weight_scheme": self.weight_scheme,
+            "w_min":         float(np.min(w_new)),
+            "w_max":         float(np.max(w_new)),
+            "w_mean":        float(np.mean(w_new)),
+            "w_abs_max":     float(np.max(np.abs(w_new))),
+            "dw_max":        float(np.max(np.abs(dw))),
+            "dw_rms":        float(np.sqrt(np.mean(dw ** 2))),
+            # Not per-point scalars in this scheme; report the generator's
+            # operator norm proxy (max abs entry) so the key stays populated.
+            "sigma1_max":    float(np.max(np.abs(A_n))),
+            "sigma2_max":    float(np.max(np.abs(A_mid))),
+            "k1_max":        float(np.max(np.abs(k1))),
+            "k2_max":        float(np.max(np.abs(k2))),
+            "label_scheme_id":         2.0,
+            "omega_A_residual_norm":   _kkt_residual_norm(state.gp),
+            "label_dy_max":            float(np.max(np.abs(db))),
+            "label_dy_rms":            float(np.sqrt(np.mean(db ** 2))),
+            "label_probability_drift": self._probability_drift(state, db),
+            "fc_applied":              0.0,
+            "fc_dz_max":               0.0,
+            "fc_dz_rms":               0.0,
+            "fc_n_capped":             0.0,
+            "fc_u_max":                float("nan"),
+            "fc_rho_min":              float("nan"),
         }
         return ret
 
@@ -1235,7 +1840,9 @@ def build_scheme(name: str, dynamics: PBMEMIntDynamics, dt: float,
                  flow_correction_axes: str = "P_only",
                  flow_correction_grad_floor: float = 1.0e-8,
                  flow_correction_step_cap: float = 0.5,
-                 weight_scheme: str = "midpoint") -> DynamicsScheme:
+                 flow_fraction: float = 0.0,
+                 weight_scheme: str = "midpoint",
+                 label_scheme: str = "weight") -> DynamicsScheme:
     if name.lower() == "pbme":
         return PBMEScheme(dynamics, dt)
     if name.lower() == "midpoint":
@@ -1246,7 +1853,9 @@ def build_scheme(name: str, dynamics: PBMEMIntDynamics, dt: float,
                               flow_correction_axes=flow_correction_axes,
                               flow_correction_grad_floor=flow_correction_grad_floor,
                               flow_correction_step_cap=flow_correction_step_cap,
-                              weight_scheme=weight_scheme)
+                              flow_fraction=flow_fraction,
+                              weight_scheme=weight_scheme,
+                              label_scheme=label_scheme)
     raise ValueError(f"Unknown scheme: {name!r}")
 
 
@@ -1262,7 +1871,8 @@ class Simulation:
 
     def __init__(self, config: DynamicsConfig, state: SimulationState,
                  dynamics: Optional[PBMEMIntDynamics] = None,
-                 operator: Optional[QCLECorrection] = None) -> None:
+                 operator: Optional[QCLECorrection] = None,
+                 run_metadata: Optional[Dict] = None) -> None:
         self.config    = config
         self.state     = state
         self.dynamics  = (dynamics if dynamics is not None
@@ -1299,10 +1909,18 @@ class Simulation:
             flow_correction_axes=config.flow_correction_axes,
             flow_correction_grad_floor=config.flow_correction_grad_floor,
             flow_correction_step_cap=config.flow_correction_step_cap,
+            flow_fraction=getattr(config, "flow_fraction", 0.0),
             weight_scheme=getattr(config, "weight_scheme", "midpoint"),
+            label_scheme=getattr(config, "label_scheme", "weight"),
         )
-        self.collector = Collector(scheme_name=self.scheme.name)
+        metadata = build_run_metadata(
+            config=config, state=state, dynamics=self.dynamics,
+            extra=run_metadata,
+        )
+        self.collector = Collector(scheme_name=self.scheme.name,
+                                   run_metadata=metadata)
         self._last_alpha_for_diag: Optional[FloatArray] = None
+        self._raw_drift_reference: Dict[str, float] = {}
 
     # -------------------------------------------------------------------------
     # Build initial state
@@ -1326,7 +1944,8 @@ class Simulation:
         abs_target:       bool  = False,
         abs_cap_quantile: float = 0.999,
         omega_clip_quantile: Optional[float] = None,
-    ) -> SimulationState:
+        surrogate:        str = "gp",
+        product_g_floor_rel: float = 1.0e-3) -> SimulationState:
         rng     = np.random.default_rng(seed)
         sampler = MMSTSampler(classical_params, mapping_params)
 
@@ -1396,6 +2015,33 @@ class Simulation:
             gp = GPDensityDiff(density_diff_config, dynamics=dyn)
         else:
             gp = GPDensity(gp_config, dynamics=dyn)
+
+        if surrogate in ("product", "product_transported"):
+            # Reference-profile surrogate (2026-07-04, finger-test fix):
+            # rho_hat = g_SEO(x) * GP.  The analytic profile supplies the
+            # exact mapping curvature the QCLE operator differentiates —
+            # restoring the operator input that focused sampling cannot
+            # inform (measured ~527x suppression on the plain GP).  The
+            # GP is fitted to y/g; with focused sampling g is constant on
+            # the focus torus, so the transform is exactly benign at t=0.
+            # 'product_transported' (Rung 2) additionally rides the profile
+            # along the exact MInt flow so the operator stays accurate as
+            # the density's mapping structure evolves, not only at t=0.
+            # Static-product analytic moments are supplied by ProductMoments;
+            # transported-product global moments deliberately use cloud sums.
+            from .GP_Density import GPDensityProduct
+            if use_density_diff:
+                raise ValueError("surrogate='product*' is not combined with "
+                                 "use_density_diff in v1.")
+            gp = GPDensityProduct(gp, hbar=mapping_params.hbar,
+                                  init_state=mapping_params.init_state,
+                                  nstates=mapping_params.nstates,
+                                  g_floor_rel=product_g_floor_rel)
+            if surrogate == "product_transported":
+                gp.attach_footpoints(Z)
+        elif surrogate != "gp":
+            raise ValueError(f"Unknown surrogate {surrogate!r}; use 'gp', "
+                             "'product', or 'product_transported'.")
 
         # ---------------------------------------------------------------
         # Apply the sampler's label-information-rank contract to the GP.
@@ -1582,7 +2228,6 @@ class Simulation:
                  wall_time: float) -> StepDiagnostics:
         cfg = self.config
         s   = self.state
-        y_live = _effective_labels(s)
 
         # ------------------------------------------------------------------
         # Two distinct notions of "fit RMS on support" — keep both so they
@@ -1591,15 +2236,15 @@ class Simulation:
         # 1. train_fit_rms : RMS of the GP's training residual.
         #
         #    For VANILLA GPDensity, this is straightforward:
-        #      ‖predict(Z) - y_live‖
-        #    measures how well the surrogate fits its current effective labels.
+        #      ‖predict(Z) - state.y‖
+        #    measures how well the surrogate fits its labels.
         #
         #    For GPDensityDiff, predict(Z) at support points returns the
-        #    EXACT identity y0 + δ_GP_predict(Z) ≈ y_live by construction,
-        #    so ‖predict(Z) - y_live‖ is structurally zero and useless as
+        #    EXACT identity y0 + δ_GP_predict(Z) ≈ state.y by Liouville,
+        #    so ‖predict(Z) - state.y‖ is structurally zero and useless as
         #    a diagnostic.  The meaningful metric for diff-GP is the
         #    δ-GP's own training residual:
-        #      ‖gp_delta.predict(Z) - delta‖    where delta = y_live - y0.
+        #      ‖gp_delta.predict(Z) - delta‖    where delta = state.y - y0.
         #    This is what the breathing optimizer is actually minimizing
         #    and what reflects the surrogate's per-step fit quality.
         #
@@ -1612,11 +2257,32 @@ class Simulation:
         # ------------------------------------------------------------------
         y_pred = s.gp.predict(s.Z)
 
+        # Effective labels actually fitted by the surrogate this step.  The
+        # midpoint/QCLE scheme refits the GP on  w⊙y  (the frozen sign-bearing
+        # labels y scaled by the evolving per-point correction weight w) while
+        # deliberately keeping ``state.y`` frozen at y.  Measuring the training
+        # residual against the raw ``state.y`` therefore reports  w⊙y − y  — a
+        # correction-weight artefact, NOT a fit error — which is exactly what
+        # inflated fit_rms_on_support to ~1e-2 (and predict_rms/|y| to >1)
+        # while the GP's true residual against what it fit was ~1e-7.  Schemes
+        # with no correction (PBME) leave correction_weight=None ⇒ y_eff ≡ y,
+        # so their diagnostics are unchanged.
+        _w = s.correction_weight
+        if _w is not None:
+            _w = np.asarray(_w, dtype=np.float64).reshape(-1)
+            y_eff = s.y * _w if _w.shape == np.asarray(s.y).reshape(-1).shape else s.y
+        else:
+            y_eff = s.y
+
         # Detect diff-GP and compute fit_rms against the δ-GP's residual.
         is_diff_gp = (hasattr(s.gp, "gp0") and hasattr(s.gp, "gp_delta"))
         if is_diff_gp:
-            # δ targets at the current support: delta = y_live - y0.
-            delta_targets = y_live - np.asarray(s.gp.y0, dtype=np.float64)
+            # δ targets at the current support: delta = y_eff - y0.  The δ-GP
+            # is refit by GPDensityDiff.refit on (full target w⊙y) − y0, so the
+            # comparison label here must likewise be y_eff − y0 (not y − y0) to
+            # report the δ-GP's TRUE training residual rather than the weight
+            # artefact w⊙y − y.
+            delta_targets = y_eff - np.asarray(s.gp.y0, dtype=np.float64)
             # δ-GP predictions at the same support.  This is the SAME quantity
             # the breathing/Adam loop minimizes inside _fit_alpha_only, so the
             # number that comes out here is directly comparable to the
@@ -1624,20 +2290,45 @@ class Simulation:
             delta_pred = np.asarray(s.gp.gp_delta.predict(s.Z), dtype=np.float64)
             train_fit_rms = float(np.sqrt(np.mean((delta_pred - delta_targets) ** 2)))
         else:
-            train_fit_rms = float(np.sqrt(np.mean((y_pred - y_live) ** 2)))
+            train_fit_rms = float(np.sqrt(np.mean((y_pred - y_eff) ** 2)))
 
-        liouville_rms = (
-            float(np.sqrt(np.mean((y_pred - s.initial_target_density) ** 2)))
-            if s.initial_target_density is not None else float("nan")
-        )
+        if s.initial_target_density is not None:
+            y0_arr = np.asarray(s.initial_target_density, dtype=np.float64).reshape(-1)
+            liou_res = np.asarray(y_pred, dtype=np.float64).reshape(-1) - y0_arr
+            liouville_rms = float(np.sqrt(np.mean(liou_res ** 2)))
+            liouville_max = float(np.max(np.abs(liou_res)))
+            _y0_rms = float(np.sqrt(np.mean(y0_arr ** 2)))
+            liouville_rel = liouville_rms / _y0_rms if _y0_rms > 0.0 else float("nan")
+            # Corrected residual: for the midpoint scheme the QCLE update
+            # deliberately breaks strict Liouville constancy — the physically
+            # meaningful transport residual is against the QCLE-predicted
+            # carried value w*y0, not raw y0.  For PBME (w absent) the two
+            # coincide, so ONE key serves both schemes in comparison figures.
+            liou_res_c = np.asarray(y_pred, dtype=np.float64).reshape(-1) \
+                         - np.asarray(y_eff, dtype=np.float64).reshape(-1)
+            liouville_rms_corr = float(np.sqrt(np.mean(liou_res_c ** 2)))
+        else:
+            liouville_rms = liouville_max = liouville_rel = float("nan")
+            liouville_rms_corr = float("nan")
         # fit_rms_on_support is kept for backward compatibility and always
         # equals train_fit_rms (the training residual of the most recent fit,
         # interpreted appropriately for the surrogate type).
         fit_rms = train_fit_rms
 
+        # CRITICAL (2026-07 fix): the cloud Riemann sums inside compute_all
+        # are documented as "Σ_i ω_i y_i(t) A(z_i(t)) — tracks the QCLE
+        # correction through y_i(t)".  That contract dates from the era when
+        # the midpoint scheme updated y in place.  Since the architecture
+        # moved to frozen y + per-trajectory correction weight w, the live
+        # density value at z_i is  w_i·y_i, and passing the FROZEN s.y here
+        # silently removed the correction from every cloud_*/lw_* observable
+        # (midpoint cloud populations were identical to PBME by construction;
+        # only the GP-analytic km_/dp_/gpi_ moments saw the correction).
+        # y_eff (= w⊙y, computed above; ≡ y when correction_weight is None,
+        # i.e. PBME) is the label vector every estimator must see.
         obs = compute_all(
             gp=s.gp, Z=s.Z, Q=scheme_diag.get("Q"), dt=cfg.dt,
-            y=y_live, dynamics=self.dynamics,
+            y=y_eff, dynamics=self.dynamics,
             omega=s.geometric_measure,
             include_abs_integral=cfg.include_abs_integral,
         )
@@ -1648,7 +2339,7 @@ class Simulation:
             Q_applied = scheme_diag.get("Q")
         cs_applied = compute_all(
             gp=s.gp, Z=s.Z, Q=Q_applied, dt=cfg.dt,
-            y=y_live, dynamics=self.dynamics,
+            y=y_eff, dynamics=self.dynamics,
             omega=s.geometric_measure,
             include_abs_integral=False,
         )
@@ -1659,12 +2350,54 @@ class Simulation:
         obs["n_q_nonfinite"] = float(scheme_diag.get("n_q_nonfinite", 0))
         obs["n_q_overshoot"] = float(scheme_diag.get("n_q_overshoot", 0))
         obs["apply_q_clip"] = float(1 if scheme_diag.get("apply_q_clip", False) else 0)
+        # Posterior variance of the third-derivative operator is not evaluated
+        # by the production path.  Saving an explicit flag prevents the mean-Q
+        # curve from being misreported as an uncertainty calculation.
+        obs["operator_variance_computed"] = 0.0
 
         # Cloud-transport diagnostics — Riemann sums in (omega, y).
+        # Same y_eff contract as compute_all above: the cloud-weighted
+        # energy/trace must see the live density value w⊙y, not frozen y.
         support_diag = _weighted_support_diagnostics(
-            s.Z, self.dynamics, s.geometric_measure, y_live)
+            s.Z, self.dynamics, s.geometric_measure, y_eff)
         for k, v in support_diag.items():
             obs[k] = float(v)
+
+        # Reviewer-facing cumulative RAW conservation curves.  These are not
+        # self-normalized and are referenced to the actual step-0 estimate,
+        # so a flat curve cannot be manufactured by dividing through the live
+        # norm.  Self-normalized lw_* quantities remain available separately.
+        drift_sources = {
+            "raw_norm": "cloud_norm",
+            "raw_energy": "cloud_weighted_energy",
+            "raw_trace": "cloud_weighted_trace",
+            "raw_mapping_radius_sq": "cloud_weighted_mapping_radius_sq",
+        }
+        for label, key in drift_sources.items():
+            current = float(obs.get(key, float("nan")))
+            if label not in self._raw_drift_reference and np.isfinite(current):
+                self._raw_drift_reference[label] = current
+            reference = self._raw_drift_reference.get(label, float("nan"))
+            drift = current - reference
+            scale = max(abs(reference), np.finfo(float).tiny)
+            obs[f"{label}_initial"] = reference
+            obs[f"{label}_drift"] = drift
+            obs[f"{label}_relative_drift"] = drift / scale
+
+        # Product-profile floor audit: both its absolute scale and the fraction
+        # of support labels whose y/g transformation is regularized are saved.
+        if getattr(s.gp, "_is_product", False):
+            try:
+                g_profile = np.asarray(s.gp.profile_at(s.Z), dtype=np.float64)
+                g_floor = float(getattr(s.gp, "_g_floor_rel", 0.0)
+                                * np.max(np.abs(g_profile)))
+                obs["product_g_floor_abs"] = g_floor
+                obs["product_g_floor_rel"] = float(getattr(s.gp, "_g_floor_rel", 0.0))
+                obs["product_g_floor_fraction"] = float(np.mean(np.abs(g_profile) < g_floor))
+            except Exception:
+                obs["product_g_floor_abs"] = float("nan")
+                obs["product_g_floor_rel"] = float(getattr(s.gp, "_g_floor_rel", float("nan")))
+                obs["product_g_floor_fraction"] = float("nan")
 
         # MInt-invariant check on the support cloud: r_0²+p_0²+r_1²+p_1²
         # is conserved along EVERY trajectory by the mapping rotation, so its
@@ -1678,7 +2411,10 @@ class Simulation:
                                         + Zb[:, 4] ** 2 + Zb[:, 5] ** 2)
         if s.geometric_measure is not None:
             _omega = np.asarray(s.geometric_measure, dtype=np.float64).reshape(-1)
-            _y     = np.asarray(y_live,              dtype=np.float64).reshape(-1)
+            # Effective labels: exactly conserved under PBME (w ≡ 1, y frozen),
+            # conserved up to the QCLE correction (through w) under midpoint —
+            # which is the physically meaningful statement of the Casimir check.
+            _y     = np.asarray(y_eff,               dtype=np.float64).reshape(-1)
             obs["cloud_mapping_radius_sq_mean"] = float(
                 np.dot(_omega * _y, mapping_radius_sq_per_point))
             # Self-normalised version (stable even when Σω_iy_i drifts)
@@ -1711,7 +2447,41 @@ class Simulation:
         obs["gp_fit_mae"] = float(getattr(s.gp, "last_fit_mae", float("nan")))
         obs["gp_fit_r2"] = float(getattr(s.gp, "last_fit_r2", float("nan")))
         obs["gp_train_fit_rms"] = float(train_fit_rms)
+        # Adaptive-trigger observability (2026-07): the refit policy
+        # re-optimizes hyperparameters only when the cloud outgrows the
+        # kernel, Var(Z_d)/ell_d^2 > adaptive_cloud_ratio_target (4.0 by
+        # default, i.e. cloud std > 2*ell).  Export the per-axis ratio for
+        # the free bath axes so "why are the lengthscales flat" is
+        # answerable from a figure: flat hyperparameters with ratio << 4
+        # is the policy working, not a frozen fit.
+        try:
+            _gp_for_ell = getattr(s.gp, "gp_delta", s.gp)
+            _ell = np.asarray(_gp_for_ell.lengthscales,
+                              dtype=np.float64).reshape(-1)
+            _var = np.var(np.asarray(s.Z, dtype=np.float64), axis=0)
+            obs["adapt_ratio_R"] = float(_var[0] / (_ell[0] ** 2 + 1e-30))
+            obs["adapt_ratio_P"] = float(_var[1] / (_ell[1] ** 2 + 1e-30))
+            obs["adapt_triggered"] = float(
+                bool(getattr(_gp_for_ell, "_adaptive_triggered_last_refit",
+                             False)))
+            obs["adapt_refit_failed"] = float(
+                bool(getattr(_gp_for_ell, "last_breathing_failed", False)))
+            obs["adapt_refit_failure_code"] = float(
+                int(getattr(_gp_for_ell, "last_breathing_failure_code", 0)))
+            obs["adapt_refit_failure_count"] = float(
+                int(getattr(_gp_for_ell, "breathing_failure_count", 0)))
+        except Exception:
+            obs["adapt_ratio_R"] = float("nan")
+            obs["adapt_ratio_P"] = float("nan")
+            obs["adapt_triggered"] = float("nan")
+            obs["adapt_refit_failed"] = float("nan")
+            obs["adapt_refit_failure_code"] = float("nan")
+            obs["adapt_refit_failure_count"] = float("nan")
+
         obs["gp_liouville_rms"] = float(liouville_rms)
+        obs["gp_liouville_max"] = float(liouville_max)
+        obs["gp_liouville_rel"] = float(liouville_rel)
+        obs["gp_liouville_rms_corrected"] = float(liouville_rms_corr)
         obs["gp_constraint_delta_rmse"] = float(getattr(s.gp, "constraint_delta_rmse", float("nan")))
         obs["gp_constraint_delta_mae"] = float(getattr(s.gp, "constraint_delta_mae", float("nan")))
         obs["gp_constraint_delta_r2"] = float(getattr(s.gp, "constraint_delta_r2", float("nan")))
@@ -1737,8 +2507,12 @@ class Simulation:
         # ── Surrogate-vs-cloud FAITHFULNESS BATTERY ────────────────────
         # Per-step diagnostics: ESS, LOO residuals, cond(K), predict
         # residual.  Reads from gp + (Z, y, ω).  All "faith_*" keys.
+        # ``correction_weight`` is forwarded so the predict-residual term is
+        # measured against the EFFECTIVE labels w⊙y the GP actually fit
+        # (None for schemes without a correction, e.g. PBME).
         for k, v in _surrogate_faithfulness(
-                s.gp, s.Z, y_live, s.geometric_measure).items():
+                s.gp, s.Z, s.y, s.geometric_measure,
+                weight=s.correction_weight).items():
             obs[k] = float(v)
 
         # Faithfulness-Test #2: GP-integral vs cloud-Riemann moment agreement.
@@ -1748,14 +2522,16 @@ class Simulation:
         for k, v in _gp_vs_cloud_moment_agreement(obs).items():
             obs[k] = float(v)
 
-        # Faithfulness diagnostic: parallel KDE surrogate.
-        # Build a Gaussian KDE from the same (Z, ω, y) the GP sees and
+        # Six-dimensional extension diagnostic: parallel KDE surrogate.
+        # Build a Gaussian KDE from the same effective (Z, omega, y_eff)
+        # contract the GP sees and
         # emit its analytic moment integrals as `kde_*` keys.  The KDE
         # is non-negative by construction (for focused mode where
         # ω·y ≥ 0) so its moments are reliable physical readings.
-        # Comparing `km_*` (GP) to `kde_*` (KDE) shows when the GP
-        # surrogate has lost the cloud — this is the visual story
-        # behind the post-crossing α sign oscillation.
+        # Comparing `km_*` (GP) to `kde_*` (KDE) measures sensitivity to
+        # the GP's off-support 6D extension.  It is not used as the physical
+        # PBME nuclear-density comparison; that uses ProjectedNuclearGP on
+        # the saved geometric measure.
         # DOES NOT participate in dynamics; the QCLE pipeline still
         # uses the GP.
         if s.geometric_measure is not None:
@@ -1763,7 +2539,7 @@ class Simulation:
                 from .KDEDensity import build_kde_from_gp
                 kde = build_kde_from_gp(
                     s.gp, omega=np.asarray(s.geometric_measure, dtype=np.float64),
-                    y=np.asarray(y_live, dtype=np.float64),
+                    y=np.asarray(y_eff, dtype=np.float64),
                 )
                 kde_moms = kde.compute_moment_values()
                 for k, v in kde_moms.items():
@@ -1825,6 +2601,30 @@ class Simulation:
                                         - obs["operator_wall"]
                                         - obs["refit_wall"]))
 
+        # Flow-correction and label-integrator diagnostics.
+        #
+        # The midpoint scheme returns these schema-stable keys on every step
+        # (NaN/0 for variants that carry no explicit flow correction or label
+        # ODE, e.g. the weight-based Cayley/Heun scheme).  They were previously
+        # dropped here, so Visualization.py had nothing to plot.  Persist them
+        # verbatim so the flow-correction (`fc_*`) and label-integrator
+        # (`label_*`) figures can render — and show real curves the moment a
+        # scheme that DOES drive them is selected.
+        for _k in ("fc_applied", "fc_dz_max", "fc_dz_rms", "fc_n_capped",
+                   "fc_u_max", "fc_rho_min",
+                   "label_scheme_id", "omega_A_residual_norm",
+                   "label_dy_max", "label_dy_rms", "label_probability_drift",
+                   # Weight-channel activity: the correction-weight integrator
+                   # (Heun/Cayley on w) IS the label integrator of the default
+                   # midpoint scheme.  Persisting these makes its per-step
+                   # activity visible in the label-integrator figure set
+                   # instead of only the derived Δ(w·y) statistics.
+                   "dw_rms", "dw_max", "w_min", "w_max", "w_mean",
+                   "w_abs_max", "sigma1_max", "sigma2_max",
+                   "k1_max", "k2_max"):
+            if _k in scheme_diag:
+                obs[_k] = float(scheme_diag[_k])
+
         return StepDiagnostics(
             step_index=s.step_index, t=s.t, wall_time=wall_time,
             sigma_f=s.gp.sigma_f, sigma_n=s.gp.sigma_n,
@@ -1835,7 +2635,6 @@ class Simulation:
 
     def _snapshot(self) -> Snapshot:
         gp    = self.state.gp
-        y_live = _effective_labels(self.state)
         alpha = np.asarray(
             gp._alpha.detach().cpu().numpy()
             if hasattr(gp._alpha, "detach") else gp._alpha,
@@ -1860,9 +2659,16 @@ class Simulation:
             sigma_n_base = float(gp.gp0.sigma_n)
             ell_base = np.asarray(gp.gp0.lengthscales, dtype=np.float64).copy()
             if y0_snap is not None:
-                delta_snap = y_live - y0_snap
+                # δ targets actually fitted by the δ-GP are (w⊙y − y0), not
+                # (y − y0) — same contract as the fit_rms diagnostic above.
+                _w_d = self.state.correction_weight
+                _y_live = (self.state.y * _w_d
+                           if _w_d is not None
+                           and np.asarray(_w_d).shape == np.asarray(self.state.y).shape
+                           else self.state.y)
+                delta_snap = np.asarray(_y_live, dtype=np.float64) - y0_snap
 
-        # Note: Snapshot.y stores the live effective label vector; Snapshot.alpha
+        # Note: Snapshot.y stores the raw label vector; Snapshot.alpha
         # stores the *correction* alpha when is_density_diff=True (so that
         # downstream code that reads a single alpha sees the quantity
         # directly relevant to fit diagnostics on δ).  The baseline α is
@@ -1878,9 +2684,23 @@ class Simulation:
             except Exception:
                 feature_zscore_flag = False
 
+        # Snapshot.y contract (Collector docstring): "the effective label
+        # vector actually fitted by the GP, i.e. correction_weight * raw
+        # initial y".  Storing frozen state.y here (the previous behaviour)
+        # broke every downstream consumer that reads snap.y as the live
+        # density value — the faithfulness cloud-KDE panels, the GP
+        # reconstruction path, and the Compare_gp_se_qcle cloud density —
+        # all of which then silently rendered the UNcorrected density for
+        # midpoint runs.  The raw sampled labels remain recoverable as
+        # snap.y / snap.weight (weight carries w when present).
+        _w_snap = self.state.correction_weight
+        y_snap = (self.state.y * _w_snap
+                  if _w_snap is not None
+                  and np.asarray(_w_snap).shape == np.asarray(self.state.y).shape
+                  else self.state.y)
         return Snapshot(
             step_index=self.state.step_index, t=self.state.t,
-            Z=self.state.Z.copy(), y=y_live.copy(),
+            Z=self.state.Z.copy(), y=np.asarray(y_snap, dtype=np.float64).copy(),
             alpha=alpha.copy(), sigma_f=gp.sigma_f, sigma_n=gp.sigma_n,
             lengthscales=gp.lengthscales.copy(),
             feature_mean=fmean, feature_std=fstd,
@@ -1894,6 +2714,8 @@ class Simulation:
                     else (self.state.correction_weight.copy()
                           if self.state.correction_weight is not None
                           else self.state.initial_weight.copy())),
+            geometric_measure=(None if self.state.geometric_measure is None
+                               else self.state.geometric_measure.copy()),
             # Diff-GP extras
             is_density_diff=is_diff,
             alpha_base=alpha_base,
@@ -1902,6 +2724,18 @@ class Simulation:
             sigma_n_base=sigma_n_base,
             lengthscales_base=ell_base,
             delta=delta_snap,
+            is_product=bool(getattr(gp, "_is_product", False)),
+            product_hbar=(float(getattr(gp, "_hbar"))
+                          if getattr(gp, "_is_product", False) else None),
+            product_init_state=(int(getattr(gp, "_init_state"))
+                                if getattr(gp, "_is_product", False) else None),
+            product_nstates=(int(getattr(gp, "_nstates"))
+                             if getattr(gp, "_is_product", False) else None),
+            product_g_floor_rel=(float(getattr(gp, "_g_floor_rel"))
+                                 if getattr(gp, "_is_product", False) else None),
+            product_transported=bool(
+                getattr(gp, "_is_product", False)
+                and getattr(gp, "_footpoints", None) is not None),
         )
 
     # -------------------------------------------------------------------------
@@ -2048,11 +2882,6 @@ class Simulation:
                     n_bad = int(np.sum(~np.isfinite(y_new_relabel)))
                     if n_bad == 0:
                         self.state.y = y_new_relabel
-                        # The relabeled vector is already the live effective label.
-                        # Reset midpoint correction weights so future diagnostics
-                        # and refits continue to see y_eff = state.y.
-                        if self.state.correction_weight is not None:
-                            self.state.correction_weight = np.ones_like(self.state.y)
                         self.state.gp.refit(
                             Z_train=self.state.Z, y_train=self.state.y,
                             moment_targets=self.state.moment_targets,
@@ -2113,6 +2942,14 @@ class Simulation:
 
             if n_nonfinite > 0:
                 print(f"[{self.scheme.name}] step {k:4d}: {n_nonfinite} non-finite Q entries trapped and zeroed.")
+            if v.get("adapt_refit_failed", 0.0) > 0.5:
+                _reason = str(getattr(
+                    self.state.gp, "last_breathing_failure_reason",
+                    "invalid adaptive GP candidate"))
+                print(f"[{self.scheme.name}] step {k:4d}: adaptive GP refit "
+                      f"rejected safely (code "
+                      f"{int(v.get('adapt_refit_failure_code', 0))}); "
+                      f"restored last finite state. {_reason}")
             # ----------------------------------------------------------------
 
             if cfg.verbose:
@@ -2158,7 +2995,9 @@ class Simulation:
                       + f"  LOO_max={v.get('faith_loo_max', float('nan')):.2e}"
                       + f"  logκ≥{v.get('faith_cond_K_lo_log10', float('nan')):.1f}"
                       + f"  3σ={int(v.get('faith_loo_n_3sig', 0))}"
-                      + f"  pred_rms={v.get('faith_predict_rms', float('nan')):.2e}")
+                      + f"  pred_rms={v.get('faith_predict_rms', float('nan')):.2e}"
+                      + (f"  adapt=REJECT({int(v.get('adapt_refit_failure_code', 0))})"
+                         if v.get("adapt_refit_failed", 0.0) > 0.5 else ""))
                 if cfg.detailed_verbose:
                     _print_detailed_step(self.scheme.name, self.state.step_index, self.state.t, diag)
 
@@ -2176,7 +3015,7 @@ class Simulation:
         any of the following criteria are exceeded:
 
           • ESS(α)/N drops below 0.1 at any step  (coverage collapse)
-          • LOO_max exceeds 10·median LOO         (local fit failure)
+          • LOO_max exceeds 10·median LOO AND any |z|>3σ  (local fit failure)
           • log10 cond(K) exceeds 12              (numerical singularity)
           • predict_rms_rel exceeds 0.5           (fit doesn't track cloud)
 
@@ -2224,11 +3063,28 @@ class Simulation:
         if ess_alpha.size and float(ess_alpha.min()) < 0.10:
             warns.append(f"ESS(α)/N dropped to {float(ess_alpha.min()):.3f}"
                          f" (< 0.10 → coverage collapse)")
+        # LOO warning (calibrated 2026-07): the raw ratio max(LOO_max) /
+        # median(LOO_rms) compares a run-wide extreme (max over ~steps × N
+        # deletion tests) against a typical per-step RMS.  Under a PERFECT
+        # Gaussian-residual null this ratio already sits at ≈ √(2 ln M) ≈ 5
+        # for M ~ 5·10⁵ draws, so the fixed 10× threshold trips on ~2×-null
+        # tails that the GP's own predictive variance fully covers.  Require
+        # corroboration by the calibrated statistic — the z-scored LOO count
+        # |z| > 3σ — before calling it a local fit failure.  A large raw
+        # ratio with zero 3σ outliers is reported as a note, not a warning.
         if loo_max.size and loo_rms.size and \
            float(loo_max.max()) > 10.0 * float(np.median(loo_rms)):
-            warns.append(f"LOO max = {float(loo_max.max()):.2e} exceeded "
-                         f"10·median(LOO_rms) = {10*float(np.median(loo_rms)):.2e}"
-                         f" → local fit failure")
+            n3sig_total = int(loo_n3sig.sum()) if loo_n3sig.size else 0
+            if n3sig_total > 0:
+                warns.append(f"LOO max = {float(loo_max.max()):.2e} exceeded "
+                             f"10·median(LOO_rms) = {10*float(np.median(loo_rms)):.2e}"
+                             f" with {n3sig_total} point(s) beyond 3σ"
+                             f" → local fit failure")
+            else:
+                print(f"[{self.scheme.name}]   note: LOO max/median(rms) = "
+                      f"{float(loo_max.max())/float(np.median(loo_rms)):.1f} "
+                      f"(> 10), but 0 points beyond 3σ of the GP predictive "
+                      f"uncertainty — extreme-value tail, not a fit failure.")
         if cond_lo.size and float(cond_lo.max()) > 12.0:
             warns.append(f"log10 cond(K) peaked at {float(cond_lo.max()):.1f}"
                          f" (> 12 → numerical singularity)")

@@ -27,23 +27,28 @@ Categories
 Each ρ-slice function can plot the PBME and midpoint surrogates on the
 same figure (side-by-side panels) with a shared color scale.
 
-The R-P "slice" issue
----------------------
+The R-P projection issue
+------------------------
 A direct slice ρ̂(R, P, r_0=r_1=p_0=p_1=0) lands in the SEO negative lobe
 because  w_α(0,0,0,0) = -1  and  ρ = q · w_λ ≤ 0  at the mapping origin.
-The classically POSITIVE view is the MARGINAL
+The classically positive view is the marginal
 
     ρ̂_cl(R, P)  ≡  ∫ ρ̂(R, P, r, p) dr dp.
 
-Under the ARD-RBF kernel this integral factorizes analytically:
+For a fully sampled 6D density the ARD-RBF integral factorizes
+analytically:
 
     ρ̂_cl(R, P) = Σ_i α_i σ_f²
                   · (√(2π) ℓ_R)(√(2π) ℓ_P)
                   · Π_{d∈map} √(2π) ℓ_d
                   · exp(-½ (R - Z_{i,R})²/ℓ_R² - ½ (P - Z_{i,P})²/ℓ_P²).
 
-The mapping-direction (r_α, p_α) slice, in contrast, is physically
-expected to be signed.
+Focused labels, however, lie on a lower-dimensional mapping manifold, so
+that analytic 6D integral extrapolates through unobserved directions.  All
+production low-dimensional density panels therefore use the frozen
+importance-sampling cloud and a common-support projected GP.  The direct 6D
+integral is retained only for explicit off-manifold diagnostics.  Mapping
+direction slices can still be physically signed.
 """
 
 from typing import Dict, Iterable, Optional, Sequence, Tuple, Union
@@ -68,7 +73,7 @@ import matplotlib.ticker
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from .GP_Density import GPDensity, GPDensityConfig
+from .KDEDensity import ProjectedNuclearGP
 from .Mint import D, PBMEMIntDynamics
 from .Collector import Collector
 
@@ -76,11 +81,11 @@ FloatArray = NDArray[np.float64]
 
 
 # ============================================================================
-# Publication style — Journal of Chemical Physics / research-quality figures
+# Publication style — Journal of Chemical Physics / UofT thesis
 # ============================================================================
 #
 # JCP single-column : 3.375 in   double-column : 6.75 in
-# Research report   : up to 6.0 in single / 6.5 in full-page
+# UofT thesis       : up to 6.0 in single / 6.5 in full-page
 # Font              : sans-serif (Helvetica/Arial), ≥8 pt axis labels
 # DPI               : 300 (raster); PDF preferred for vector output
 # Ticks             : inward, with minor ticks on all axes
@@ -92,7 +97,7 @@ FloatArray = NDArray[np.float64]
 _W1 = 3.375   # JCP single column
 _W15 = 5.0    # JCP 1.5 column  (common for square-ish panels)
 _W2 = 6.75    # JCP double column  /  UofT full-width figure
-_WU = 6.0     # Research-report comfortable single figure width
+_WU = 6.0     # UofT thesis comfortable single figure width
 
 _BASE_FONT   = 9.0   # axis labels, tick labels (min 8 pt for JCP)
 _TITLE_FONT  = 9.0   # panel/figure titles
@@ -170,7 +175,7 @@ matplotlib.rcParams.update(_publication_rc)
 
 _COLORS = {
     "pbme":     "#0072B2",   # deep blue
-    "midpoint": "#E69F00",   # orange
+    "midpoint": "#D55E00",   # vermilion; avoids low-contrast yellow
     "se":       "#000000",   # black  (exact/reference)
     "qcle":     "#009E73",   # teal-green
 }
@@ -179,9 +184,9 @@ _COLORS = {
 # distinguishable in greyscale and for colorblind readers.
 _LINESTYLES = {
     "pbme":     "-",
-    "midpoint": "--",
+    "midpoint": "-",
     "se":       "-",
-    "qcle":     ":",
+    "qcle":     "-",
 }
 
 # Line weights: 1.5 pt for publication; reference curve slightly heavier.
@@ -217,9 +222,12 @@ def _scheme_kw(name: str, lw: Optional[float] = None, **extra) -> dict:
 
 
 def _setup(ax, title: str, xlabel: str, ylabel: str) -> None:
-    """Apply JCP / research-quality axis styling to *ax*."""
-    if title:
-        ax.set_title(title, fontsize=_TITLE_FONT, pad=3)
+    """Apply thesis axis styling; visible figure headers are forbidden."""
+    # ``title`` remains in the signature for backwards compatibility with
+    # callers, but is deliberately not rendered.  Figure meaning and run
+    # configuration belong in the LaTeX caption/JSON sidecar.
+    del title
+    ax.set_title("")
     ax.set_xlabel(xlabel, fontsize=_LABEL_FONT, labelpad=3)
     ax.set_ylabel(ylabel, fontsize=_LABEL_FONT, labelpad=3)
     ax.tick_params(axis="both", which="major",
@@ -238,7 +246,7 @@ def _setup(ax, title: str, xlabel: str, ylabel: str) -> None:
 
 
 def _save(fig: plt.Figure, path: Optional[str]) -> None:
-    """Save *fig* at publication/research quality.
+    """Save *fig* at publication quality (JCP / UofT thesis).
 
     Writes companion PDF (vector, TrueType-embedded) and 300-dpi PNG.
     Timestamp UserWarnings from the matplotlib PDF backend are suppressed
@@ -252,6 +260,19 @@ def _save(fig: plt.Figure, path: Optional[str]) -> None:
             warnings.simplefilter("ignore", UserWarning)
             fig.savefig(base + ".pdf", **kw)
             fig.savefig(base + ".png", **kw)
+        # A figure-sidecar keeps the settings needed for a stand-alone thesis
+        # caption out of the visible header.  Detailed prose belongs in the
+        # caption/log, not as a sentence-long title inside the graphic.
+        try:
+            from .Reproducibility import write_figure_metadata
+            title = os.path.basename(base).replace("_", " ") or "Figure"
+            write_figure_metadata(
+                base + ".pdf", title=title, data_sources=[],
+                scale_policy="axis limits and color normalization are encoded in the figure",
+                normalization="raw and self-normalized quantities are identified by axis/legend labels",
+            )
+        except Exception as exc:
+            warnings.warn(f"Could not write figure metadata sidecar: {exc}")
     plt.close(fig)
 
 
@@ -259,9 +280,27 @@ def _save(fig: plt.Figure, path: Optional[str]) -> None:
 # Loaders
 # =============================================================================
 
-def load_run(path_no_ext: str) -> Dict:
-    """Thin wrapper around Collector.load for convenience."""
-    return Collector.load(path_no_ext)
+def load_run(path_no_ext: str,
+             arrays_only: bool = False,
+             snapshot_steps=None) -> Dict:
+    """
+    Thin wrapper around Collector.load for convenience.
+
+    The two optional arguments are forwarded verbatim so figure code can
+    avoid materialising the (potentially hundreds of MB of) periodic
+    snapshots when it only needs the per-step time series:
+
+    * ``arrays_only=True``     → return ``snapshots={}``; load only the
+                                 time-series arrays.
+    * ``snapshot_steps=[...]`` → load only those snapshot step indices
+                                 (e.g. the strided subset actually drawn as
+                                 density-marginal panels).
+
+    With neither argument the behaviour matches the original full load.
+    """
+    return Collector.load(path_no_ext,
+                          arrays_only=arrays_only,
+                          snapshot_steps=snapshot_steps)
 
 
 def _truth_series(name: str, arrays: Dict[str, FloatArray], kind: str) -> FloatArray:
@@ -407,7 +446,6 @@ def plot_conservation(
     _setup(ax[2], "Energy residual", r"$t$",
            r"$|\langle H\rangle - E_0|$")
     for a_ in ax: a_.legend(fontsize=_TICK_FONT)
-    fig.suptitle("Conservation diagnostics (PBME cloud truth, QCLE GP density)", fontsize=_TITLE_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -480,7 +518,6 @@ def plot_populations(runs: Dict[str, Dict],
            r"$\langle P^{\mathrm{ad}}_1\rangle$")
     for axr in ax.ravel():
         axr.legend(fontsize=_LEGEND_FONT)
-    fig.suptitle("Electronic populations  |  PBME: blue solid  ·  Midpoint: orange dashed  |  density primary, MC cloud overlay", fontsize=_LABEL_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -529,7 +566,6 @@ def plot_coherences(runs: Dict[str, Dict],
     _setup(ax[2], r"$|\rho^{\mathrm{el}}_{01}|$", r"$t$", r"$|\rho^{\mathrm{el}}_{01}|$")
     for a_ in ax:
         a_.legend(fontsize=_LEGEND_FONT)
-    fig.suptitle("Diabatic electronic coherences (solid = density/GP, dashed = Monte Carlo cloud)", fontsize=_TITLE_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -565,7 +601,6 @@ def plot_nuclear(runs: Dict[str, Dict],
         yl = _robust_ylim(series, cap=cap)
         if yl is not None: axi.set_ylim(*yl)
         _setup(axi, lab, r"$t$", lab); axi.legend(fontsize=_TICK_FONT)
-    fig.suptitle("Nuclear expectations", fontsize=_TITLE_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -659,7 +694,6 @@ def plot_local_energy(runs: Dict[str, Dict],
     _setup(ax[1], r"Energy residual", r"$t$", r"$|\langle H\rangle - E_0|$")
     for a_ in ax:
         a_.legend(fontsize=_LEGEND_FONT)
-    fig.suptitle("Energy diagnostics (solid = density/GP, dashed = Monte Carlo cloud)", fontsize=_TITLE_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -727,16 +761,18 @@ def plot_correction_panels(
             mask = t > 0
             if not np.any(mask):
                 mask = np.ones(len(t), dtype=bool)
-            ax.semilogy(t[mask], np.maximum(a[arr_key][mask], 1e-18),
+            vals = np.asarray(a[arr_key], dtype=np.float64)[mask]
+            tt   = np.asarray(t, dtype=np.float64)[mask]
+            fin  = np.isfinite(vals)
+            if not np.any(fin):
+                continue
+            ax.semilogy(tt[fin], np.maximum(vals[fin], 1e-18),
                         label=name, color=c, ls=ls, lw=1.6)
             plotted = True
         if not plotted:
             ax.text(0.5, 0.5, "No non-PBME data", ha="center", va="center",
                     transform=ax.transAxes, color="gray")
-        suptitle = (r"Midpoint extra-Liouvillian correction  "
-                    r"(PBME: $Q\equiv 0$, excluded)")
         _setup(ax, title, r"$t$", ylabel)
-        ax.set_title(suptitle, fontsize=_LABEL_FONT)
         if ax.get_legend_handles_labels()[0]: ax.legend(fontsize=_TICK_FONT)
         fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
         _save_panel(fig, key)
@@ -769,7 +805,6 @@ def plot_signed_weight_diagnostics(runs: Dict[str, Dict],
     _setup(ax[1], r"Cancellation ratio", r"$t$", r"$|\sum y_i|/\sum |y_i|$")
     _setup(ax[2], r"Negative-label fraction", r"$t$", r"fraction$(y_i<0)$")
     for a_ in ax: a_.legend(fontsize=_TICK_FONT)
-    fig.suptitle("Fit-cloud signed-weight diagnostics", fontsize=_TITLE_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -798,7 +833,6 @@ def plot_sampling_statistics(runs: Dict[str, Dict],
     _setup(ax[1, 1], r"Support-cloud variance in $P$", r"$t$", r"Var$(P)$")
     for a_ in ax.ravel():
         a_.legend(fontsize=_TICK_FONT)
-    fig.suptitle("Sampling / support-cloud mean and variance diagnostics", fontsize=_TITLE_FONT)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -876,18 +910,13 @@ def plot_density_diff_diagnostics(runs: Dict[str, Dict],
 
     _setup(ax[0, 0], r"$\|y(t) - y_0\|_2$", r"$t$", r"$\ell_2$ norm")
     _setup(ax[0, 1], r"$\|y(t) - y_0\|_\infty$", r"$t$", r"$\ell_\infty$ norm")
-    _setup(ax[1, 0], r"$\|\alpha_\delta\|_2 / \|\alpha_{\mathrm{base}}\|_2$",
+    _setup(ax[1, 0], r"$\|\zeta_\delta\|_2 / \|\zeta_{\mathrm{base}}\|_2$",
            r"$t$", "ratio")
-    _setup(ax[1, 1], r"$\max|\alpha_\delta| / \max|\alpha_{\mathrm{base}}|$",
+    _setup(ax[1, 1], r"$\max|\zeta_\delta| / \max|\zeta_{\mathrm{base}}|$",
            r"$t$", "ratio")
     for a_ in ax.ravel():
         if a_.get_legend_handles_labels()[0]:
             a_.legend(fontsize=_TICK_FONT)
-    fig.suptitle(
-        "Density-difference diagnostics  "
-        r"($\hat\rho = \hat\rho_0 \circ \Phi_{-t} + \hat\delta$)",
-        fontsize=_TITLE_FONT,
-    )
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -1246,7 +1275,7 @@ def plot_populations_mc(
     #
     # Convention:
     #   color     ↔  state   (state 0 = blue, state 1 = red)
-    #   linestyle ↔  scheme  (PBME = solid, midpoint = dashed)
+    #   marker    ↔  scheme  (PBME = none, midpoint = sparse circles)
     # so each (scheme, state) pair is uniquely identified and the eye
     # naturally groups by state.  Reads "the orange band is excited-
     # state population; PBME and midpoint disagree about its growth".
@@ -1264,8 +1293,9 @@ _STATE_COLORS = {
 }
 _SCHEME_LS = {
     "pbme":     "-",
-    "midpoint": "--",
+    "midpoint": "-",
 }
+_SCHEME_MARKER = {"pbme": None, "midpoint": "o"}
 
 
 def _plot_populations_combined(
@@ -1284,7 +1314,7 @@ def _plot_populations_combined(
     Visual encoding
     ---------------
     Color  : state   (state 0 = blue, state 1 = red)
-    Style  : scheme  (PBME = solid, midpoint = dashed)
+    Marker : scheme  (PBME = line only, midpoint = sparse circles)
 
     The y-axis is clipped to [-0.05, 1.10] so transient overshoots from
     Q-clipping or sampling noise don't blow out the scale; the bulk
@@ -1299,6 +1329,7 @@ def _plot_populations_combined(
             continue
         sl = scheme.lower()
         ls = _SCHEME_LS.get(sl, "-")
+        marker = _SCHEME_MARKER.get(sl)
         for state, primary, fallback in (
             (0, "lw_P0", "cloud_weighted_P0"),
             (1, "lw_P1", "cloud_weighted_P1"),
@@ -1309,6 +1340,7 @@ def _plot_populations_combined(
             vals = np.asarray(a[key], dtype=np.float64)
             color = _STATE_COLORS.get(state, "#888888")
             ax.plot(t, vals, color=color, linestyle=ls, linewidth=2.0,
+                    marker=marker, markevery=max(1, len(t)//18), markersize=3.0,
                     label=rf"{scheme}  $\langle P_{state}\rangle$")
             plotted_any = True
     if not plotted_any:
@@ -1318,7 +1350,7 @@ def _plot_populations_combined(
     ax.set_ylim(-0.05, 1.10)
     ax.axhline(1.0, color="gray", linewidth=0.6, alpha=0.5, zorder=0)
     ax.axhline(0.0, color="gray", linewidth=0.6, alpha=0.5, zorder=0)
-    _setup(ax, r"Diabatic populations  $\langle P_\alpha\rangle$  — PBME vs midpoint",
+    _setup(ax, "Diabatic populations",
            r"$t$", r"$\langle P_\alpha\rangle_{\mathrm{MC}}$")
     # Two-column legend: pair (scheme, state) entries naturally.
     ax.legend(fontsize=_TICK_FONT, ncol=2, loc="best", framealpha=0.9)
@@ -1439,7 +1471,7 @@ def plot_energy_analytic(
         ("km_trace",          r"Trace $\langle c_{00}+c_{11}\rangle$  — analytic GP",
                               r"$\mathrm{tr}\,\rho$",       "fig_an_trace.png",      False),
         ("km_energy_raw",     "Raw energy integral  — analytic GP",
-                              r"$A_{\mathrm{energy}}\cdot\alpha$", "fig_an_energy_raw.png", False),
+                              r"$A_{\mathrm{energy}}\cdot\zeta$", "fig_an_energy_raw.png", False),
     ]
     for key, title, ylabel, fname, slog in specs:
         fig = _two_scheme_fig(runs, key, title, ylabel, out_dir, fname, semilogy=slog)
@@ -1763,6 +1795,10 @@ def _rebuild_gp(snap) -> GPDensity:
         interpolate_targets=False,
         constraints_enabled=False,
     )
+    # Lazy import keeps snapshot-only plotting usable on lightweight systems
+    # that do not have PyTorch/JAX installed.  Only legacy live-GP rebuilding
+    # needs the training backend.
+    from .GP_Density import GPDensity, GPDensityConfig
     dyn = PBMEMIntDynamics()
     gp = GPDensity(cfg, dynamics=dyn)
 
@@ -1864,6 +1900,62 @@ def _require_density_diff_baseline(snap) -> None:
         )
 
 
+def _product_snapshot_marginal(snap, kept_dims, grids):
+    """Analytic marginal of a static product snapshot, including ``g``.
+
+    This closes a serious post-processing bug: product snapshots previously
+    used the vanilla kernel marginal and plotted the modulation ``mu`` instead
+    of the physical density ``g*mu``.
+    """
+    if getattr(snap, "product_transported", False):
+        raise NotImplementedError(
+            "A transported product profile is row-indexed and has no global "
+            "off-support marginal. Use the saved cloud/KDE marginal instead.")
+    kept_dims = tuple(int(d) for d in kept_dims)
+    if len(kept_dims) == 1:
+        points = np.asarray(grids[0], dtype=float).reshape(-1, 1)
+        output_shape = (len(grids[0]),)
+    else:
+        mesh = np.meshgrid(*grids, indexing="xy")
+        # For two axes this is (len(g2), len(g1)), imshow-compatible.
+        points = np.stack([m.reshape(-1) for m in mesh], axis=1)
+        output_shape = mesh[0].shape
+
+    Z = np.asarray(snap.Z, dtype=float)
+    alpha = np.asarray(snap.alpha, dtype=float).reshape(-1)
+    ell = np.asarray(snap.lengthscales, dtype=float)
+    hbar = float(snap.product_hbar if snap.product_hbar is not None else 1.0)
+    active = int(snap.product_init_state if snap.product_init_state is not None else 0)
+    nstates = int(snap.product_nstates if snap.product_nstates is not None else 2)
+    pref = alpha * float(snap.sigma_f) ** 2 * (np.pi * hbar) ** (-nstates)
+    varying = np.ones((Z.shape[0], points.shape[0]), dtype=float)
+    active_second = {}
+    kept_lookup = {d: j for j, d in enumerate(kept_dims)}
+
+    for d in range(D):
+        if d in kept_lookup:
+            x = points[:, kept_lookup[d]][None, :]
+            varying *= np.exp(-0.5 * ((x - Z[:, d:d+1]) / ell[d]) ** 2)
+            if d >= 2:
+                varying *= np.exp(-(x * x) / hbar)
+                if d in (2 + active, 4 + active):
+                    active_second[d] = np.broadcast_to(x * x, varying.shape)
+        elif d < 2:
+            pref *= np.sqrt(2.0 * np.pi) * ell[d]
+        else:
+            den = hbar + 2.0 * ell[d] ** 2
+            variance = hbar * ell[d] ** 2 / den
+            mean = Z[:, d] * hbar / den
+            pref *= np.sqrt(2.0 * np.pi * variance) * np.exp(-Z[:, d] ** 2 / den)
+            if d in (2 + active, 4 + active):
+                active_second[d] = (mean * mean + variance)[:, None]
+
+    q = -np.ones_like(varying)
+    q += (2.0 / hbar) * (active_second[2 + active]
+                          + active_second[4 + active])
+    return np.sum(pref[:, None] * varying * q, axis=0).reshape(output_shape)
+
+
 def marginal_1d_from_snap(snap, dim_idx: int,
                           grid: FloatArray) -> FloatArray:
     r"""1D marginal of the surrogate density ρ̂(z) from a Snapshot.
@@ -1883,6 +1975,9 @@ def marginal_1d_from_snap(snap, dim_idx: int,
     (Ng,) array   — marginal ρ̂ integrated over the other D-1 dims.
     """
     Z_tr = np.asarray(snap.Z, dtype=np.float64)
+
+    if getattr(snap, "is_product", False):
+        return _product_snapshot_marginal(snap, (dim_idx,), (grid,))
 
     if getattr(snap, "is_density_diff", False):
         _require_density_diff_baseline(snap)
@@ -1922,6 +2017,9 @@ def marginal_2d_from_snap(snap, dim_pair: Tuple[int, int],
     """
     Z_tr = np.asarray(snap.Z, dtype=np.float64)
 
+    if getattr(snap, "is_product", False):
+        return _product_snapshot_marginal(snap, dim_pair, (g1, g2))
+
     if getattr(snap, "is_density_diff", False):
         _require_density_diff_baseline(snap)
         out = _kernel_marginal_2d(
@@ -1954,6 +2052,27 @@ def marginal_2d_from_snap(snap, dim_pair: Tuple[int, int],
 # 1D marginal plot — overlay both schemes on one axis
 # =============================================================================
 
+def _snapshot_geometric_measure(snap, name: str = "snapshot") -> FloatArray:
+    """Return the frozen importance-sampling measure saved with a snapshot."""
+    n = int(np.asarray(snap.Z).shape[0])
+    saved = getattr(snap, "geometric_measure", None)
+    if saved is not None and np.asarray(saved).size == n:
+        omega = np.asarray(saved, dtype=np.float64).reshape(-1)
+    else:
+        proposal = getattr(snap, "proposal_density", None)
+        if proposal is not None and np.asarray(proposal).size == n:
+            q = np.maximum(np.asarray(proposal, dtype=np.float64).reshape(-1),
+                           np.finfo(float).tiny)
+            omega = 1.0 / (n * q)
+        else:
+            warnings.warn(
+                f"{name} lacks geometric_measure and proposal_density; "
+                "using a legacy equal-weight fallback.")
+            omega = np.full(n, 1.0 / n, dtype=np.float64)
+    if not np.all(np.isfinite(omega)):
+        raise ValueError(f"{name} contains a non-finite geometric measure.")
+    return omega
+
 def plot_density_1d_marginal(
     snaps: Dict[str, "Snapshot"],
     axis: str,
@@ -1971,10 +2090,16 @@ def plot_density_1d_marginal(
     grid = np.linspace(lo_all, hi_all, n_grid)
 
     for name, snap in snaps.items():
-        # Use the snapshot-aware marginal integrator so that density-diff
-        # snapshots correctly receive baseline + correction contributions.
-        # (The old `_rebuild_gp` path silently dropped the baseline.)
-        rho1d = marginal_1d_from_snap(snap, d, grid)
+        # Marginals are projected from the physical cloud measure.  This
+        # avoids integrating the six-dimensional GP through unobserved
+        # off-manifold mapping directions under focused sampling.
+        partner = {0: 1, 1: 0, 2: 4, 4: 2, 3: 5, 5: 3}[d]
+        projected = ProjectedNuclearGP().fit_from_cloud(
+            np.asarray(snap.Z, dtype=np.float64),
+            _snapshot_geometric_measure(snap, str(name)),
+            np.asarray(snap.y, dtype=np.float64),
+            dim_pair=(d, partner))
+        rho1d = projected.gp_marginal_1d(grid, axis_in_pair=0)
         c  = _COLORS.get(name.lower(), "#888880")
         ls = _LINESTYLES.get(name.lower(), "-")
         lw = _LINEWIDTHS.get(name.lower(), 1.8)
@@ -2002,8 +2127,7 @@ def plot_density_2d_marginal(
     savepath: Optional[str] = None,
 ) -> plt.Figure:
     r"""
-    2D marginal of ρ̂ in the two named axes, integrated analytically over
-    the remaining four dimensions.
+    Two-dimensional cloud-projected GP marginal in the named axes.
 
     If both PBME and one QCLE snapshot are present, generate three panels:
     PBME, QCLE, and Difference = QCLE - PBME.
@@ -2020,9 +2144,12 @@ def plot_density_2d_marginal(
 
     rhos = {}
     for name, snap in snaps.items():
-        # Use the snapshot-aware marginal integrator so that density-diff
-        # snapshots correctly receive baseline + correction contributions.
-        rhos[name] = marginal_2d_from_snap(snap, (d1, d2), g1, g2)
+        projected = ProjectedNuclearGP().fit_from_cloud(
+            np.asarray(snap.Z, dtype=np.float64),
+            _snapshot_geometric_measure(snap, str(name)),
+            np.asarray(snap.y, dtype=np.float64),
+            dim_pair=(d1, d2))
+        rhos[name] = projected.gp_grid(g1, g2)
 
     pbme_key = next((k for k in snaps if str(k).lower() == "pbme"), None)
     qcle_keys = [k for k in snaps if str(k).lower() != "pbme"]
@@ -2079,39 +2206,23 @@ def plot_density_2d_marginal(
                    _AXIS_LABEL[axes_pair[0]], _AXIS_LABEL[axes_pair[1]])
             plt.colorbar(im, ax=ax)
 
-    fig.suptitle(
-        rf"2D marginal  "
-        rf"$\int\hat\rho\,\prod_{{d\notin\{{{axes_pair[0]},{axes_pair[1]}\}}}}dz_d$",
-        fontsize=_TITLE_FONT,
-    )
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
 
 
 # =============================================================================
-# Faithfulness-Test #3:  cloud-Riemann KDE  vs  GP-integral marginal
+# Projected-density consistency: cloud KDE vs common-support projected GP
 # =============================================================================
 #
-# Background.  The 2D marginal plotted by ``plot_density_2d_marginal`` is the
-# analytic kernel integral of the surrogate,
-#     ρ̂_marg(x, y) = ∫ ρ̂(R, P, r_0, r_1, p_0, p_1) ∏_{d ∈ out} dz_d,
-# which is what the GP "believes" the marginal should be given its fitted α.
-# That object reflects whatever sign-oscillations α has acquired (e.g. when
-# the kernel bandwidth is too small for the spread cloud after the avoided
-# crossing — see the focused-mode post-crossing analysis).
-#
-# The cloud-Riemann KDE marginal evaluates the same physical integral
-# directly from the trajectory cloud,
+# The physical cloud marginal is evaluated directly from the frozen
+# importance-sampling measure,
 #     ρ̂_KDE(x, y) = Σ_i (ω_i y_i) · 𝒩((x, y) | (R_i, P_i), h²),
-# with 𝒩 a fixed-bandwidth 2D Gaussian (Silverman's rule on the cloud
-# spread, so it tracks the actual cloud).  This estimator cannot
-# sign-oscillate because all kernel coefficients are ω_i y_i ≥ 0 in
-# focused mode.
-#
-# Plotting them side by side reveals when the GP fit is unfaithful to
-# the cloud: the GP panel shows red/blue dipoles while the KDE panel
-# shows the actual positive-density cloud.
+# and a sparse 2D GP is conditioned on that projected field using the same
+# bandwidth and support.  The resulting difference is a representation
+# residual.  The old comparison against a direct integral of the 6D GP was
+# invalid for focused sampling because its four off-manifold mapping
+# directions are unconstrained by the labels.
 
 
 def _cloud_kde_2d_marginal(
@@ -2163,21 +2274,25 @@ def plot_faithfulness_2d_marginal(
     savepath: Optional[str] = None,
 ) -> plt.Figure:
     r"""
-    Side-by-side comparison of GP-integral and cloud-Riemann-KDE 2D
-    marginals, per scheme (PBME, midpoint, …).
+    Common-support comparison of projected GP and cloud-KDE 2D marginals.
 
     Each row: one scheme; three panels per row:
-        [GP-integral marginal]  [cloud-KDE marginal]  [GP - KDE]
-    so visual sign-oscillation in the GP panel that is absent from the
-    KDE panel is unambiguously a GP-fit artifact, not a physical feature.
+        [projected GP marginal]  [cloud-KDE marginal]  [GP - KDE]
+
+    Both estimates use the same physical importance-sampling measure,
+    support cloud, two-dimensional bandwidth, raw mass and grid.  The GP is
+    conditioned directly on the projected nuclear field.  The previous
+    implementation compared the KDE with an unconstrained integral of the
+    six-dimensional GP over four unobserved mapping directions; for focused
+    PBME that quantity is not identifiable and could differ by orders of
+    magnitude for purely representational reasons.
 
     Required Snapshot fields beyond the standard set:
         snap.y                   — carried labels (live; QCLE-corrected
                                     for midpoint, frozen at ρ_0 for PBME).
-        snap.proposal_density    — used to reconstruct ω_i = 1/(N q(z_i^0))
-                                    when present; falls back to ω = 1/N
-                                    when missing (exact for focused-mode
-                                    proposals where q ∝ ρ_0 anyway).
+        snap.geometric_measure   — frozen omega_i = 1/(N q(z_i^0)); legacy
+                                    snapshots may reconstruct it from the
+                                    saved proposal density.
     """
     d1 = _AXIS_NAMES[axes_pair[0]]
     d2 = _AXIS_NAMES[axes_pair[1]]
@@ -2193,65 +2308,19 @@ def plot_faithfulness_2d_marginal(
     fig, axes = plt.subplots(n_schemes, 3, figsize=(15.8, 4.5 * n_schemes),
                               squeeze=False)
 
-    rho_gp:   Dict[str, FloatArray] = {}
-    rho_kde:  Dict[str, FloatArray] = {}
+    rho_gp: Dict[str, FloatArray] = {}
+    rho_kde: Dict[str, FloatArray] = {}
     rho_diff: Dict[str, FloatArray] = {}
-    _warned_about_missing_proposal = False
     for name, snap in snaps.items():
-        rho_gp[name] = marginal_2d_from_snap(snap, (d1, d2), g1, g2)
-        # ω reconstruction chain.  The geometric measure ω_i = 1/(N·q(z_i⁰))
-        # is FROZEN at t=0 (Liouville) so any snapshot's frozen-state field
-        # gives the right answer.
-        N = int(np.asarray(snap.Z).shape[0])
-        prop = getattr(snap, "proposal_density", None)
-        snap_weight = getattr(snap, "weight", None)
-        if prop is not None:
-            # ω_i = 1/(N · q(z_i⁰))
-            omega = 1.0 / (N * np.asarray(prop, dtype=np.float64).reshape(-1))
-        elif snap_weight is not None:
-            # snap.weight = initial_weight = w_i = ω_i · target_density(z_i⁰)
-            # Not what we want directly, but for focused mode where
-            # proposal_density = target_density (the IS cancellation),
-            # ω_i = w_i / target_density(z_i⁰) = w_i · target_inv.  Since
-            # we don't have target_density either, fall through to 1/N
-            # below for safety.
-            omega = np.full(N, 1.0 / N, dtype=np.float64)
-            if not _warned_about_missing_proposal:
-                print(f"[plot_faithfulness_2d_marginal] WARNING: snap for "
-                      f"'{name}' has no proposal_density (only weight).  "
-                      f"Falling back to uniform ω = 1/N — the KDE panel "
-                      f"will be SCALED INCORRECTLY (typically O(1e-3) too "
-                      f"small for focused mode).  To fix: re-run with a "
-                      f"Dynamics.py that saves proposal_density at every "
-                      f"snapshot, OR patch existing snapshots with "
-                      f"refix_faithfulness_figs.py.")
-                _warned_about_missing_proposal = True
-        else:
-            # Last-resort fallback — gives the qualitatively-correct cloud
-            # KDE up to an overall scale.  Will be visibly off if the
-            # cloud is not equi-weighted (i.e. for seo_signed where
-            # different trajectories carry different ω).
-            omega = np.full(N, 1.0 / N, dtype=np.float64)
-            if not _warned_about_missing_proposal:
-                print(f"[plot_faithfulness_2d_marginal] WARNING: snap for "
-                      f"'{name}' has no proposal_density and no weight.  "
-                      f"Falling back to uniform ω = 1/N — the KDE panel "
-                      f"will be SCALED INCORRECTLY by ~K_focus·W_cl (1e-3) "
-                      f"in focused mode, making it appear as ~0.  "
-                      f"Use refix_faithfulness_figs.py to recover ω from "
-                      f"the step-0 snapshot.")
-                _warned_about_missing_proposal = True
-        # Defensive: if omega has any non-finite entries (legacy snapshots
-        # with proposal=0 somewhere) fall back to 1/N rather than NaN-out
-        # the whole plot.
-        if not np.all(np.isfinite(omega)):
-            omega = np.full(N, 1.0 / N, dtype=np.float64)
-        y_arr = np.asarray(snap.y, dtype=np.float64).reshape(-1)
-        rho_kde[name] = _cloud_kde_2d_marginal(
-            np.asarray(snap.Z, dtype=np.float64),
-            omega, y_arr,
-            (d1, d2), g1, g2,
-        )
+        # The geometric measure is frozen at t=0 and is the only valid
+        # measure for both estimators.  Prefer the explicitly saved value.
+        omega = _snapshot_geometric_measure(snap, str(name))
+        estimator = ProjectedNuclearGP().fit_from_cloud(
+            np.asarray(snap.Z, dtype=np.float64), omega,
+            np.asarray(snap.y, dtype=np.float64).reshape(-1),
+            dim_pair=(d1, d2))
+        rho_gp[name] = estimator.gp_grid(g1, g2)
+        rho_kde[name] = estimator.kde_grid(g1, g2)
         rho_diff[name] = rho_gp[name] - rho_kde[name]
 
     vmax_main = max(
@@ -2271,31 +2340,26 @@ def plot_faithfulness_2d_marginal(
                          cmap="RdBu_r", vmin=-vmax_main, vmax=vmax_main)
         ax0.scatter(snap.Z[:, d1], snap.Z[:, d2], s=3, color="k",
                     alpha=0.2, rasterized=True)
-        _setup(ax0,
-               f"{name}  GP-integral  (step {snap.step_index}, t={snap.t:.1f})",
+        _setup(ax0, "",
                _AXIS_LABEL[axes_pair[0]], _AXIS_LABEL[axes_pair[1]])
-        plt.colorbar(im0, ax=ax0)
+        plt.colorbar(im0, ax=ax0, label=r"$\rho_{\rm GP}^{(2)}$")
 
         im1 = ax1.imshow(rho_kde[name], origin="lower", aspect="auto",
                          extent=(g1[0], g1[-1], g2[0], g2[-1]),
                          cmap="RdBu_r", vmin=-vmax_main, vmax=vmax_main)
         ax1.scatter(snap.Z[:, d1], snap.Z[:, d2], s=3, color="k",
                     alpha=0.2, rasterized=True)
-        _setup(ax1, f"{name}  cloud-KDE (Silverman)",
+        _setup(ax1, "",
                _AXIS_LABEL[axes_pair[0]], _AXIS_LABEL[axes_pair[1]])
-        plt.colorbar(im1, ax=ax1)
+        plt.colorbar(im1, ax=ax1, label=r"$\rho_{\rm KDE}^{(2)}$")
 
         im2 = ax2.imshow(rho_diff[name], origin="lower", aspect="auto",
                          extent=(g1[0], g1[-1], g2[0], g2[-1]),
                          cmap="RdBu_r", vmin=-vmax_diff, vmax=vmax_diff)
-        _setup(ax2, f"{name}  GP - KDE",
+        _setup(ax2, "",
                _AXIS_LABEL[axes_pair[0]], _AXIS_LABEL[axes_pair[1]])
-        plt.colorbar(im2, ax=ax2)
+        plt.colorbar(im2, ax=ax2, label=r"$\rho_{\rm GP}^{(2)}-\rho_{\rm KDE}^{(2)}$")
 
-    fig.suptitle(
-        r"Faithfulness test:  GP-integral marginal  vs  cloud-Riemann KDE",
-        fontsize=_TITLE_FONT,
-    )
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -2372,14 +2436,27 @@ def density_predict_from_snap(snap, z_query: FloatArray) -> FloatArray:
         )
         return out
 
-    # vanilla single GP
-    return _kernel_predict_at(
+    # vanilla single GP or inner modulation of a product surrogate
+    out = _kernel_predict_at(
         Z_tr,
         np.asarray(snap.alpha, dtype=np.float64).reshape(-1),
         np.asarray(snap.lengthscales, dtype=np.float64),
         float(snap.sigma_f) ** 2,
         z_query,
     )
+    if getattr(snap, "is_product", False):
+        if getattr(snap, "product_transported", False):
+            raise NotImplementedError(
+                "Arbitrary-grid evaluation of a transported product snapshot "
+                "is undefined without an explicit query-row to footpoint map.")
+        hbar = float(snap.product_hbar if snap.product_hbar is not None else 1.0)
+        active = int(snap.product_init_state if snap.product_init_state is not None else 0)
+        nstates = int(snap.product_nstates if snap.product_nstates is not None else 2)
+        x = z_query[:, 2:6]
+        q = (2.0 / hbar) * (x[:, active] ** 2 + x[:, 2 + active] ** 2) - 1.0
+        g = (np.pi * hbar) ** (-nstates) * np.exp(-np.sum(x * x, axis=1) / hbar) * q
+        out = g * out
+    return out
 
 
 def _default_slice_anchor(snap, kept_axes) -> Dict[str, float]:
@@ -2557,12 +2634,6 @@ def plot_density_2d_slice(
             plt.colorbar(im, ax=ax)
 
     any_anchor = next(iter(anchors.values()))
-    anchor_str = ", ".join(f"{a}={v:.2f}" for a, v in sorted(any_anchor.items()))
-    fig.suptitle(
-        rf"2D slice  $\hat\rho({axes_pair[0]},{axes_pair[1]}\,|\,$"
-        f"{anchor_str}$)$",
-        fontsize=_TITLE_FONT,
-    )
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
     _save(fig, savepath)
     return fig
@@ -2594,48 +2665,34 @@ def plot_qcle_correction_diagnostics(
     out_dir: Optional[str] = None,
     savepath: Optional[str] = None,
 ) -> plt.Figure:
-    r"""
-    Density-weighted QCLE correction term diagnostics for all non-PBME runs.
+    r"""Plot the excess operator *and its observable consequence*.
 
-    The four curves mirror the FLV pipeline diagnostic:
-
-      rho-weighted mean   Σ_m y_m Q_m / Σ_m y_m      (signed, tracks net drift)
-      rho-weighted RMS    √(Σ_m |y_m| Q_m² / Σ_m |y_m|)  (magnitude under ρ)
-      support max |Q|     max_m |Q_m|                  (worst-case correction)
-      Σ_m ρ_m c_m         Σ_m y_m Q_m                  (raw normalization flux)
-
-    t = 0 is excluded (the correction is trivially zero before the first step).
-
-    Physical interpretation
-    -----------------------
-    * Σ_m ρ_m c_m  measures the net normalization flux injected per step:
-      if this is consistently near zero the QCLE correction is approximately
-      normalization-preserving.
-    * The rho-weighted mean tracks any systematic signed drift in Q across the
-      density support.  A non-zero steady-state value signals a bias in the
-      correction operator relative to the carried density.
-    * The rho-weighted RMS quantifies the typical correction magnitude felt by
-      the "important" (high-ρ) support points.
-    * support max |Q| gives the absolute envelope; large values relative to
-      the weighted RMS mean the correction is concentrated in low-ρ tails.
+    The previous figure contained only Q diagnostics, used a yellow broken
+    line, and connected a normalized mean across points where its signed
+    denominator was undefined.  The revised two-panel figure keeps stable,
+    unnormalized/magnitude diagnostics above and plots MIDPOINT-PBME population
+    and raw-normalization differences below.  All scientific curves are solid
+    and colorblind-safe; undefined normalized Q means are deliberately absent.
     """
     mid_runs = {name: r for name, r in runs.items()
                 if name.lower() != "pbme"}
 
-    fig, ax = plt.subplots(figsize=(9.0, 5.0))
+    fig, axes = plt.subplots(2, 1, figsize=(8.2, 6.2), sharex=True)
+    ax_q, ax_effect = axes
 
     if not mid_runs:
-        ax.text(0.5, 0.5, "No non-PBME runs available.",
-                ha="center", va="center", transform=ax.transAxes)
+        ax_q.text(0.5, 0.5, "No non-PBME runs available.",
+                  ha="center", va="center", transform=ax_q.transAxes)
+        ax_effect.set_visible(False)
         fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
         if savepath:
             fig.savefig(savepath, dpi=300, bbox_inches="tight")
         return fig
 
-    COLOR_MEAN  = "#E07020"   # warm orange   — rho-weighted mean
-    COLOR_RMS   = "#2E3A8C"   # dark blue     — rho-weighted RMS
-    COLOR_MAX   = "#A040B0"   # violet/pink   — support max |Q|
-    COLOR_SUM   = "#207830"   # dark green    — Σ ρ c (dashed)
+    COLOR_RMS = "#0072B2"
+    COLOR_MAX = "#CC79A7"
+    COLOR_SUM = "#009E73"
+    pbme = next((r for n, r in runs.items() if n.lower() == "pbme"), None)
 
     for name, run in mid_runs.items():
         a = run["arrays"]
@@ -2653,36 +2710,61 @@ def plot_qcle_correction_diagnostics(
                 return None
             return np.asarray(v, dtype=np.float64)[mask]
 
-        mean_w  = _get("cs_q_y_weighted_mean")
         rms_w   = _get("cs_q_y_weighted_rms")
         max_q   = _get("cs_q_max")
         sum_yc  = _get("cs_q_sum_yc")
 
         suffix = f"  ({name})" if len(mid_runs) > 1 else ""
 
-        if mean_w is not None and np.any(np.isfinite(mean_w)):
-            ax.plot(tm, mean_w, color=COLOR_MEAN, lw=2.0,
-                    label="$\\rho$-weighted mean" + suffix)
-        if rms_w is not None and np.any(np.isfinite(rms_w)):
-            ax.plot(tm, rms_w,  color=COLOR_RMS,  lw=2.0,
-                    label="$\\rho$-weighted RMS" + suffix)
-        if max_q is not None and np.any(np.isfinite(max_q)):
-            ax.plot(tm, max_q,  color=COLOR_MAX,  lw=1.6,
-                    label=r"support $\max|Q|$" + suffix)
-        if sum_yc is not None and np.any(np.isfinite(sum_yc)):
-            ax.plot(tm, sum_yc, color=COLOR_SUM,  lw=1.6, ls="--",
-                    label="$\\sum_m \\rho_m Q_m$" + suffix)
+        def _plot_finite(axis, vals, **kw):
+            if vals is None:
+                return False
+            m = np.isfinite(vals)
+            if not np.any(m):
+                return False
+            axis.plot(tm[m], vals[m], **kw)
+            return True
 
-    ax.axhline(0.0, color="black", lw=0.8, ls="-", alpha=0.6)
-    ax.set_xlabel(r"$t$  [a.u.]", fontsize=_TITLE_FONT)
-    ax.set_ylabel("QCLE correction diagnostics", fontsize=_TITLE_FONT)
-    ax.set_title(
-        "QCLE Midpoint: density-weighted correction diagnostics  "
-        r"(PBME: $Q\equiv 0$, excluded)",
-        fontsize=_TITLE_FONT)
-    if ax.get_legend_handles_labels()[0]:
-        ax.legend(fontsize=_LABEL_FONT, framealpha=0.9)
-    ax.grid(False)
+        _plot_finite(ax_q, rms_w, color=COLOR_RMS, lw=1.9,
+                     label="$\\rho$-weighted RMS" + suffix)
+        _plot_finite(ax_q, max_q, color=COLOR_MAX, lw=1.6,
+                     label=r"support $\max|Q|$" + suffix)
+        _plot_finite(ax_q, sum_yc, color=COLOR_SUM, lw=1.6,
+                     label=r"raw source integral $\sum_i\omega_i y_iQ_i$" + suffix)
+
+        # Observable effect relative to the paired PBME run.  Interpolate the
+        # PBME series if a validation run used a different output cadence.
+        if pbme is not None:
+            ap = pbme["arrays"]
+            tp = np.asarray(ap["t"], dtype=float)
+            for key, label, color in (
+                ("cloud_weighted_P0", r"$\Delta P_0$", "#0072B2"),
+                ("cloud_weighted_P1", r"$\Delta P_1$", "#D55E00"),
+                ("raw_norm_drift", r"raw $\Delta\!\int\rho$", "#333333"),
+            ):
+                vm = a.get(key); vp = ap.get(key)
+                if vm is None:
+                    continue
+                vm = np.asarray(vm, dtype=float)[mask]
+                if key == "raw_norm_drift":
+                    diff = vm
+                elif vp is not None:
+                    diff = vm - np.interp(tm, tp, np.asarray(vp, dtype=float))
+                else:
+                    continue
+                _plot_finite(ax_effect, diff, color=color, lw=1.8,
+                             label=label + suffix)
+
+    ax_q.axhline(0.0, color="0.45", lw=0.7)
+    ax_effect.axhline(0.0, color="0.45", lw=0.7)
+    ax_q.set_yscale("symlog", linthresh=1.0e-12)
+    ax_q.set_ylabel("operator diagnostic", fontsize=_TITLE_FONT)
+    ax_effect.set_ylabel("MIDPOINT − PBME", fontsize=_TITLE_FONT)
+    ax_effect.set_xlabel(r"$t$  [a.u.]", fontsize=_TITLE_FONT)
+    for axis in axes:
+        if axis.get_legend_handles_labels()[0]:
+            axis.legend(fontsize=_LABEL_FONT, framealpha=0.9, ncol=2)
+        axis.grid(False)
     fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
 
     path = savepath or (os.path.join(out_dir, "fig_qcle_diagnostics.png") if out_dir else None)
@@ -2721,8 +2803,9 @@ def produce_all_marginal_slices(
         out[f"2d_{key}"] = p
         if verbose: print(f"    wrote {p}")
 
-    # Faithfulness-Test #3 figures: GP-integral marginal vs cloud-Riemann
-    # KDE side-by-side, per scheme.  Only the (R, P) pair is generated
+    # Common-support projected GP vs cloud-KDE representation check.  The
+    # unconstrained 6D mapping integral is intentionally not used here.
+    # Only the (R, P) pair is generated
     # by default since that's the diagnostic of interest for the focused
     # post-crossing regime; to add other axis pairs, append to the loop.
     for pair in (("R", "P"),):
@@ -2764,8 +2847,34 @@ def produce_all_comparison_figures(
     Returns a flat dict {label -> absolute_path} for all saved figures.
     """
     os.makedirs(out_dir, exist_ok=True)
-    runs = {"pbme":     load_run(pbme_path_no_ext),
-            "midpoint": load_run(midpoint_path_no_ext)}
+
+    # Decide which snapshots the marginal panels actually need BEFORE loading
+    # any arrays.  ``peek_snapshot_steps`` reads only the small JSON sidecar,
+    # so this costs zero array decompression.  Eagerly loading *every*
+    # snapshot here (the old behaviour) is what exhausted memory on long,
+    # finely-sampled runs.
+    def _panel_steps_from_meta() -> List[int]:
+        try:
+            per_run = [set(Collector.peek_snapshot_steps(p))
+                       for p in (pbme_path_no_ext, midpoint_path_no_ext)]
+        except FileNotFoundError:
+            return []
+        common = sorted(set.intersection(*per_run)) if per_run else []
+        if snapshot_stride is not None and snapshot_stride > 0:
+            sel = [s for s in common if (s == 0 or s % snapshot_stride == 0)]
+            if common and common[-1] not in sel:
+                sel.append(common[-1])
+            return sel
+        if snapshot_step is not None:
+            return [snapshot_step]
+        return []
+
+    panel_steps = _panel_steps_from_meta()
+
+    # Time-series arrays are always needed; snapshots only for the strided
+    # panel steps selected above.
+    runs = {"pbme":     load_run(pbme_path_no_ext, snapshot_steps=panel_steps),
+            "midpoint": load_run(midpoint_path_no_ext, snapshot_steps=panel_steps)}
 
     # Sub-directory helpers
     def _subdir(*parts: str) -> str:
@@ -2862,21 +2971,8 @@ def produce_all_comparison_figures(
         plt.close(fig)
 
     # ── marginals/step{K}/ ───────────────────────────────────────────────────
-    panel_steps = []
-    if snapshot_stride is not None and snapshot_stride > 0:
-        common_steps = None
-        for r in runs.values():
-            steps = set(r["snapshots"].keys())
-            common_steps = steps if common_steps is None else (common_steps & steps)
-        common_steps = sorted(common_steps) if common_steps is not None else []
-        panel_steps = [s for s in common_steps if (s == 0 or s % snapshot_stride == 0)]
-        if common_steps:
-            final_step = common_steps[-1]
-            if final_step not in panel_steps:
-                panel_steps.append(final_step)
-    elif snapshot_step is not None:
-        panel_steps = [snapshot_step]
-
+    # ``panel_steps`` was already computed from the JSON metadata above, and
+    # exactly those snapshots were loaded, so no recomputation is needed here.
     for step in panel_steps:
         snaps = {k: r["snapshots"].get(step) for k, r in runs.items()}
         snaps = {k: v for k, v in snaps.items() if v is not None}
@@ -2894,7 +2990,7 @@ def produce_all_comparison_figures(
 
 
 # =============================================================================
-# Universal single-observable time-series plotter (research-quality style)
+# Universal single-observable time-series plotter (JCP / UofT thesis)
 # =============================================================================
 
 def _plot_one(
@@ -2974,9 +3070,12 @@ def produce_individual_timeseries_figures(
     Returns ``{label: pdf_path}``.
     """
     os.makedirs(out_dir, exist_ok=True)
+    # These figures plot per-step observables only and never touch the
+    # periodic snapshots, so load arrays_only to avoid decompressing the
+    # (potentially hundreds of MB of) snapshot members — the prior OOM site.
     runs = {
-        "pbme":     load_run(pbme_path_no_ext),
-        "midpoint": load_run(midpoint_path_no_ext),
+        "pbme":     load_run(pbme_path_no_ext, arrays_only=True),
+        "midpoint": load_run(midpoint_path_no_ext, arrays_only=True),
     }
 
     def _sub(*parts: str) -> str:
@@ -3038,16 +3137,16 @@ def produce_individual_timeseries_figures(
     # ── weight / sampling quality ─────────────────────────────────────────────
     d = _sub("weights")
     _w("essf_y", ["sw_ess_frac"],
-       r"$\mathrm{ESS}_y / N$  (label ESS)",          d, "essf_y",
+       r"$\mathrm{ESS}_y / N$",          d, "essf_y",
        ylim=(0.0, 1.05))
     _w("essf_w", ["init_sw_ess_frac"],
-       r"$\mathrm{ESS}_w / N$  (weight ESS)",          d, "essf_w",
+       r"$\mathrm{ESS}_w / N$",          d, "essf_w",
        ylim=(0.0, 1.05))
     _w("chi",    ["sw_cancel_ratio"],
-       r"$\chi$  (sign cancellation ratio)",           d, "chi",
+       r"$\chi$",           d, "chi",
        ylim=(0.0, 1.05))
     _w("essf_c", ["ce_ess_c_frac"],
-       r"$\mathrm{ESS}_c / N$  (coefficient vector)",  d, "essf_c",
+       r"$\mathrm{ESS}_c / N$",  d, "essf_c",
        ylim=(0.0, 1.05))
 
     return out
@@ -3061,23 +3160,11 @@ def _plot_qcle_correction_combined(
     mid_only: Dict[str, Dict],
     savepath: str,
 ) -> Optional[plt.Figure]:
-    """Combined QCLE correction diagnostic plot replicating the reference figure.
-
-    Four density-weighted statistics of Q (the extra Liouvillian term) on one
-    axis — PBME excluded because Q ≡ 0 there by construction.
-
-    Curves
-    ------
-    ρ-weighted mean   cs_q_y_weighted_mean   orange  solid
-    ρ-weighted RMS    cs_q_y_weighted_rms    blue    solid
-    support max|Q|    cs_q_max               magenta solid
-    Σ_m ρ_m Q_m       cs_q_sum_yc            green   dashed
-    """
+    """Compact magnitude/source view used in the surrogate-health appendix."""
     _CSTYLE = [
-        ("cs_q_y_weighted_mean", r"$\rho$-weighted mean",    "#E69F00", "-",  1.25),
         ("cs_q_y_weighted_rms",  r"$\rho$-weighted RMS",     "#0072B2", "-",  1.25),
         ("cs_q_max",             r"support $\max|Q|$",       "#CC79A7", "-",  1.0),
-        ("cs_q_sum_yc",          r"$\sum_m \rho_m Q_m$",    "#009E73", "--", 1.25),
+        ("cs_q_sum_yc",          r"raw $\sum_i\omega_i y_iQ_i$", "#009E73", "-", 1.25),
     ]
 
     fig, ax = plt.subplots(figsize=(_W2, 2.8))
@@ -3100,11 +3187,6 @@ def _plot_qcle_correction_combined(
         return None
 
     ax.axhline(0.0, color="0.5", lw=0.5, ls="-")
-    ax.set_title(
-        r"QCLE Midpoint: density-weighted correction diagnostics"
-        r"  (PBME: $Q\equiv 0$, excluded)",
-        fontsize=_TITLE_FONT,
-    )
     _setup(ax, "", r"$t$  [a.u.]", r"QCLE correction diagnostics")
     ax.legend(fontsize=_LEGEND_FONT, loc="upper right",
               frameon=True, framealpha=0.85, edgecolor="0.75")
@@ -3126,7 +3208,7 @@ def produce_surrogate_health_figures(
                                labels (fit RMS, R², MAE, Liouville residual).
     ``gp_prediction/``       — Predictive accuracy at unseen points via
                                leave-one-out cross-validation (LOO).
-    ``gp_coefficients/``     — Health of the α expansion coefficients
+    ``gp_coefficients/``     — Health of the ζ expansion coefficients
                                (ESS, sign-oscillation, condition number).
     ``gp_kernel/``           — Kernel hyperparameters (σ_f, σ_n, SNR,
                                log κ(K), lengthscales per phase-space dim).
@@ -3139,9 +3221,12 @@ def produce_surrogate_health_figures(
     Returns ``{label: pdf_path}``.
     """
     os.makedirs(out_dir, exist_ok=True)
+    # These figures plot per-step observables only and never touch the
+    # periodic snapshots, so load arrays_only to avoid decompressing the
+    # (potentially hundreds of MB of) snapshot members — the prior OOM site.
     runs = {
-        "pbme":     load_run(pbme_path_no_ext),
-        "midpoint": load_run(midpoint_path_no_ext),
+        "pbme":     load_run(pbme_path_no_ext, arrays_only=True),
+        "midpoint": load_run(midpoint_path_no_ext, arrays_only=True),
     }
 
     def _sub(*parts: str) -> str:
@@ -3176,80 +3261,100 @@ def produce_surrogate_health_figures(
     d = _sub("gp_reconstruction")
     _w("fit_rms",
        ["fit_rms_on_support"],
-       r"$\|\hat{\rho}(Z_i) - y_i\|_{\mathrm{rms}}$ — GP reconstruction RMS",
+       r"$\|\hat{\rho}(Z_i) - y_i\|_{\mathrm{rms}}$",
        d, "fit_rms",  yscale="log")
     _w("fit_r2",
        ["gp_fit_r2"],
-       r"$R^2$ — GP reconstruction coefficient",
+       r"$R^2$",
        d, "fit_r2",   hline=1.0, ylim=(0.999, 1.0001))
     _w("fit_mae",
        ["gp_fit_mae"],
-       r"$\|\hat{\rho}(Z_i) - y_i\|_{\mathrm{mae}}$ — GP reconstruction MAE",
+       r"$\|\hat{\rho}(Z_i) - y_i\|_{\mathrm{mae}}$",
        d, "fit_mae",  yscale="log")
+    _w("adapt_ratio_R",
+       ["adapt_ratio_R"],
+       r"$\mathrm{Var}(R)/\ell_R^2$  (breathing trigger at 4)",
+       d, "adapt_ratio_R", hline=4.0, yscale="log")
+    _w("adapt_ratio_P",
+       ["adapt_ratio_P"],
+       r"$\mathrm{Var}(P)/\ell_P^2$  (breathing trigger at 4)",
+       d, "adapt_ratio_P", hline=4.0, yscale="log")
     _w("liou_rms",
        ["gp_liouville_rms"],
-       r"$\|\mathcal{L}\hat{\rho}\|_{\mathrm{rms}}$ — Liouville residual",
+       r"$\|\hat\rho(Z_i(t)) - y_i(0)\|_{\mathrm{rms}}$",
        d, "liou_rms", yscale="log")
+    _w("liou_max",
+       ["gp_liouville_max"],
+       r"$\max_i|\hat\rho(Z_i(t)) - y_i(0)|$",
+       d, "liou_max", yscale="log")
+    _w("liou_rel",
+       ["gp_liouville_rel"],
+       r"$\|\hat\rho - y_0\|_{\mathrm{rms}} / \|y_0\|_{\mathrm{rms}}$",
+       d, "liou_rel", yscale="log")
+    _w("liou_rms_corrected",
+       ["gp_liouville_rms_corrected"],
+       r"$\|\hat\rho(Z_i(t)) - w_i y_i(0)\|_{\mathrm{rms}}$",
+       d, "liou_rms_corrected", yscale="log")
 
     # ── GP predictive accuracy (leave-one-out cross-validation) ──────────────
     # LOO measures how well ρ̂ predicts withheld support points.
     d = _sub("gp_prediction")
     _w("LOO_rms",
        ["faith_loo_rms"],
-       r"$\mathrm{LOO\text{-}CV}_{\mathrm{rms}}$ — GP predictive RMS",
+       r"$\mathrm{LOO\text{-}CV}_{\mathrm{rms}}$",
        d, "LOO_rms",  yscale="log")
     _w("LOO_max",
        ["faith_loo_max"],
-       r"$\mathrm{LOO\text{-}CV}_{\max}$ — GP predictive max error",
+       r"$\mathrm{LOO\text{-}CV}_{\max}$",
        d, "LOO_max",  yscale="log")
     _w("LOO_n3sig",
        ["faith_loo_n_3sig"],
-       r"LOO $3\sigma$ outlier count",
+       r"$N_{3\sigma}$",
        d, "LOO_n3sig", hline=0.0)
     _w("pred_rms",
        ["faith_predict_rms"],
-       r"Posterior predictive RMS — GP reconstruction at new points",
+       r"$\|\hat{\rho}(Z_i)-y_i\|_{\mathrm{rms}}^{\mathrm{pred}}$",
        d, "pred_rms", yscale="log")
 
-    # ── GP coefficient (α) health ─────────────────────────────────────────────
+    # ── GP coefficient (ζ) health ─────────────────────────────────────────────
     d = _sub("gp_coefficients")
-    _w("ESS_alpha",
+    _w("ESS_zeta",
        ["faith_ess_alpha_frac"],
-       r"$\mathrm{ESS}(\alpha)/N$ — GP coefficient sign coherence",
-       d, "ESS_alpha",
+       r"$\mathrm{ESS}(\zeta)/N$",
+       d, "ESS_zeta",
        hline=0.35, ylim=(0.0, 1.05))
     _w("sign_align",
        ["faith_alpha_sign_align"],
-       r"$|\Sigma\alpha|/\Sigma|\alpha|$ — GP sign alignment",
+       r"$|\Sigma\zeta|/\Sigma|\zeta|$",
        d, "sign_align",
        hline=0.5, ylim=(0.0, 1.05))
-    _w("alpha_neg_frac",
+    _w("zeta_neg_frac",
        ["alpha_neg_frac"],
-       r"Fraction of $\alpha_i < 0$ — GP coefficient sign oscillation",
-       d, "alpha_neg_frac",
+       r"$\mathrm{frac}(\zeta_i < 0)$",
+       d, "zeta_neg_frac",
        hline=0.5, ylim=(0.0, 1.0))
-    _w("alpha_l1",
+    _w("zeta_l1",
        ["alpha_l1"],
-       r"$\|\alpha\|_1$ — GP coefficient L1 norm",
-       d, "alpha_l1",  yscale="log")
+       r"$\|\zeta\|_1$",
+       d, "zeta_l1",  yscale="log")
 
     # ── GP kernel hyperparameters ─────────────────────────────────────────────
     d = _sub("gp_kernel")
     _w("sigma_n",
        ["sigma_n"],
-       r"$\sigma_n$ — GP noise level",
+       r"$\sigma_n$",
        d, "sigma_n",  yscale="log")
     _w("sigma_f",
        ["sigma_f"],
-       r"$\sigma_f$ — GP signal amplitude",
+       r"$\sigma_f$",
        d, "sigma_f")
     _w("snr",
        ["sigma_f_over_sigma_n"],
-       r"$\sigma_f/\sigma_n$ — GP signal-to-noise ratio",
+       r"$\sigma_f/\sigma_n$",
        d, "snr",      yscale="log")
     _w("log_kappa",
        ["faith_cond_K_lo_log10"],
-       r"$\log_{10}\kappa(K)$ — GP kernel matrix condition number",
+       r"$\log_{10}\kappa(K)$",
        d, "log_kappa", hline=12.0)
 
     # Lengthscales — one figure per phase-space dimension
@@ -3269,7 +3374,6 @@ def produce_surrogate_health_figures(
     for dim in range(n_dims):
         lbl  = _DIM_NAMES[dim] if dim < len(_DIM_NAMES) else f"d{dim}"
         ylab = (_DIM_LATEX[dim] if dim < len(_DIM_LATEX) else rf"$\ell_{{{dim}}}$")
-        ylab += r" — GP lengthscale"
         fname = f"ell_{lbl.replace(' ', '_')}"
         fig, ax = plt.subplots(figsize=(_W15, 2.4))
         plotted = False
@@ -3310,44 +3414,620 @@ def produce_surrogate_health_figures(
     # ---- Individual metrics ----
     _wm("cs_q_rms",
         ["cs_q_rms"],
-        r"$\|Q\|_{\mathrm{rms}}$ — raw QCLE correction operator",
+        r"$\|Q\|_{\mathrm{rms}}$",
         d, "Q_rms")
     _wm("cs_q_max",
         ["cs_q_max"],
-        r"$\|Q\|_{\max}$ — QCLE correction peak magnitude",
+        r"$\|Q\|_{\max}$",
         d, "Q_max")
     _wm("cs_q_y_weighted_rms",
         ["cs_q_y_weighted_rms"],
-        r"$\rho$-weighted RMS of $Q$",
+        r"$\langle Q^2\rangle_\rho^{1/2}$",
         d, "Q_rho_rms")
     _wm("cs_q_y_weighted_mean",
         ["cs_q_y_weighted_mean"],
-        r"$\rho$-weighted mean of $Q$",
+        r"$\langle Q\rangle_\rho$",
         d, "Q_rho_mean")
     _wm("cs_q_sum_yc",
         ["cs_q_sum_yc"],
-        r"$\sum_m \rho_m Q_m$ — density-weighted correction integral",
+        r"$\sum_m \rho_m Q_m$",
         d, "Q_sum_rho")
     _wm("cs_dtq_rms",
         ["cs_dtq_rms"],
-        r"$\|dt \cdot Q\|_{\mathrm{rms}}$ — applied correction magnitude",
+        r"$\|dt \cdot Q\|_{\mathrm{rms}}$",
         d, "dtQ_rms")
     _wm("cs_dq_over_y_rms",
         ["cs_dq_over_y_rms"],
-        r"$\|Q/\hat{\rho}\|_{\mathrm{rms}}$ — relative QCLE correction",
+        r"$\|Q/\hat{\rho}\|_{\mathrm{rms}}$",
         d, "Q_over_rho_rms", yscale="log")
     _wm("applied_cs_q_rms",
         ["applied_cs_q_rms"],
-        r"$\|Q_{\mathrm{applied}}\|_{\mathrm{rms}}$ — post-clip QCLE correction",
+        r"$\|Q_{\mathrm{applied}}\|_{\mathrm{rms}}$",
         d, "Q_applied_rms")
     _wm("n_q_clipped",
         ["n_q_clipped"],
-        r"$N_{\mathrm{clip}}$ — correction values clipped per step",
+        r"$N_{\mathrm{clip}}$",
         d, "n_clipped",    hline=0.0)
     _wm("n_q_nonfinite",
         ["n_q_nonfinite"],
-        r"$N_{\mathrm{nan}}$ — non-finite correction values per step",
+        r"$N_{\mathrm{nan}}$",
         d, "n_nonfinite",  hline=0.0)
+
+    return out
+
+
+# =============================================================================
+# Population comparison figures
+#   Task 2: both diabatic states on ONE axes, every scheme overlaid.
+#   Task 4: analytic Gaussian-moment populations as first-class figures, plus a
+#           direct analytic-vs-MC overlay so the two estimators can be compared.
+# =============================================================================
+
+# State <-> colour (Okabe-Ito), scheme <-> linestyle.  Two orthogonal visual
+# channels so a (scheme, state) pair is uniquely identifiable and greyscale-safe.
+_STATE_COLOR   = {0: "#0072B2", 1: "#D55E00"}          # blue / vermilion
+_SCHEME_LS_PUB = {"pbme": "-", "midpoint": "-", "se": "-", "qcle": "-"}
+
+
+def _first_finite(a: Dict, keys: Sequence[str]) -> Optional[FloatArray]:
+    """Return the first key in *keys* whose array exists and has finite data."""
+    for k in keys:
+        arr = a.get(k)
+        if arr is not None and np.any(np.isfinite(arr)):
+            return np.asarray(arr, dtype=np.float64)
+    return None
+
+
+def plot_population_difference_pub(
+    runs: Dict[str, Dict],
+    savepath: Optional[str] = None,
+) -> Optional[plt.Figure]:
+    r"""QCLE correction signal on populations:
+    $\Delta P_\alpha(t) = P_\alpha^{\mathrm{midpoint}}(t) - P_\alpha^{\mathrm{PBME}}(t)$.
+
+    Requires exactly one PBME-like and one midpoint-like run in ``runs``
+    (identical initial conditions — the run.py deep-copy contract), and
+    interpolates nothing: schemes share the time grid by construction.
+    Symlog y-axis so O(1e-4)-scale corrections at high momentum and
+    O(1e-2) at low momentum render on the same figure family.  Uses the
+    same self-normalised ``lw_P*`` estimator (fallback
+    ``cloud_weighted_P*``) as the combined panel, so the difference is an
+    estimator-consistent statement about the excess term, not a
+    normalisation artefact.
+    """
+    def _pick(names, pred):
+        for n in names:
+            if pred(n.lower()):
+                return n
+        return None
+
+    names = list(runs.keys())
+    n_pb  = _pick(names, lambda s: "pbme" in s)
+    n_mid = _pick(names, lambda s: "mid" in s or "qcle" in s)
+    if n_pb is None or n_mid is None:
+        return None
+
+    def _series(run, keys):
+        a = run.get("arrays", run)
+        for k in keys:
+            v = a.get(k)
+            if v is not None and np.any(np.isfinite(v)):
+                return np.asarray(v, dtype=np.float64)
+        return None
+
+    a_pb, a_mid = runs[n_pb], runs[n_mid]
+    t = _series(a_mid, ["t"])
+    if t is None:
+        return None
+
+    fig, ax = plt.subplots(figsize=(_W15, 3.0))
+    plotted = False
+    for keys, color, label in (
+            (["lw_P0", "cloud_weighted_P0"], "#185FA5", r"$\Delta P_0$"),
+            (["lw_P1", "cloud_weighted_P1"], "#D85A30", r"$\Delta P_1$")):
+        p_pb  = _series(a_pb,  keys)
+        p_mid = _series(a_mid, keys)
+        if p_pb is None or p_mid is None:
+            continue
+        n = min(len(p_pb), len(p_mid), len(t))
+        d = p_mid[:n] - p_pb[:n]
+        m = np.isfinite(d)
+        if not np.any(m):
+            continue
+        ax.plot(np.asarray(t)[:n][m], d[m], color=color, lw=1.8, label=label)
+        plotted = True
+
+    if not plotted:
+        plt.close(fig)
+        return None
+
+    ax.set_yscale("symlog", linthresh=1e-6)
+    ax.axhline(0.0, color="0.6", lw=0.8)
+    ax.set_xlabel(r"$t$ [a.u.]")
+    ax.set_ylabel(r"$P_\alpha^{\mathrm{mid}} - P_\alpha^{\mathrm{PBME}}$")
+    ax.legend(frameon=False, loc="best")
+    if savepath:
+        _save(fig, savepath)
+    return fig
+
+
+def plot_populations_combined_pub(
+    runs: Dict[str, Dict],
+    savepath: Optional[str] = None,
+) -> Optional[plt.Figure]:
+    r"""Both diabatic populations $\langle P_0\rangle$ and $\langle P_1\rangle$
+    on one axes, with every scheme overlaid (Task 2).
+
+    Visual encoding
+    ---------------
+    colour    <-> state   (state 0 blue, state 1 vermilion)
+    linestyle <-> scheme  (PBME solid, midpoint dashed)
+
+    Uses the self-normalised MC estimator ``lw_P*`` (bounded under label drift),
+    falling back to the raw ``cloud_weighted_P*`` for legacy NPZ files.
+    """
+    fig, ax = plt.subplots(figsize=(_W15, 3.0))
+    plotted = False
+    for scheme, run in runs.items():
+        a = run.get("arrays", run)
+        t = a.get("t")
+        if t is None:
+            continue
+        ls = _SCHEME_LS_PUB.get(scheme.lower(), "-")
+        for st, prim, fall in ((0, "lw_P0", "cloud_weighted_P0"),
+                               (1, "lw_P1", "cloud_weighted_P1")):
+            y = _first_finite(a, [prim, fall])
+            if y is None:
+                continue
+            ax.plot(t, y, color=_STATE_COLOR[st], ls=ls, lw=1.7,
+                    label=rf"{scheme.upper()}  $\langle P_{st}\rangle$")
+            plotted = True
+    if not plotted:
+        plt.close(fig)
+        return None
+    ax.set_ylim(-0.05, 1.10)
+    ax.axhline(1.0, color="0.6", lw=0.6, zorder=0)
+    ax.axhline(0.0, color="0.6", lw=0.6, zorder=0)
+    _setup(ax, "", r"$t$ [a.u.]", r"$\langle P_\alpha\rangle$")
+    ax.legend(fontsize=_LEGEND_FONT, ncol=2, loc="best")
+    fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
+    _save(fig, savepath)
+    return fig
+
+
+def plot_populations_analytic_vs_mc_one(
+    runs: Dict[str, Dict],
+    scheme_name: str,
+    savepath: Optional[str] = None,
+) -> Optional[plt.Figure]:
+    r"""For one scheme, overlay the analytic Gaussian-moment populations
+    (``dp_*`` = $\int c_{\alpha\alpha}\,\hat\rho\,\mathrm{d}z$) against the MC
+    cloud Riemann-sum populations (``lw_*``) for both diabats (Task 4).
+
+    Solid line  = analytic GP Gaussian moment.
+    Markers     = MC cloud estimator.
+    colour      <-> state.
+    """
+    run = runs.get(scheme_name)
+    if run is None:
+        return None
+    a = run.get("arrays", run)
+    t = a.get("t")
+    if t is None:
+        return None
+    fig, ax = plt.subplots(figsize=(_W15, 3.0))
+    plotted = False
+    mev = max(1, len(t) // 40)
+    for st, an_keys, mc_keys in (
+        (0, ["dp_P0", "gpi_P0"], ["lw_P0", "cloud_weighted_P0"]),
+        (1, ["dp_P1", "gpi_P1"], ["lw_P1", "cloud_weighted_P1"]),
+    ):
+        col = _STATE_COLOR[st]
+        an = _first_finite(a, an_keys)
+        mc = _first_finite(a, mc_keys)
+        if an is not None:
+            ax.plot(t, an, color=col, ls="-", lw=1.8,
+                    label=rf"$\langle P_{st}\rangle$ analytic")
+            plotted = True
+        if mc is not None:
+            ax.plot(t, mc, color=col, ls="none", marker="o", ms=2.6,
+                    markevery=mev, alpha=0.85,
+                    label=rf"$\langle P_{st}\rangle$ MC")
+            plotted = True
+    if not plotted:
+        plt.close(fig)
+        return None
+    ax.set_ylim(-0.05, 1.10)
+    _setup(ax, f"{scheme_name.upper()}: analytic Gaussian moment vs MC cloud",
+           r"$t$ [a.u.]", r"$\langle P_\alpha\rangle$")
+    ax.legend(fontsize=_LEGEND_FONT, ncol=2, loc="best")
+    fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
+    _save(fig, savepath)
+    return fig
+
+
+def produce_population_figures(
+    pbme_path_no_ext: str,
+    midpoint_path_no_ext: str,
+    out_dir: str,
+) -> Dict[str, str]:
+    """Population figures for the publication path (Tasks 2 and 4).
+
+    Layout::
+
+        {out_dir}/
+          P_combined           both states, both schemes, one axes      (Task 2)
+          P0_analytic          analytic Gaussian moment <P_0>           (Task 4)
+          P1_analytic          analytic Gaussian moment <P_1>           (Task 4)
+          Psum_analytic        analytic Gaussian-moment trace
+          Pad_0 / Pad_1        adiabatic populations (GP integral)
+          P_analytic_vs_mc_<scheme>   analytic vs MC overlay            (Task 4)
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    runs = {
+        "pbme":     load_run(pbme_path_no_ext, arrays_only=True),
+        "midpoint": load_run(midpoint_path_no_ext, arrays_only=True),
+    }
+    out: Dict[str, str] = {}
+
+    def _w(label: str, keys: Sequence[str], ylabel: str, fname: str, **kw) -> None:
+        p = os.path.join(out_dir, fname)
+        fig = _plot_one(runs, keys, ylabel, savepath=p, **kw)
+        if fig is not None:
+            out[label] = p + ".pdf"
+
+    # Task 2 — combined (both states, scheme comparison) on one axes.
+    if plot_populations_combined_pub(
+            runs, savepath=os.path.join(out_dir, "P_combined")) is not None:
+        out["P_combined"] = os.path.join(out_dir, "P_combined.pdf")
+
+    # QCLE correction signal (2026-07): the direct scheme DIFFERENCE
+    # ΔP_α(t) = P_α^midpoint − P_α^PBME on a symlog axis.  At high P0 the
+    # correction is O(1e-4) or below and invisible at the 4-digit console
+    # precision and on the absolute population panels — this figure is the
+    # one place where the excess-term effect on populations is read off
+    # directly.
+    if plot_population_difference_pub(
+            runs, savepath=os.path.join(out_dir, "P_difference")) is not None:
+        out["P_difference"] = os.path.join(out_dir, "P_difference.pdf")
+
+    # Task 4 — analytic Gaussian-moment populations as first-class figures.
+    _w("P0_analytic",   ["dp_P0", "gpi_P0"],         r"$\langle P_0\rangle$",
+       "P0_analytic",   ylim=(-0.05, 1.05))
+    _w("P1_analytic",   ["dp_P1", "gpi_P1"],         r"$\langle P_1\rangle$",
+       "P1_analytic",   ylim=(-0.05, 1.05))
+    _w("Psum_analytic", ["dp_P_sum", "gpi_P_sum"],   r"$\langle P_0+P_1\rangle$",
+       "Psum_analytic", hline=1.0, ylim=(0.90, 1.10))
+    _w("Pad_0",         ["ap_Pad_0"], r"$\langle P^{\mathrm{ad}}_0\rangle$",
+       "Pad_0",         ylim=(-0.05, 1.05))
+    _w("Pad_1",         ["ap_Pad_1"], r"$\langle P^{\mathrm{ad}}_1\rangle$",
+       "Pad_1",         ylim=(-0.05, 1.05))
+
+    # Task 4 — analytic-vs-MC overlay, one figure per scheme.
+    for scheme in runs:
+        p = os.path.join(out_dir, f"P_analytic_vs_mc_{scheme}")
+        if plot_populations_analytic_vs_mc_one(runs, scheme, savepath=p) is not None:
+            out[f"P_analytic_vs_mc_{scheme}"] = p + ".pdf"
+
+    return out
+
+
+# =============================================================================
+# Analytic Gaussian-moment time series for the remaining observables (Task 4)
+#   energy, coherences, nuclear moments, mapping quadratic moments.
+#   The publication path otherwise plots these MC-first; here every series is
+#   the analytic ARD-RBF Gaussian integral against the surrogate.
+# =============================================================================
+
+def produce_analytic_moment_figures(
+    pbme_path_no_ext: str,
+    midpoint_path_no_ext: str,
+    out_dir: str,
+) -> Dict[str, str]:
+    """One PDF + PNG per analytic Gaussian-moment observable (Task 4).
+
+    Layout::
+
+        {out_dir}/
+          energy/      E_analytic  norm  trace
+          coherences/  coh_re  coh_im  coh_abs
+          nuclear/     R_mean  P_mean  R_var  P_var
+          mapping/     r0_sq r1_sq p0_sq p1_sq r0_r1 p0_p1 radius_sq
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    runs = {
+        "pbme":     load_run(pbme_path_no_ext, arrays_only=True),
+        "midpoint": load_run(midpoint_path_no_ext, arrays_only=True),
+    }
+    out: Dict[str, str] = {}
+
+    def _sub(*parts: str) -> str:
+        d = os.path.join(out_dir, *parts)
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def _w(label: str, keys: Sequence[str], ylabel: str,
+           subdir: str, fname: str, **kw) -> None:
+        p = os.path.join(subdir, fname)
+        fig = _plot_one(runs, keys, ylabel, savepath=p, **kw)
+        if fig is not None:
+            out[label] = p + ".pdf"
+
+    # ── energy (analytic GP moments) ─────────────────────────────────────────
+    d = _sub("energy")
+    _w("E_analytic", ["km_energy"],        r"$\langle H\rangle$ [a.u.]", d, "E_analytic")
+    _w("norm",       ["km_normalization"], r"$\int\hat{\rho}\,\mathrm{d}z$", d, "norm", hline=1.0)
+    _w("trace",      ["km_trace"],         r"$\mathrm{tr}\,\rho$",       d, "trace", hline=1.0)
+
+    # ── coherences (analytic GP) ─────────────────────────────────────────────
+    d = _sub("coherences")
+    _w("coh_re",  ["dc_coh_re"],  r"$\mathrm{Re}\,\rho^{\mathrm{el}}_{01}$",  d, "coh_re")
+    _w("coh_im",  ["dc_coh_im"],  r"$\mathrm{Im}\,\rho^{\mathrm{el}}_{01}$",  d, "coh_im")
+    _w("coh_abs", ["dc_coh_abs"], r"$|\rho^{\mathrm{el}}_{01}|$",             d, "coh_abs",
+       ylim=(0.0, None))
+
+    # ── nuclear moments (analytic Gaussian integrals) ────────────────────────
+    d = _sub("nuclear")
+    _w("R_mean", ["nm_R_mean"], r"$\langle R\rangle$ [a.u.]",        d, "R_mean")
+    _w("P_mean", ["nm_P_mean"], r"$\langle P\rangle$ [a.u.]",        d, "P_mean")
+    _w("R_var",  ["nm_R_var"],  r"$\mathrm{Var}(R)$ [a.u.$^2$]",     d, "R_var")
+    _w("P_var",  ["nm_P_var"],  r"$\mathrm{Var}(P)$ [a.u.$^2$]",     d, "P_var")
+
+    # ── mapping quadratic moments (analytic GP) ──────────────────────────────
+    d = _sub("mapping")
+    _w("r0_sq",     ["qm_r0_sq"], r"$\langle r_0^2\rangle$", d, "r0_sq")
+    _w("r1_sq",     ["qm_r1_sq"], r"$\langle r_1^2\rangle$", d, "r1_sq")
+    _w("p0_sq",     ["qm_p0_sq"], r"$\langle p_0^2\rangle$", d, "p0_sq")
+    _w("p1_sq",     ["qm_p1_sq"], r"$\langle p_1^2\rangle$", d, "p1_sq")
+    _w("r0_r1",     ["qm_r0_r1"], r"$\langle r_0 r_1\rangle$", d, "r0_r1")
+    _w("p0_p1",     ["qm_p0_p1"], r"$\langle p_0 p_1\rangle$", d, "p0_p1")
+    _w("radius_sq", ["qm_mapping_radius_sq"],
+       r"$\langle r^2+p^2\rangle$", d, "radius_sq")
+
+    return out
+
+
+# =============================================================================
+# Integrator diagnostics — flow correction and label integrator (Task 3)
+#   These figures were never produced by the publication path.  Each renders
+#   the relevant per-step diagnostics, and when a scheme drives none of them
+#   (e.g. the weight-based Cayley/Heun midpoint, which carries no explicit flow
+#   correction or label ODE) the figure still renders with a clear annotation
+#   so its absence is never silent.
+# =============================================================================
+
+def _is_inactive_series(series_list: Sequence[Optional[FloatArray]]) -> bool:
+    """True if every supplied series is all-NaN or identically zero."""
+    saw_any = False
+    for s in series_list:
+        if s is None:
+            continue
+        s = np.asarray(s, dtype=np.float64)
+        finite = s[np.isfinite(s)]
+        if finite.size == 0:
+            continue
+        saw_any = True
+        if np.any(finite != 0.0):
+            return False
+    # No finite data anywhere, or all finite values were exactly zero.
+    return True if saw_any else True
+
+
+def _plot_one_diag(
+    runs: Dict[str, Dict],
+    keys: Sequence[str],
+    ylabel: str,
+    savepath: Optional[str],
+    inactive_note: str,
+    yscale: str = "linear",
+    hline: Optional[float] = None,
+) -> Optional[plt.Figure]:
+    """Diagnostic time-series plotter that always renders a figure.
+
+    Unlike ``_plot_one`` (which returns None when no finite data exists), this
+    variant draws the available curves and, when every scheme's series is
+    inactive (all-NaN or identically zero), annotates the axes with
+    *inactive_note* so the figure documents its own emptiness.
+    """
+    fig, ax = plt.subplots(figsize=(_W15, 2.4))
+    gathered: list = []
+    any_plotted = False
+    for name, run in runs.items():
+        a = run.get("arrays", run)
+        t = a.get("t")
+        if t is None:
+            continue
+        y = None
+        for k in keys:
+            arr = a.get(k)
+            if arr is not None and np.any(np.isfinite(arr)):
+                y = np.asarray(arr, dtype=np.float64)
+                break
+        gathered.append(y)
+        if y is None or not np.any(np.isfinite(y)):
+            continue
+        # Continuity fix: NaN entries break matplotlib lines into disconnected
+        # segments, and exact zeros vanish on a log axis (log(0) = -inf),
+        # leaving isolated dots.  Plot the CONNECTED line through the finite
+        # subset, flooring exact zeros on log axes so no point is dropped.
+        t_arr = np.asarray(t, dtype=np.float64)
+        m = np.isfinite(y)
+        y_plot = y[m].copy()
+        if yscale == "log":
+            pos = y_plot[y_plot > 0.0]
+            floor = (max(1.0e-18, 1.0e-6 * float(pos.min())) if pos.size
+                     else 1.0e-18)
+            y_plot = np.maximum(y_plot, floor)
+        ax.plot(t_arr[m], y_plot, **_scheme_kw(name), label=name.upper())
+        any_plotted = True
+
+    inactive = _is_inactive_series(gathered)
+    if inactive or not any_plotted:
+        # Draw a zero baseline (linear scale) so axes are well defined, then
+        # annotate.  Force linear scale: a log axis of an all-zero series is
+        # meaningless.
+        yscale = "linear"
+        ax.axhline(0.0, color="0.6", lw=0.8, zorder=1)
+        ax.text(0.5, 0.5, inactive_note, ha="center", va="center",
+                transform=ax.transAxes, fontsize=_LABEL_FONT, color="0.35",
+                wrap=True)
+        ax.set_ylim(-1.0, 1.0)
+    else:
+        if hline is not None:
+            ax.axhline(hline, color="0.45", lw=0.75, ls=":")
+    ax.set_yscale(yscale)
+    _setup(ax, "", r"$t$ [a.u.]", ylabel)
+    if any_plotted:
+        ax.legend(fontsize=_LEGEND_FONT, loc="best")
+    fig.tight_layout(pad=0.4, h_pad=0.5, w_pad=0.5)
+    _save(fig, savepath)
+    return fig
+
+
+def plot_flow_correction_panels(
+    runs: Dict[str, Dict],
+    out_dir: Optional[str] = None,
+) -> Dict[str, str]:
+    r"""Flow-correction diagnostics (Task 3).
+
+    The midpoint flow correction displaces the support points by
+    $\delta z = -Q\,\nabla\hat\rho/|\nabla\hat\rho|^2$ (P-axis only by
+    default; advection convention, settled numerically 2026-07 — see
+    ``Dynamics._flow_displacement``).  These figures show the magnitude of
+    that displacement and the gradient floor that regularises it.  PBME has
+    no flow correction; midpoint runs only carry it when
+    ``flow_fraction > 0``.
+
+    Channel gating (2026-07): when the flow channel is engaged in NONE of
+    the loaded runs (``fc_dz_*`` identically zero / ``fc_grad_*`` all-NaN,
+    i.e. every run used flow_fraction = 0), the five panels are pure
+    placeholders — a flat zero line and an all-NaN axis.  Rather than emit
+    dead figures into the publication set, skip them and say so on the
+    console.  The QCLE-correction activity of weight-only runs is in the
+    label-integrator panels (dw_rms, w_min/w_max, label_dy_*) instead.
+    """
+    def _channel_active(run: Dict) -> bool:
+        a = run.get("arrays", run)
+        for k in ("fc_dz_rms", "fc_dz_max"):
+            v = a.get(k)
+            if v is not None:
+                v = np.asarray(v, dtype=np.float64)
+                if np.any(np.isfinite(v) & (v != 0.0)):
+                    return True
+        return False
+
+    if not any(_channel_active(r) for r in runs.values()):
+        print("[plot_flow_correction_panels] flow channel inactive in every "
+              "loaded run (flow_fraction=0) — skipping the five fc_* panels. "
+              "Weight-channel correction activity is in the label-integrator "
+              "figures (fig_dw_rms, fig_w_min, fig_w_max, fig_label_dy_*).")
+        return {}
+
+    note = ("Flow correction inactive in the loaded run(s).\n"
+            "The selected scheme carries no continuity-flow\n"
+            r"displacement $\delta z_P = f\,\Delta t\, J_P/\hat\rho$.")
+    specs = [
+        ("fc_dz_rms",   ["fc_dz_rms"],   r"$\|\delta z_P\|_{\mathrm{rms}}$"),
+        ("fc_dz_max",   ["fc_dz_max"],   r"$\max_i|\delta z_{P,i}|$"),
+        ("fc_n_capped", ["fc_n_capped"], r"$N_{\mathrm{capped}}$"),
+        ("fc_u_max",    ["fc_u_max"],    r"$\max_i|u_{P,i}| = \max_i|J_{P,i}/\hat\rho_i|$"),
+        ("fc_rho_min",  ["fc_rho_min"],  r"$\min_i|\hat\rho_i|$ (u denominator)"),
+    ]
+    out: Dict[str, str] = {}
+    for label, keys, ylabel in specs:
+        p = os.path.join(out_dir, f"fig_{label}") if out_dir else None
+        fig = _plot_one_diag(runs, keys, ylabel, p, note,
+                             yscale="log" if "grad" in label or "dz" in label else "linear")
+        if fig is not None and out_dir:
+            out[label] = p + ".pdf"
+    return out
+
+
+def plot_label_integrator_panels(
+    runs: Dict[str, Dict],
+    out_dir: Optional[str] = None,
+) -> Dict[str, str]:
+    r"""Label-integrator diagnostics (Task 3).
+
+    These figures track the per-step label-product increment
+    $\|\Delta(w_i y_i)\|$, the cloud-estimated probability drift, and the
+    GP's own KKT constraint residual $\|A\alpha - b\|$ (``omega_A_residual_norm``,
+    read directly off the GP object — see ``Dynamics._kkt_residual_norm``).
+    As of 2026-07 these are populated for every ``MidpointScheme`` run,
+    weight-based or not, since $\Delta(w_i y_i)$ and the KKT residual are
+    both well-defined regardless of which integrator produced them.
+    ``label_scheme="linear"`` additionally uses the experimental
+    Crank-Nicolson integrator on the linear label-product ODE
+    ($\dot b = A b$, $A = L K^{-1}$, conservative-symmetric in the Cayley
+    sense) described in ``Dynamics.MidpointScheme``; this is what the
+    original "Zassenhaus L-matrix" language in this docstring referred to,
+    though no prior implementation of it existed anywhere in the pipeline
+    to restore. PBME still annotates "label integrator inactive" — it
+    never touches labels at all.
+    """
+    note = ("No label-integrator activity in the loaded run(s).\n"
+            "PBME never touches labels; a midpoint run records\n"
+            r"$\Delta(w_i y_i)$, $\Delta w$, and $w$-envelope every step.")
+    specs = [
+        ("label_dy_rms",            ["label_dy_rms"],
+         r"$\|\Delta(w y)\|_{\mathrm{rms}}$"),
+        ("label_dy_max",            ["label_dy_max"],
+         r"$\max_i|\Delta(w y)_i|$"),
+        ("label_probability_drift", ["label_probability_drift"],
+         r"$|\Delta\!\int\hat\rho\,\mathrm{d}z|$"),
+        ("omega_A_residual_norm",   ["omega_A_residual_norm"],
+         r"$\|A\zeta - b\|$"),
+        # Weight-channel activity: the correction-weight Heun/Cayley update
+        # IS the label integrator of the default midpoint scheme (b = w⊙y).
+        # These keys are persisted by Dynamics on every midpoint step.
+        ("dw_rms",  ["dw_rms"],  r"$\|\Delta w\|_{\mathrm{rms}}$ per step"),
+        ("dw_max",  ["dw_max"],  r"$\max_i|\Delta w_i|$ per step"),
+        ("w_min",   ["w_min"],   r"$\min_i w_i$"),
+        ("w_max",   ["w_max"],   r"$\max_i w_i$"),
+        ("k2_max",  ["k2_max"],  r"$\max_i|Q_i|$ (corrector stage)"),
+    ]
+    out: Dict[str, str] = {}
+    for label, keys, ylabel in specs:
+        p = os.path.join(out_dir, f"fig_{label}") if out_dir else None
+        fig = _plot_one_diag(runs, keys, ylabel, p, note,
+                             yscale="log" if ("drift" in label or "residual" in label
+                                              or label.startswith("dw")
+                                              or label == "k2_max") else "linear")
+        if fig is not None and out_dir:
+            out[label] = p + ".pdf"
+    return out
+
+
+def produce_integrator_figures(
+    pbme_path_no_ext: str,
+    midpoint_path_no_ext: str,
+    out_dir: str,
+) -> Dict[str, str]:
+    """Flow-correction and label-integrator figure set (Task 3).
+
+    Layout::
+
+        {out_dir}/
+          flow_correction/   fc_dz_rms  fc_dz_max  fc_n_capped  fc_grad_*
+          label_integrator/  label_dy_rms  label_dy_max  label_probability_drift
+                             omega_A_residual_norm
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    runs = {
+        "pbme":     load_run(pbme_path_no_ext, arrays_only=True),
+        "midpoint": load_run(midpoint_path_no_ext, arrays_only=True),
+    }
+    out: Dict[str, str] = {}
+
+    fc_dir = os.path.join(out_dir, "flow_correction")
+    os.makedirs(fc_dir, exist_ok=True)
+    for k, v in plot_flow_correction_panels(runs, out_dir=fc_dir).items():
+        out[f"fc_{k}"] = v
+
+    li_dir = os.path.join(out_dir, "label_integrator")
+    os.makedirs(li_dir, exist_ok=True)
+    for k, v in plot_label_integrator_panels(runs, out_dir=li_dir).items():
+        out[f"label_{k}"] = v
 
     return out
 
@@ -3365,7 +4045,7 @@ def produce_all_figures_publication(
 ) -> Dict[str, str]:
     """Full publication figure set: individual time-series + surrogate health.
 
-    This supersedes :func:`produce_all_comparison_figures` for journal/research-report
+    This supersedes :func:`produce_all_comparison_figures` for journal/thesis
     output.  Every observable and every diagnostic is a separate PDF + PNG file;
     no multi-panel figures are produced.
 
@@ -3403,28 +4083,55 @@ def produce_all_figures_publication(
         pbme_path_no_ext, midpoint_path_no_ext, health_dir)
     out.update({f"health_{k}": v for k, v in health.items()})
 
-    # ── density marginals at snapshot steps ───────────────────────────────────
-    runs = {"pbme":     load_run(pbme_path_no_ext),
-            "midpoint": load_run(midpoint_path_no_ext)}
+    # ── population comparison: combined (both states) + analytic vs MC (Task 2/4)
+    pop_dir = os.path.join(out_dir, "populations_comparison")
+    pop = produce_population_figures(
+        pbme_path_no_ext, midpoint_path_no_ext, pop_dir)
+    out.update({f"pop_{k}": v for k, v in pop.items()})
 
+    # ── analytic Gaussian-moment observables (Task 4) ─────────────────────────
+    anm_dir = os.path.join(out_dir, "analytic_moments")
+    anm = produce_analytic_moment_figures(
+        pbme_path_no_ext, midpoint_path_no_ext, anm_dir)
+    out.update({f"analytic_{k}": v for k, v in anm.items()})
+
+    # ── integrator diagnostics: flow correction + label integrator (Task 3) ───
+    integ_dir = os.path.join(out_dir, "integrator")
+    integ = produce_integrator_figures(
+        pbme_path_no_ext, midpoint_path_no_ext, integ_dir)
+    out.update({f"integ_{k}": v for k, v in integ.items()})
+
+    # ── density marginals at snapshot steps ───────────────────────────────────
     def _subdir(*parts: str) -> str:
         d = os.path.join(out_dir, *parts)
         os.makedirs(d, exist_ok=True)
         return d
 
-    panel_steps: list = []
-    if snapshot_stride is not None and snapshot_stride > 0:
-        common: Optional[set] = None
-        for r in runs.values():
-            s = set(r["snapshots"].keys())
-            common = s if common is None else common & s
-        common_sorted = sorted(common) if common else []
-        panel_steps = [s for s in common_sorted
-                       if s == 0 or s % snapshot_stride == 0]
-        if common_sorted and common_sorted[-1] not in panel_steps:
-            panel_steps.append(common_sorted[-1])
-    elif snapshot_step is not None:
-        panel_steps = [snapshot_step]
+    # Decide which snapshots are needed from the JSON sidecars FIRST (no array
+    # decompression), then load only those.  Loading every snapshot here was
+    # the cause of the MemoryError during figure generation on long runs.
+    def _panel_steps_from_meta() -> list:
+        try:
+            per_run = [set(Collector.peek_snapshot_steps(p))
+                       for p in (pbme_path_no_ext, midpoint_path_no_ext)]
+        except FileNotFoundError:
+            return []
+        common = sorted(set.intersection(*per_run)) if per_run else []
+        if snapshot_stride is not None and snapshot_stride > 0:
+            sel = [s for s in common if s == 0 or s % snapshot_stride == 0]
+            if common and common[-1] not in sel:
+                sel.append(common[-1])
+            return sel
+        if snapshot_step is not None:
+            return [snapshot_step]
+        return []
+
+    panel_steps: list = _panel_steps_from_meta()
+
+    # Only the strided panel snapshots are materialised; the per-step time
+    # series these dicts also carry are O(n_steps) 1-D arrays and cheap.
+    runs = {"pbme":     load_run(pbme_path_no_ext, snapshot_steps=panel_steps),
+            "midpoint": load_run(midpoint_path_no_ext, snapshot_steps=panel_steps)}
 
     for step in panel_steps:
         snaps = {k: r["snapshots"].get(step) for k, r in runs.items()}

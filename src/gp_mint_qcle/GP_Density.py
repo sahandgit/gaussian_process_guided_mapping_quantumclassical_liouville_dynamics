@@ -47,8 +47,9 @@ Intended use inside the pipeline:
 Design notes
 ------------
 * ARD-RBF kernel, ZeroMean.  Signed targets are handled natively.
-* Hyperparameters (sigma_f, lengthscales, sigma_n) are log-parameterized
-  and optimized by Adam on the analytic marginal log-likelihood.
+* Hyperparameters (sigma_f, lengthscales, sigma_n) are log-parameterized.
+  The initial fit uses full-batch L-BFGS on MLL or LOO-CV; adaptive refits
+  use bounded, transactional projected L-BFGS.
   MAD-based lengthscale initialization (one lengthscale per coordinate
   block if requested).
 * Moment integrals exploit the ARD tensor product:
@@ -62,8 +63,22 @@ Design notes
   to the unconstrained α_0 = K_y^{-1} y.
 """
 
+# --- UTF-8 console safety: prevent UnicodeEncodeError on Windows cp1252 ---
+# Banners/diagnostics below print non-ASCII physics notation (α, ρ̂, Δ, →, ħ).
+# Reconfigure the console streams to UTF-8 so direct execution of this module
+# does not abort under Windows' default cp1252 encoding.  No-op where unsupported.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+# --------------------------------------------------------------------------
+
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, List, Literal
+
+import copy
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -221,10 +236,10 @@ class GPDensityConfig:
     #                physics demands.  This is the recommended policy for
     #                long-time QCLE runs.
     #
-    # `refit_opt_steps` is the Adam budget used at each refit under
+    # `refit_opt_steps` is the bounded L-BFGS outer-iteration budget used at each refit under
     # "breathing", "adaptive" (when triggered), or "free"; the initial
     # fit always uses `n_opt_steps`.
-    refit_hyper_policy: str = "frozen"        # "frozen" | "breathing" | "adaptive" | "free"
+    refit_hyper_policy: str = "breathing"     # "frozen" | "breathing" | "adaptive" | "free"
     refit_opt_steps: int = 25
     # Adaptive policy's fit-quality trigger.  If `last_free_fit_rms` after
     # a frozen refit exceeds this threshold, a breathing optimization is
@@ -258,9 +273,9 @@ class GPDensityConfig:
     # Per-trigger LBFGS budget for the adaptive policy.  Distinct from
     # `refit_opt_steps`, which is the budget for the unconditional
     # breathing policy.  Adaptive may fire every step during a crossing,
-    # so each burst is cheap (5 outer LBFGS iterations × 20 line-search
-    # evaluations per iteration ≈ 100 K_y rebuilds at frozen lengthscale
-    # ≈ <1 s for N=300 points).  5 is enough to move ℓ_d by ~0.5 in log
+    # so each burst is cheap (5 projected outer LBFGS updates, with one
+    # gradient and one post-projection validation per update).  Five updates
+    # are enough to move ℓ_d materially in log
     # space per refit, which empirically tracks the cloud spread
     # evolution at dt=0.5 around the Tully dual crossing.
     adaptive_opt_steps: int = 5
@@ -277,7 +292,7 @@ class GPDensityConfig:
     # Shrinkage prior on lengthscales for "breathing" mode:
     #     L = nll/N + w · mean((log ℓ − log ℓ_0)²)
     # and a hard trust-region clip  |log ℓ − log ℓ_0| ≤ clip  applied after
-    # every Adam step.
+    # every projected L-BFGS step.
     #
     # Tuning history:
     #   w=10, clip=0.5  — too tight: on the Tully dual-crossing model the
@@ -822,9 +837,9 @@ class GPDensity:
         # "Initial-fit anchor" for the breathing refit policy.  After the first
         # fit() completes, we pin (σ_f, σ_n, ℓ)_0 here.  Subsequent refits under
         # refit_hyper_policy="breathing" then:
-        #   * hold σ_f and σ_n fixed at their anchor values (controls overfit /
-        #     Ky conditioning), and
-        #   * allow log ℓ to move by a short Adam loop with a shrinkage prior
+        #   * hold σ_f at its anchor while σ_n floats unless fix_sigma_n=True,
+        #   * allow log ℓ (and, by default, log σ_n) to move in a bounded
+        #     L-BFGS solve with a shrinkage prior
         #     ‖log ℓ − log ℓ_0‖² that pulls ℓ back to its initial scale.
         # The policy is set per-refit (see refit(... hyper_policy=...)) so the
         # same GP can be driven in multiple modes from the same state.
@@ -896,6 +911,19 @@ class GPDensity:
         self.last_opt_steps: int = 0
         self.last_opt_best_step: int = -1
         self.last_opt_early_stopped: bool = False
+        # Numerical factorization diagnostics. These remain separate from
+        # both sigma_n and the scientific L2 regularization parameter.
+        self.last_cholesky_adaptive_jitter: float = 0.0
+        self.last_cholesky_effective_jitter: float = float(config.jitter)
+        self.last_cholesky_attempts: int = 0
+        self.last_cholesky_min_eigenvalue: float = float("nan")
+        # Breathing-refit safety diagnostics.  A failed adaptive trial is not
+        # a failed dynamics step: the entire last-known-good hyperparameter
+        # state is restored transactionally and propagation continues.
+        self.last_breathing_failed: bool = False
+        self.last_breathing_failure_reason: str = ""
+        self.last_breathing_failure_code: int = 0
+        self.breathing_failure_count: int = 0
         # Diagnostic: number of singular values dropped in the last
         # KKT projection (rank-deficient constraint rows).  Should be 0
         # under healthy operation.
@@ -1192,17 +1220,62 @@ class GPDensity:
         sn2 = torch.exp(2.0 * self.log_sigma_n)
         return K + (sn2 + self.config.jitter) * torch.eye(N, dtype=_DEFAULT_DTYPE, device=Z.device)
 
-    @staticmethod
-    def _cholesky(Ky: Tensor) -> Tensor:
-        try:
-            return torch.linalg.cholesky(Ky)
-        except RuntimeError:
-            # retry with a larger jitter
-            N = Ky.shape[0]
-            eps = 1.0e-4 * torch.diagonal(Ky).mean()
-            return torch.linalg.cholesky(Ky + eps * torch.eye(N,
-                                                              dtype=Ky.dtype,
-                                                              device=Ky.device))
+    def _cholesky(self, Ky: Tensor) -> Tensor:
+        """Return a stable Cholesky factor without concealing invalid trials.
+
+        A finite RBF covariance is positive semidefinite analytically, but
+        round-off can leave a very small negative eigenvalue.  Retry such
+        matrices with a monotonically increasing *positive* diagonal jitter.
+        Non-finite matrices are optimizer failures, not conditioning events,
+        and are rejected explicitly so the caller can restore a safe state.
+        """
+        if Ky.ndim != 2 or Ky.shape[0] != Ky.shape[1]:
+            raise ValueError(f"Ky must be square; got shape {tuple(Ky.shape)}")
+        if not bool(torch.isfinite(Ky).all().item()):
+            raise RuntimeError("GP covariance Ky contains non-finite values")
+
+        # Eliminate harmless asymmetry accumulated by BLAS before factorizing.
+        Ky_sym = 0.5 * (Ky + Ky.transpose(-2, -1))
+        N = int(Ky_sym.shape[0])
+        eye = torch.eye(N, dtype=Ky_sym.dtype, device=Ky_sym.device)
+        diag_scale = torch.mean(torch.abs(torch.diagonal(Ky_sym)))
+        scale = max(1.0, float(diag_scale.detach().item()))
+        # O(N^2) Gershgorin lower bound used as a conservative minimum-
+        # eigenvalue estimate; a full eigendecomposition inside every L-BFGS
+        # closure would duplicate the cubic Cholesky cost.
+        diag = torch.diagonal(Ky_sym)
+        radii = torch.sum(torch.abs(Ky_sym), dim=1) - torch.abs(diag)
+        min_eig = float(torch.min(diag - radii).detach().item())
+        self.last_cholesky_min_eigenvalue = min_eig
+
+        # The first attempt adds nothing. Subsequent attempts follow the
+        # scale-aware reviewer ladder s*10^j, j=-12,...,-3.
+        attempted: List[float] = []
+        last_info = -1
+        for rel in (0.0,) + tuple(10.0 ** j for j in range(-12, -2)):
+            eps = rel * scale
+            attempted.append(eps)
+            trial = Ky_sym if eps == 0.0 else Ky_sym + eps * eye
+            L, info = torch.linalg.cholesky_ex(trial, check_errors=False)
+            last_info = int(torch.max(info).detach().item())
+            if last_info == 0 and bool(torch.isfinite(L).all().item()):
+                self.last_cholesky_adaptive_jitter = float(eps)
+                self.last_cholesky_effective_jitter = (
+                    float(self.config.jitter) + float(eps)
+                )
+                self.last_cholesky_attempts = len(attempted)
+                return L
+        self.last_cholesky_adaptive_jitter = float(attempted[-1])
+        self.last_cholesky_effective_jitter = (
+            float(self.config.jitter) + float(attempted[-1])
+        )
+        self.last_cholesky_attempts = len(attempted)
+
+        raise RuntimeError(
+            "GP covariance remained non-positive-definite after positive "
+            f"jitter escalation through {attempted[-1]:.3e} "
+            f"(last cholesky info={last_info})"
+        )
 
     @staticmethod
     def _chol_solve(L: Tensor, b: Tensor) -> Tensor:
@@ -1432,10 +1505,25 @@ class GPDensity:
         for outer in range(n_steps):
             def closure() -> Tensor:
                 opt.zero_grad(set_to_none=True)
-                nll = (self._loo_cv_loss(Z_tr, y_tr)
-                       if use_loocv else self._neg_mll(Z_tr, y_tr))
-                reg = self._regularization_loss()
-                loss = nll + reg
+                # Robust objective (2026-07): with sigma_n free, the strong-
+                # Wolfe line search may probe hyperparameters where K_y loses
+                # positive-definiteness; the Cholesky then RAISES inside the
+                # optimizer's internal evaluation, bypassing the NaN-strike
+                # recovery below.  Convert the failure into a NaN loss so the
+                # existing best-state-restore + optimizer-reset machinery
+                # handles it — this is what makes joint optimization of
+                # (sigma_f, sigma_n, all lengthscales) safe without pinning.
+                try:
+                    nll = (self._loo_cv_loss(Z_tr, y_tr)
+                           if use_loocv else self._neg_mll(Z_tr, y_tr))
+                    reg = self._regularization_loss()
+                    loss = nll + reg
+                except (torch.linalg.LinAlgError, RuntimeError) as _e:
+                    if "positive-definite" not in str(_e) and \
+                       not isinstance(_e, torch.linalg.LinAlgError):
+                        raise
+                    return torch.tensor(float("nan"),
+                                        dtype=self.log_sigma_f.dtype)
                 # NaN guard: if the loss is non-finite (Cholesky failure,
                 # log(0), or numerical overflow) do NOT call backward() —
                 # propagating NaN gradients poisons the L-BFGS quasi-Newton
@@ -1459,9 +1547,18 @@ class GPDensity:
                     self.log_lengthscales.grad.mul_(mask_t)
                 return loss
 
-            loss_t = opt.step(closure)
+            try:
+                loss_t = opt.step(closure)
+                total_loss = (float(loss_t.detach())
+                              if loss_t is not None else float("nan"))
+            except (IndexError, RuntimeError, torch.linalg.LinAlgError):
+                # torch's _strong_wolfe bracket handling itself fails when
+                # the closure returns NaN mid-line-search (empty bracket →
+                # IndexError), or a Cholesky failure escapes on the very
+                # first evaluation.  Treat exactly like a NaN loss: restore
+                # the best state and rebuild the optimizer below.
+                total_loss = float("nan")
             self._project_log_hypers_()
-            total_loss = float(loss_t.detach()) if loss_t is not None else float("nan")
 
             # If the step produced a NaN loss, the L-BFGS internal state is
             # contaminated.  Restore the best known hyperparameters and
@@ -1877,19 +1974,33 @@ class GPDensity:
                                          prior_clip: float,
                                          verbose: bool = False) -> List[float]:
         """
-        Per-refit hyperparameter update using L-BFGS + MLL + shrinkage prior.
+        Transactional per-refit update using projected L-BFGS.
 
         Minimises
             L(log ℓ) = -log p(y | Z; σ_f₀, σ_n, ℓ)
                      + Σ_d w_d (log ℓ_d - log ℓ_anchor_d)²  (shrinkage prior)
 
         subject to a trust-region clip |log ℓ_d - log ℓ_anchor_d| ≤ prior_clip
-        applied after each outer L-BFGS step.  σ_f and σ_n are pinned at their
-        initial-fit anchors throughout.  L-BFGS with strong Wolfe line search
-        converges without stochastic noise; early stopping is not applied here
-        since n_steps (refit_opt_steps) is already small (O(10)).
+        applied after each outer L-BFGS step.  σ_f is pinned at its initial-fit
+        anchor; σ_n floats inside its configured bounds unless
+        ``fix_sigma_n=True``.  Each optimizer step is evaluated and accepted as
+        a complete state (ℓ, σ_n).  If the objective, hyperparameters, or
+        covariance become invalid, the full last-known-good state is restored
+        and only this breathing burst is abandoned.  The dynamics step then
+        continues with a valid GP.
+
+        The refit intentionally uses one projected L-BFGS update per outer step
+        without a strong-Wolfe line search.  Strong-Wolfe probes unconstrained
+        temporary points before the post-step projection is applied; in long
+        focused PBME runs those probes can overflow an ARD length scale or noise
+        parameter and feed a non-finite matrix to Cholesky.  Projected L-BFGS
+        preserves the quasi-Newton history while ensuring every evaluated
+        candidate has first passed the configured bounds and trust region.
         """
         n_steps = int(max(0, n_steps))
+        self.last_breathing_failed = False
+        self.last_breathing_failure_reason = ""
+        self.last_breathing_failure_code = 0
         if n_steps == 0:
             return []
 
@@ -1899,7 +2010,9 @@ class GPDensity:
                 "the initial-fit anchor is not set."
             )
 
-        # Pin σ_f and (optionally) σ_n
+        # Pin σ_f and (optionally) σ_n.  Project before taking the entry
+        # snapshot so even a manually modified caller state respects the global
+        # floors/ceilings and the label-information pin contract.
         with torch.no_grad():
             self.log_sigma_f.copy_(torch.tensor(
                 self._initial_log_sigma_f_anchor, dtype=_DEFAULT_DTYPE))
@@ -1911,6 +2024,7 @@ class GPDensity:
             else:
                 self.log_sigma_n.requires_grad_(True)
             self.log_lengthscales.requires_grad_(True)
+        self._project_log_hypers_()
 
         anchor = self._compute_breathing_anchor(Z_train).to(_DEFAULT_DTYPE)
         clip   = float(max(0.0, prior_clip))
@@ -1947,31 +2061,90 @@ class GPDensity:
         if not self.config.fix_sigma_n:
             opt_params.append(self.log_sigma_n)
 
-        _MAX_ITER = 10  # line-search evals per outer step
+        # One deterministic quasi-Newton update per outer call.  Optimizer state
+        # persists between calls to step(), so curvature history is retained.
+        # A conservative learning rate plus the explicit trust-region projection
+        # replaces unsafe unconstrained strong-Wolfe trial evaluations.
+        _LBFGS_LR = 0.25
         opt = torch.optim.LBFGS(
-            opt_params, lr=1.0, max_iter=_MAX_ITER,
+            opt_params, lr=_LBFGS_LR, max_iter=1,
             tolerance_grad=1.0e-9, tolerance_change=1.0e-11,
-            history_size=10, line_search_fn="strong_wolfe",
+            history_size=10, line_search_fn=None,
         )
 
         history: List[float] = []
+        best_state = {
+            "log_lengthscales": self.log_lengthscales.detach().clone(),
+            "log_sigma_n": self.log_sigma_n.detach().clone(),
+        }
         best_loss = float("inf")
-        best_ell  = self.log_lengthscales.detach().clone()
         best_nll  = float("nan")
         best_prior = float("nan")
 
-        _nan_strikes_b = 0
-        _MAX_NAN_STRIKES_B = 5
+        def _restore_best_state() -> None:
+            with torch.no_grad():
+                self.log_lengthscales.copy_(best_state["log_lengthscales"])
+                self.log_sigma_n.copy_(best_state["log_sigma_n"])
+                self.log_sigma_f.copy_(torch.tensor(
+                    self._initial_log_sigma_f_anchor,
+                    dtype=self.log_sigma_f.dtype,
+                    device=self.log_sigma_f.device,
+                ))
+            self._project_log_hypers_()
+
+        def _reject(code: int, reason: str) -> None:
+            self.last_breathing_failed = True
+            self.last_breathing_failure_code = int(code)
+            self.last_breathing_failure_reason = str(reason)
+            self.breathing_failure_count += 1
+            _restore_best_state()
+            if verbose:
+                print("  [breathing/L-BFGS] rejected adaptive refit; "
+                      "restored last finite (ℓ, σ_n) state: "
+                      f"{reason}")
+
+        def _objective_values() -> Tuple[float, float, float]:
+            with torch.no_grad():
+                nll_t = (self._loo_cv_loss(Z_train, y_train)
+                         if use_loocv else self._neg_mll(Z_train, y_train))
+                prior_t = _prior_term()
+                total_t = nll_t + prior_t
+            vals = (float(total_t.item()), float(nll_t.item()),
+                    float(prior_t.item()))
+            if not all(np.isfinite(v) for v in vals):
+                raise RuntimeError("non-finite breathing objective")
+            return vals
+
+        # Establish that the entry state is usable and make it the baseline
+        # candidate.  This is also the state restored if no proposed update is
+        # better or if a later candidate is invalid.
+        try:
+            best_loss, best_nll, best_prior = _objective_values()
+        except (RuntimeError, torch.linalg.LinAlgError) as exc:
+            _reject(1, f"invalid entry objective: {exc}")
+            self.last_opt_total_loss = float("nan")
+            self.last_opt_nll_loss = float("nan")
+            self.last_opt_reg_loss = float("nan")
+            self.last_opt_steps = 0
+            self.last_opt_best_step = -1
+            return []
+
+        best_step = -1
 
         for step in range(n_steps):
             def closure() -> Tensor:
                 opt.zero_grad(set_to_none=True)
-                nll = (self._loo_cv_loss(Z_train, y_train)
-                       if use_loocv else self._neg_mll(Z_train, y_train))
-                prior = _prior_term()
-                loss  = nll + prior
-                # NaN guard: skip backward on non-finite loss to avoid
-                # poisoning the L-BFGS quasi-Newton curvature history.
+                try:
+                    nll = (self._loo_cv_loss(Z_train, y_train)
+                           if use_loocv else self._neg_mll(Z_train, y_train))
+                    prior = _prior_term()
+                    loss  = nll + prior
+                except (RuntimeError, torch.linalg.LinAlgError):
+                    return torch.tensor(float("nan"),
+                                        dtype=self.log_lengthscales.dtype,
+                                        device=self.log_lengthscales.device)
+                # Skip backward on non-finite loss so no invalid gradient can
+                # enter the quasi-Newton history.
                 if not torch.isfinite(loss):
                     return loss
                 loss.backward()
@@ -1986,7 +2159,28 @@ class GPDensity:
                     self.log_lengthscales.grad.mul_(mask_t)
                 return loss
 
-            loss_t = opt.step(closure)
+            try:
+                loss_t = opt.step(closure)
+                step_loss = (float(loss_t.detach().item())
+                             if loss_t is not None else float("nan"))
+            except (IndexError, RuntimeError, torch.linalg.LinAlgError) as exc:
+                _reject(2, f"optimizer step failed: {exc}")
+                break
+
+            if not np.isfinite(step_loss):
+                _reject(3, "optimizer returned a non-finite loss")
+                break
+
+            # Reject NaN/Inf before projection: torch.clamp deliberately leaves
+            # NaN unchanged, so it cannot repair a poisoned optimizer leaf.
+            leaves_finite = (
+                bool(torch.isfinite(self.log_lengthscales).all().item())
+                and bool(torch.isfinite(self.log_sigma_n).all().item())
+                and bool(torch.isfinite(self.log_sigma_f).all().item())
+            )
+            if not leaves_finite:
+                _reject(4, "optimizer proposed non-finite hyperparameters")
+                break
 
             # Trust-region clip + mapping-dim restore + pin restore
             with torch.no_grad():
@@ -2011,53 +2205,43 @@ class GPDensity:
                         pin_idx, dtype=torch.long,
                         device=self.log_lengthscales.device,
                     )] = pin_vals
+            self._project_log_hypers_()  # includes the σ_n bounds
 
-            lv = float(loss_t.detach()) if loss_t is not None else float("nan")
+            # Validate the projected candidate itself.  The value returned by
+            # torch LBFGS is the pre-update closure loss, so best-state selection
+            # must use this post-update objective instead.
+            try:
+                candidate_loss, nll_v, prior_v = _objective_values()
+            except (RuntimeError, torch.linalg.LinAlgError) as exc:
+                _reject(5, f"projected candidate is invalid: {exc}")
+                break
+            history.append(candidate_loss)
 
-            # NaN step: restore best known ell and reinitialize optimizer.
-            if not np.isfinite(lv):
-                _nan_strikes_b += 1
-                with torch.no_grad():
-                    self.log_lengthscales.copy_(best_ell)
-                opt = torch.optim.LBFGS(
-                    opt_params, lr=1.0, max_iter=_MAX_ITER,
-                    tolerance_grad=1.0e-9, tolerance_change=1.0e-11,
-                    history_size=10, line_search_fn="strong_wolfe",
-                )
-                if _nan_strikes_b >= _MAX_NAN_STRIKES_B:
-                    break
-                history.append(lv)
-                continue
-            _nan_strikes_b = 0
-            with torch.no_grad():
-                nll_v   = float((self._loo_cv_loss(Z_train, y_train)
-                                 if use_loocv else
-                                 self._neg_mll(Z_train, y_train)).item())
-                prior_v = float(_prior_term().item())
-            history.append(lv)
-
-            if lv < best_loss:
-                best_loss  = lv
+            if candidate_loss < best_loss:
+                best_loss  = candidate_loss
                 best_nll   = nll_v
                 best_prior = prior_v
-                best_ell   = self.log_lengthscales.detach().clone()
+                best_step  = step
+                best_state = {
+                    "log_lengthscales": self.log_lengthscales.detach().clone(),
+                    "log_sigma_n": self.log_sigma_n.detach().clone(),
+                }
 
             if verbose and (step == 0 or step == n_steps - 1
                             or step % max(1, n_steps // 5) == 0):
                 ell_dev = float(torch.max(
                     torch.abs(self.log_lengthscales - anchor)).item())
                 print(f"  [breathing/L-BFGS] step {step:3d}  "
-                      f"loss={lv:.6e}  nll/N={nll_v:.6e}  "
+                      f"loss={candidate_loss:.6e}  nll/N={nll_v:.6e}  "
                       f"prior={prior_v:.6e}  max|Δlog ℓ|={ell_dev:.3e}")
 
-        with torch.no_grad():
-            self.log_lengthscales.copy_(best_ell)
+        _restore_best_state()
 
         self.last_opt_total_loss = best_loss
         self.last_opt_nll_loss   = best_nll
         self.last_opt_reg_loss   = best_prior
         self.last_opt_steps      = len(history)
-        self.last_opt_best_step  = int(np.argmin(history)) if history else -1
+        self.last_opt_best_step  = best_step
         self.last_opt_early_stopped = False
         for attr in ("last_opt_train_mae", "last_opt_train_r2",
                      "last_opt_val_mae",   "last_opt_val_r2"):
@@ -2084,10 +2268,11 @@ class GPDensity:
         *   "frozen"    — lock (σ_f, ℓ, σ_n) at their anchor values.  Only
                          rebuild Ky and solve for α.  Legacy behavior.
 
-        *   "breathing" — lock σ_f and σ_n at the anchor; update ℓ with a
-                         short Adam loop on MLL plus a quadratic shrinkage
-                         prior toward the anchor ℓ_0.  This is the
-                         recommended default for long propagation.
+        *   "breathing" — lock σ_f at the anchor; update ℓ and, unless
+                         ``fix_sigma_n=True``, σ_n with bounded L-BFGS on
+                         MLL/LOO plus a quadratic shrinkage prior toward the
+                         anchor ℓ_0.  This is the recommended default for
+                         long propagation.
 
         *   "free"      — re-optimize every hyperparameter.  Expensive and
                          susceptible to MLL-driven oversmoothing; diagnostic
@@ -2108,6 +2293,13 @@ class GPDensity:
                      else getattr(self.config, "refit_hyper_policy", "breathing")).strip().lower()
         if policy not in ("frozen", "breathing", "adaptive", "free"):
             raise ValueError(f"Unknown refit hyper_policy={policy!r}")
+
+        # Per-refit status (the cumulative counter is intentionally retained).
+        # Without this reset a single rejected adaptive burst would be reported
+        # as a failure on every subsequent cooldown step.
+        self.last_breathing_failed = False
+        self.last_breathing_failure_reason = ""
+        self.last_breathing_failure_code = 0
 
         # Legacy freeze_hypers() is still honored: it forces "frozen".
         if self._hypers_frozen:
@@ -2480,6 +2672,327 @@ def _self_test() -> None:
     print(f"            trace         : {abs(moms_k['trace']         - 1.0):.3e}")
     print(f"            energy        : {abs(moms_k['energy']        - E0):.3e}")
 
+
+# =============================================================================
+# Reference-profile ("product") surrogate  rho_hat(z) = g(x) * mu(z)
+# =============================================================================
+# Merged from the former GP_DensityProduct module (2026-07-05) to keep the
+# pipeline's original file structure.  The excess mapping-QCLE operator
+# contracts SECOND MAPPING DERIVATIVES of the density; focused sampling
+# carries no radial mapping information, so a plain GP's mapping curvature is
+# an anchor-lengthscale artifact and the operator input is suppressed (~527x
+# vs the exact analytic iL' rho).  Factoring rho_hat = g(x)*mu(z) with g the
+# analytic SEO mapping profile makes that curvature exact; the GP carries only
+# the smooth modulation.  The Leibniz-rule operator/flux that consume this
+# surrogate live in Operator.py (product_Q_at_points / product_flux_at_points).
+# GP-analytic moments are NaN by design in this surrogate (see the class).
+# =============================================================================
+# =============================================================================
+# Analytic SEO mapping profile and its derivatives
+# =============================================================================
+
+def seo_profile_derivs(
+    x: ArrayLike,
+    hbar: float = 1.0,
+    init_state: int = 0,
+    nstates: int = 2,
+) -> Tuple[FloatArray, FloatArray, FloatArray]:
+    """
+    g, dg/dx (N,4), d2g/dx dx (N,4,4) for the SEO Wigner profile of the
+    occupied state.  Mapping coordinate layout x = (r0, r1, p0, p1);
+    occupied-state coordinates are x-indices (init_state, 2+init_state).
+
+        g = A * E * q,   A = (pi hbar)^{-nstates},
+        E = exp(-|x|^2/hbar),
+        q = (2/hbar)(x_s^2 + x_{2+s}^2) - 1 .
+    """
+    x = np.atleast_2d(np.asarray(x, dtype=np.float64))
+    N = x.shape[0]
+    A = (np.pi * hbar) ** (-nstates)
+    E = np.exp(-np.sum(x * x, axis=1) / hbar)                       # (N,)
+    ar, ap = init_state, 2 + init_state
+    q = (2.0 / hbar) * (x[:, ar] ** 2 + x[:, ap] ** 2) - 1.0        # (N,)
+
+    # dq/dx_a: (4/hbar) x_a on occupied indices, else 0.
+    dq = np.zeros((N, 4))
+    dq[:, ar] = (4.0 / hbar) * x[:, ar]
+    dq[:, ap] = (4.0 / hbar) * x[:, ap]
+    # d2q: (4/hbar) delta_ab on occupied diagonal.
+    d2q = np.zeros((N, 4, 4))
+    d2q[:, ar, ar] = 4.0 / hbar
+    d2q[:, ap, ap] = 4.0 / hbar
+
+    # dE/dx_a = -(2 x_a/hbar) E ; d2E = [ (4 x_a x_b/hbar^2)
+    #                                    - (2/hbar) delta_ab ] E
+    two_x = (2.0 / hbar) * x                                        # (N,4)
+    g   = A * E * q
+    dg  = A * E[:, None] * (dq - two_x * q[:, None])                # (N,4)
+    eye = np.eye(4)[None, :, :]
+    d2g = A * E[:, None, None] * (
+        d2q
+        - two_x[:, :, None] * dq[:, None, :]
+        - two_x[:, None, :] * dq[:, :, None]
+        + (two_x[:, :, None] * two_x[:, None, :]
+           - (2.0 / hbar) * eye) * q[:, None, None]
+    )                                                               # (N,4,4)
+    return g, dg, d2g
+
+
+def _g_safe(g: FloatArray, floor_rel: float) -> FloatArray:
+    """Signed floor: |g| >= floor_rel * max|g| (transform regularizer)."""
+    floor = floor_rel * float(np.max(np.abs(g))) if g.size else 0.0
+    return np.where(np.abs(g) >= floor, g, np.where(g >= 0.0, floor, -floor))
+
+
+# =============================================================================
+# The product surrogate
+# =============================================================================
+
+class GPDensityProduct:
+    """
+    rho_hat(z) = g(x) * mu(z), mu the inner GPDensity fitted to y/g.
+
+    Delegates every attribute it does not override to the inner GP (so
+    Collector, diagnostics, and deepcopy in MidpointScheme work
+    unchanged); overrides the label transform, prediction, and the
+    moment interface.  ``_is_product = True`` is the dispatch flag used
+    by Operator.compute_Q_at_points / compute_flux_at_points and
+    Dynamics.MidpointScheme._rho_at.
+    """
+
+    _is_product = True
+
+    def __init__(self, gp, hbar: float = 1.0, init_state: int = 0,
+                 nstates: int = 2, g_floor_rel: float = 1.0e-3) -> None:
+        # NOTE: use object.__setattr__-free plain attributes; __getattr__
+        # only fires for MISSING attributes, so overrides below win.
+        self._inner = gp
+        self._hbar = float(hbar)
+        self._init_state = int(init_state)
+        self._nstates = int(nstates)
+        self._g_floor_rel = float(g_floor_rel)
+
+    # -- delegation ------------------------------------------------------
+    def __getattr__(self, name):
+        # Called only when normal lookup fails -> delegate to inner GP.
+        return getattr(self._inner, name)
+
+    def __deepcopy__(self, memo):
+        new = GPDensityProduct.__new__(GPDensityProduct)
+        new._inner = copy.deepcopy(self._inner, memo)
+        new._hbar = self._hbar
+        new._init_state = self._init_state
+        new._nstates = self._nstates
+        new._g_floor_rel = self._g_floor_rel
+        new._footpoints = (None if getattr(self, "_footpoints", None) is None
+                           else self._footpoints.copy())
+        new._foot_jac = (None if getattr(self, "_foot_jac", None) is None
+                         else self._foot_jac.copy())
+        return new
+
+    # -- profile helpers ---------------------------------------------------
+    def profile_at(self, Z: ArrayLike) -> FloatArray:
+        """
+        g at the current point.  In the STATIC mode (default) this is the
+        t=0 SEO profile g(x) evaluated at the current mapping coordinates.
+        In the TRANSPORTED mode (Rung 2, enabled by attach_footpoints /
+        transport_footpoints), the profile rides the MInt flow: it is the
+        birth-time profile g(x^0) evaluated at each support point's stored
+        footpoint mapping coordinate, so the analytic curvature the QCLE
+        operator differentiates follows the Hamiltonian backbone exactly
+        rather than being frozen at its t=0 shape.
+        """
+        Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+        fp = getattr(self, "_footpoints", None)
+        if fp is not None:
+            if fp.shape[0] != Z.shape[0]:
+                raise ValueError(
+                    f"TRANSPORTED profile: footpoint records are matched to "
+                    f"rows POSITIONALLY, but got {Z.shape[0]} query rows vs "
+                    f"{fp.shape[0]} footpoints.  Evaluating the transported "
+                    f"profile at a subset, grid, or reordered point set is "
+                    f"ill-defined without an explicit row->trajectory map.  "
+                    f"(Previously this fell back SILENTLY to the static "
+                    f"profile — wrong by design; found 2026-07-10 via an "
+                    f"FD check on a support subset.)  Pass the full aligned "
+                    f"support cloud, or use profile_at_footindex().")
+            g, _, _ = seo_profile_derivs(fp[:, 2:6], self._hbar,
+                                         self._init_state, self._nstates)
+            return g
+        g, _, _ = seo_profile_derivs(Z[:, 2:6], self._hbar,
+                                     self._init_state, self._nstates)
+        return g
+
+    def profile_at_footindex(self, Z: ArrayLike, foot_index) -> FloatArray:
+        """Transported-profile value for query rows Z that correspond to
+        footpoint records ``foot_index`` (explicit row->trajectory map, for
+        subset evaluations).  Static mode ignores the index."""
+        Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+        fp = getattr(self, "_footpoints", None)
+        if fp is None:
+            g, _, _ = seo_profile_derivs(Z[:, 2:6], self._hbar,
+                                         self._init_state, self._nstates)
+            return g
+        idx = np.asarray(foot_index, dtype=int).reshape(-1)
+        if idx.shape[0] != Z.shape[0]:
+            raise ValueError("foot_index length must match Z rows.")
+        g, _, _ = seo_profile_derivs(fp[idx][:, 2:6], self._hbar,
+                                     self._init_state, self._nstates)
+        return g
+
+    def profile_derivs_current(self, Z: ArrayLike) -> Tuple[FloatArray,
+                                                            FloatArray,
+                                                            FloatArray]:
+        """
+        (g, dg, d2g) of the profile with respect to the CURRENT phase-space
+        coordinates z = (R,P,r0,r1,p0,p1), returned as dg (N,6) and
+        d2g (N,6,6) so the Leibniz operator can consume mapping AND
+        bath-momentum profile derivatives uniformly.
+
+        STATIC mode: g depends on mapping coords only; dg is nonzero on
+        dims 2..5, d2g on the mapping block; all bath entries zero — this
+        reproduces the original behaviour exactly.
+
+        TRANSPORTED mode: g = g0(x^0(z)), x^0 the footpoint mapping
+        coordinate.  The footpoint depends on the current point through the
+        inverse MInt map, whose mapping-block Jacobian J = dx^0/dz (N,4,6)
+        and Hessian are supplied by the transport bookkeeping.  Then
+            dg/dz_a       = sum_m (dg0/dx^0_m) J_{m,a}
+            d2g/dz_a dz_b = sum_mn (d2g0) J_{m,a} J_{n,b}
+                            + sum_m (dg0/dx^0_m) H_{m,a,b}
+        With the linear frozen-R mapping rotation, H is small; v1 transport
+        keeps the first (Jacobian) term exactly and neglects the mixed
+        Hessian term H (second order in the rotation angle per step), which
+        is the same order already dropped by the O((iL')^2) midpoint
+        truncation.
+        """
+        Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+        N = Z.shape[0]
+        fp = getattr(self, "_footpoints", None)
+        Jm = getattr(self, "_foot_jac", None)     # (N,4,6) dx^0_map/dz
+
+        if fp is not None and Jm is not None and fp.shape[0] != N:
+            raise ValueError(
+                f"TRANSPORTED profile derivatives: positional footpoint "
+                f"match requires {fp.shape[0]} rows, got {N}.  A subset/"
+                f"grid/reordered evaluation is ill-defined; the old code "
+                f"fell back SILENTLY to the static profile here (found "
+                f"2026-07-10).  Pass the full aligned support cloud.")
+        if fp is None or Jm is None:
+            # STATIC profile: derivatives only on the mapping block.
+            g, dg4, d2g4 = seo_profile_derivs(Z[:, 2:6], self._hbar,
+                                              self._init_state, self._nstates)
+            dg = np.zeros((N, 6)); dg[:, 2:6] = dg4
+            d2g = np.zeros((N, 6, 6)); d2g[:, 2:6, 2:6] = d2g4
+            return g, dg, d2g
+
+        # TRANSPORTED profile via chain rule through the stored footpoint
+        # mapping Jacobian.
+        g, dg4, d2g4 = seo_profile_derivs(fp[:, 2:6], self._hbar,
+                                          self._init_state, self._nstates)
+        dg = np.einsum("nm,nma->na", dg4, Jm)                     # (N,6)
+        d2g = np.einsum("nmk,nma,nkb->nab", d2g4, Jm, Jm)         # (N,6,6)
+        return g, dg, d2g
+
+    # -- transport bookkeeping (Rung 2) -----------------------------------
+    def attach_footpoints(self, Z0: ArrayLike) -> None:
+        """
+        Initialise transported-profile mode: record the t=0 support
+        coordinates as footpoints and seed the footpoint->current mapping
+        Jacobian as identity on the mapping block.  Call once at t=0 with
+        the initial support cloud.
+        """
+        Z0 = np.atleast_2d(np.asarray(Z0, dtype=np.float64))
+        self._footpoints = Z0.copy()
+        N = Z0.shape[0]
+        # dx^0_map/dz : (N,4,6); at t=0 identity onto mapping dims 2..5.
+        J = np.zeros((N, 4, 6))
+        J[:, 0, 2] = 1.0; J[:, 1, 3] = 1.0
+        J[:, 2, 4] = 1.0; J[:, 3, 5] = 1.0
+        self._foot_jac = J
+
+    def transport_footpoints(self, B_map: ArrayLike) -> None:
+        """
+        Advance the footpoint mapping Jacobian by one MInt step.  B_map is
+        the (N,4,4) forward mapping-block Jacobian dx'_map/dx_map of the
+        step just applied to the support points (the linear frozen-R
+        rotation).  The footpoint map composes inversely:
+            J_new = J_old @ B_map^{-1}   (acting on mapping dims of z)
+        The footpoint COORDINATES themselves stay fixed (a footpoint is a
+        birth-time label); only the Jacobian relating current-point
+        variations to footpoint variations evolves.
+        """
+        if getattr(self, "_foot_jac", None) is None:
+            return
+        B = np.asarray(B_map, dtype=np.float64)
+        Binv = np.linalg.inv(B)                                   # (N,4,4)
+        # J is (N,4,6): footpoint-map derivative wrt z.  Only its mapping
+        # columns (2..5) rotate; bath columns stay zero under the linear
+        # frozen-R map.
+        Jm = self._foot_jac[:, :, 2:6]                            # (N,4,4)
+        self._foot_jac[:, :, 2:6] = np.einsum("nij,njk->nik", Binv, Jm)
+
+    def _transform_labels(self, Z: ArrayLike, y: ArrayLike) -> FloatArray:
+        g = self.profile_at(Z)
+        gs = _g_safe(g, self._g_floor_rel)
+        return np.asarray(y, dtype=np.float64).reshape(-1) / gs
+
+    # -- fit / refit / predict --------------------------------------------
+    @staticmethod
+    def _strip_moment_targets(kwargs: dict) -> dict:
+        """Chapter 4 contract: NO hard moment (KKT) correction on the product
+        surrogate.  The inner mu-GP's KKT rows are vanilla kernel integrals
+        (no profile g) with physical targets — enforcing them would constrain
+        int psi mu = b_phys while the physical moment is int psi g mu, an
+        O(1) unit/structure mismatch.  Focused sampling already skips KKT via
+        LabelInformation.apply_kkt=False; this strip makes the product
+        surrogate safe under ANY sampling mode (e.g. seo_signed, where
+        apply_kkt=True would silently mis-project the inner alpha)."""
+        if kwargs.get("moment_targets") is not None:
+            kwargs = dict(kwargs)
+            kwargs["moment_targets"] = None
+        return kwargs
+
+    def fit(self, Z_train, y_train, *args, **kwargs):
+        return self._inner.fit(Z_train,
+                               self._transform_labels(Z_train, y_train),
+                               *args, **self._strip_moment_targets(kwargs))
+
+    def refit(self, Z_train, y_train, *args, **kwargs):
+        return self._inner.refit(Z_train,
+                                 self._transform_labels(Z_train, y_train),
+                                 *args, **self._strip_moment_targets(kwargs))
+
+    def predict_with_variance(self, Z: ArrayLike):
+        """Density-space (mean, variance): mean = g*mu; variance = g^2 Var[mu]
+        (fixed profile scales the modulation covariance, Sigma_rho = g g'
+        Sigma_f — thesis Ch.4 Eq. gp-product-density-covariance).  Without
+        this override, __getattr__ delegation returned the MODULATION
+        variance, mis-stating density uncertainty by the factor g^2."""
+        Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+        mu, var = self._inner.predict_with_variance(Z)
+        g = self.profile_at(Z)
+        return g * np.asarray(mu).reshape(-1), \
+               (g * g) * np.asarray(var).reshape(-1)
+
+    def predict(self, Z: ArrayLike) -> FloatArray:
+        Z = np.atleast_2d(np.asarray(Z, dtype=np.float64))
+        mu = np.asarray(self._inner.predict(Z),
+                        dtype=np.float64).reshape(-1)
+        return self.profile_at(Z) * mu
+
+    # -- moments: exact closed form via ProductMoments (2026-07-10) --------
+    # (replaces the V1 NaN stub; the NaN design predated ProductMoments.
+    #  Raw contract matches vanilla compute_moment_values: UNNORMALIZED
+    #  kernel integrals of {1, c00+c11, H} against rho_hat = g*mu.)
+    def compute_moment_values(self, *args, **kwargs) -> Dict[str, float]:
+        from .ProductMoments import product_kkt_moments
+        km = product_kkt_moments(self)
+        return {
+            "normalization": km["normalization_raw"],
+            "trace":         km["trace_raw"],
+            "energy":        km["energy_raw"],
+        }
 
 if __name__ == "__main__":
     np.set_printoptions(precision=6, suppress=True)

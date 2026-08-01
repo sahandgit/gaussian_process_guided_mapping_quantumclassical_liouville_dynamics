@@ -18,7 +18,7 @@ Design
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import json
 import os
@@ -103,6 +103,7 @@ class Snapshot:
     proposal_density: Optional[FloatArray] = None
     target_density: Optional[FloatArray] = None
     weight: Optional[FloatArray] = None
+    geometric_measure: Optional[FloatArray] = None
 
     # Density-difference extension (all optional, all ignored unless
     # is_density_diff=True).
@@ -114,6 +115,16 @@ class Snapshot:
     sigma_n_base:    Optional[float]      = None
     lengthscales_base: Optional[FloatArray] = None  # (D,)
     delta:           Optional[FloatArray] = None    # (N,) = effective y - y0
+
+    # Product-surrogate metadata.  Without these fields, post-processing
+    # silently reconstructed the inner modulation GP ``mu`` as though it were
+    # the physical density ``rho = g*mu``.
+    is_product: bool = False
+    product_hbar: Optional[float] = None
+    product_init_state: Optional[int] = None
+    product_nstates: Optional[int] = None
+    product_g_floor_rel: Optional[float] = None
+    product_transported: bool = False
 
     def __post_init__(self) -> None:
         if self.is_density_diff and self.alpha_base is None:
@@ -134,8 +145,10 @@ class Collector:
     Accumulates diagnostics over a run.  Agnostic to the scheme name.
     """
 
-    def __init__(self, scheme_name: str):
+    def __init__(self, scheme_name: str,
+                 run_metadata: Optional[Dict[str, Any]] = None):
         self.scheme_name: str = scheme_name
+        self.run_metadata: Dict[str, Any] = dict(run_metadata or {})
         self.history: List[StepDiagnostics] = []
         self.snapshots: Dict[int, Snapshot] = {}
 
@@ -209,6 +222,8 @@ class Collector:
                 arrays[pref + "target_density"] = snap.target_density
             if snap.weight is not None:
                 arrays[pref + "weight"] = snap.weight
+            if snap.geometric_measure is not None:
+                arrays[pref + "geometric_measure"] = snap.geometric_measure
 
             # Density-difference extras
             arrays[pref + "is_density_diff"] = np.array(
@@ -228,6 +243,22 @@ class Collector:
             if snap.delta is not None:
                 arrays[pref + "delta"] = snap.delta
 
+            arrays[pref + "is_product"] = np.array(
+                [1 if snap.is_product else 0], dtype=np.int64)
+            arrays[pref + "product_transported"] = np.array(
+                [1 if snap.product_transported else 0], dtype=np.int64)
+            if snap.product_hbar is not None:
+                arrays[pref + "product_hbar"] = np.array([snap.product_hbar])
+            if snap.product_init_state is not None:
+                arrays[pref + "product_init_state"] = np.array(
+                    [snap.product_init_state], dtype=np.int64)
+            if snap.product_nstates is not None:
+                arrays[pref + "product_nstates"] = np.array(
+                    [snap.product_nstates], dtype=np.int64)
+            if snap.product_g_floor_rel is not None:
+                arrays[pref + "product_g_floor_rel"] = np.array(
+                    [snap.product_g_floor_rel])
+
         npz_path = path_no_ext + ".npz"
         np.savez_compressed(npz_path, **arrays)
 
@@ -237,53 +268,131 @@ class Collector:
             "snapshot_steps":   sorted(self.snapshots.keys()),
             "observable_keys":  sorted({k for d in self.history
                                         for k in d.values.keys()}),
+            "run_metadata":     self.run_metadata,
         }
         with open(path_no_ext + ".json", "w") as f:
             json.dump(meta, f, indent=2)
         return npz_path
 
+    # -------------------------------------------------------------------------
+    # Lightweight metadata peek (no array I/O at all)
+    # -------------------------------------------------------------------------
     @staticmethod
-    def load(path_no_ext: str) -> Dict[str, Any]:
+    def peek_snapshot_steps(path_no_ext: str) -> List[int]:
         """
-        Load a saved run.  Returns dict with keys:
-            'meta'       : metadata dict
-            'arrays'     : full array dict (time-series)
-            'snapshots'  : {step_index: Snapshot}
+        Return the available snapshot step indices from the JSON sidecar
+        WITHOUT opening the (possibly several-hundred-MB) .npz.
+
+        Figure code uses this to decide *which* snapshots it actually needs
+        (e.g. a strided subset) before paying for any array decompression.
         """
         with open(path_no_ext + ".json", "r") as f:
             meta = json.load(f)
-        data = dict(np.load(path_no_ext + ".npz"))
+        return [int(s) for s in meta.get("snapshot_steps", [])]
+
+    @staticmethod
+    def _read_snapshot(z: Any, keys: set, step: int) -> Snapshot:
+        """
+        Reconstruct a single Snapshot from an *open* ``NpzFile`` ``z``,
+        reading only that snapshot's members.  Each ``z[member]`` access
+        decompresses exactly one array on demand, so the other (thousands of)
+        snapshots are never materialised.
+        """
+        pref = f"snap_{step:06d}_"
+
+        def has(name: str) -> bool:
+            return (pref + name) in keys
+
+        def get(name: str):
+            return z[pref + name] if (pref + name) in keys else None
+
+        return Snapshot(
+            step_index=step,
+            t=float(z[pref + "t"][0]),
+            Z=z[pref + "Z"],
+            y=z[pref + "y"],
+            alpha=z[pref + "alpha"],
+            sigma_f=float(z[pref + "sigma_f"][0]),
+            sigma_n=float(z[pref + "sigma_n"][0]),
+            lengthscales=z[pref + "lengthscales"],
+            feature_mean=get("feature_mean"),
+            feature_std=get("feature_std"),
+            feature_zscore=bool(int(z[pref + "feature_zscore"][0])) if has("feature_zscore") else False,
+            proposal_density=get("proposal_density"),
+            target_density=get("target_density"),
+            weight=get("weight"),
+            geometric_measure=get("geometric_measure"),
+            # Density-difference extras (all optional; default to None on legacy NPZ)
+            is_density_diff=bool(int(z[pref + "is_density_diff"][0])) if has("is_density_diff") else False,
+            alpha_base=get("alpha_base"),
+            Z0=get("Z0"),
+            y0=get("y0"),
+            sigma_f_base=float(z[pref + "sigma_f_base"][0]) if has("sigma_f_base") else None,
+            sigma_n_base=float(z[pref + "sigma_n_base"][0]) if has("sigma_n_base") else None,
+            lengthscales_base=get("lengthscales_base"),
+            delta=get("delta"),
+            is_product=bool(int(z[pref + "is_product"][0])) if has("is_product") else False,
+            product_hbar=float(z[pref + "product_hbar"][0]) if has("product_hbar") else None,
+            product_init_state=int(z[pref + "product_init_state"][0]) if has("product_init_state") else None,
+            product_nstates=int(z[pref + "product_nstates"][0]) if has("product_nstates") else None,
+            product_g_floor_rel=float(z[pref + "product_g_floor_rel"][0]) if has("product_g_floor_rel") else None,
+            product_transported=bool(int(z[pref + "product_transported"][0])) if has("product_transported") else False,
+        )
+
+    @staticmethod
+    def load(path_no_ext: str,
+             arrays_only: bool = False,
+             snapshot_steps: Optional[Iterable[int]] = None) -> Dict[str, Any]:
+        """
+        Load a saved run.  Returns dict with keys:
+            'meta'       : metadata dict
+            'arrays'     : time-series array dict
+            'snapshots'  : {step_index: Snapshot}
+
+        Memory-safe selective loading
+        -----------------------------
+        The on-disk .npz stores every periodic snapshot (positions, labels,
+        coefficients, ...) as a separate member.  A long run with a small
+        ``snapshot_every`` can hold *thousands* of snapshots totalling
+        hundreds of MB.  The legacy implementation did
+        ``dict(np.load(path))``, which eagerly DECOMPRESSES AND MATERIALISES
+        every member into RAM at once — the direct cause of ``MemoryError``
+        during figure generation, where the time-series plots need none of
+        the snapshots.
+
+        Two opt-in controls avoid that:
+
+        * ``arrays_only=True``     → load only the time-series arrays and
+                                     return ``snapshots={}``.  Use for any
+                                     figure that plots observables vs. time.
+        * ``snapshot_steps=[...]`` → load only those snapshots (e.g. the
+                                     strided subset actually rendered as
+                                     density-marginal panels).  Steps not
+                                     present on disk are silently ignored.
+
+        With neither argument the behaviour matches the legacy "load
+        everything" contract, but it is still implemented with per-member
+        lazy reads (the open ``NpzFile`` decompresses one array at a time)
+        rather than one giant ``dict(...)`` allocation.
+        """
+        with open(path_no_ext + ".json", "r") as f:
+            meta = json.load(f)
 
         snapshots: Dict[int, Snapshot] = {}
-        for step in meta["snapshot_steps"]:
-            pref = f"snap_{step:06d}_"
-            snap = Snapshot(
-                step_index=step,
-                t=float(data[pref + "t"][0]),
-                Z=data[pref + "Z"],
-                y=data[pref + "y"],
-                alpha=data[pref + "alpha"],
-                sigma_f=float(data[pref + "sigma_f"][0]),
-                sigma_n=float(data[pref + "sigma_n"][0]),
-                lengthscales=data[pref + "lengthscales"],
-                feature_mean=data[pref + "feature_mean"] if pref + "feature_mean" in data else None,
-                feature_std=data[pref + "feature_std"] if pref + "feature_std" in data else None,
-                feature_zscore=bool(int(data[pref + "feature_zscore"][0])) if pref + "feature_zscore" in data else False,
-                proposal_density=data[pref + "proposal_density"] if pref + "proposal_density" in data else None,
-                target_density=data[pref + "target_density"] if pref + "target_density" in data else None,
-                weight=data[pref + "weight"] if pref + "weight" in data else None,
-                # Density-difference extras (all optional; default to None on legacy NPZ)
-                is_density_diff=bool(int(data[pref + "is_density_diff"][0])) if pref + "is_density_diff" in data else False,
-                alpha_base=data[pref + "alpha_base"] if pref + "alpha_base" in data else None,
-                Z0=data[pref + "Z0"] if pref + "Z0" in data else None,
-                y0=data[pref + "y0"] if pref + "y0" in data else None,
-                sigma_f_base=float(data[pref + "sigma_f_base"][0]) if pref + "sigma_f_base" in data else None,
-                sigma_n_base=float(data[pref + "sigma_n_base"][0]) if pref + "sigma_n_base" in data else None,
-                lengthscales_base=data[pref + "lengthscales_base"] if pref + "lengthscales_base" in data else None,
-                delta=data[pref + "delta"] if pref + "delta" in data else None,
-            )
-            snapshots[step] = snap
+        with np.load(path_no_ext + ".npz") as z:
+            keys = set(z.files)
+            # Time-series arrays: every member that is NOT a snapshot field.
+            # These are O(n_steps) 1-D series — small and always safe to load.
+            arrays = {k: z[k] for k in keys if not k.startswith("snap_")}
 
-        # Filter out snapshot keys from arrays
-        arrays = {k: v for k, v in data.items() if not k.startswith("snap_")}
+            if not arrays_only:
+                avail = [int(s) for s in meta.get("snapshot_steps", [])]
+                if snapshot_steps is None:
+                    steps = avail
+                else:
+                    want = {int(s) for s in snapshot_steps}
+                    steps = [s for s in avail if s in want]
+                for step in steps:
+                    snapshots[step] = Collector._read_snapshot(z, keys, step)
+
         return {"meta": meta, "arrays": arrays, "snapshots": snapshots}

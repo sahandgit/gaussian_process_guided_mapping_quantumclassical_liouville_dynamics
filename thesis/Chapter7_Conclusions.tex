@@ -1,0 +1,111 @@
+\chapter{Discussion and Conclusions}
+\label{chap:discussion-outlook}
+
+This thesis set out to test whether a differentiable product-GP representation
+could make the mapping-QCLE excess term usable on a moving trajectory cloud.
+The answer for the construction studied here is no. Accurate interpolation of
+density values on a fixed cloud does not imply accurate ambient derivatives,
+preservation of the physical SEO image, stable signed estimators, or
+conservative dynamics. The contribution is therefore a precisely defined
+formulation, a sequence of physically interpretable tests that expose its
+limitations, and concrete requirements for a successor. It is not a validated
+GP-QCLE solver and it is not evidence that MIDPOINT improves PBME.
+
+\section{Application-specific contribution}
+\label{sec:discussion-contribution}
+
+Values on a lower-dimensional manifold do not generally identify ambient
+normal derivatives; that fact is not original to this thesis. The original
+application-specific contribution is narrower: constructing a differentiable
+product-GP excess-source prototype on moving PBME/MInt clouds, testing it
+against an analytic manufactured operator and the exact two-state SEO image,
+and connecting its observed derivative, projection, conservation, and
+signed-weight failures to the propagated dynamics without claiming a unique
+cause
+\cite{Kim2008JCP,Kelly2012JCP,Raissi2017LinearGP,
+Solak2002DerivativeGP,CockayneOatesSullivanGirolami2019}.
+
+\section{Physical interpretation of the failure}
+\label{sec:discussion-evidence}
+
+The results in Chapter~\ref{chap:results} reveal a connected, but not uniquely
+causal, failure pathway. A product kernel can reconstruct the sampled density
+values while leaving ambient derivatives underdetermined away from the cloud.
+The excess operator depends precisely on those derivatives. Once its source
+is applied without enforcing the four-field SEO structure, the fitted density
+can develop large components outside the physical image. The focused-sampling
+ratio then combines sign cancellation with very large individual label ratios,
+which magnifies cloud-to-cloud variation. The resulting raw normalization,
+trace, and energy drift show that this is not merely a cosmetic change in
+density shape.
+
+These observations establish compatibility among the failure modes, not a
+proof that one is the sole cause of the others. The manufactured operator
+study, SEO projection diagnostic, signed-label analysis, and conservation
+test deliberately isolate different links in the chain. Their agreement
+supports the method-level conclusion without overstating causal identification.
+The controlled TDSE and grid-QCLE studies then ensure that the absence of a
+systematic physical improvement is not an artefact of an uncontrolled
+reference calculation.
+
+\section{Claim boundary}
+\label{sec:discussion-limitations}
+
+This thesis does not establish a validated discretization of the complete
+mapping-basis QCLE, deterministic cloud convergence, strong uncertainty
+calibration from four seeds, chemical accuracy outside the one-dimensional
+two-state benchmark, multidimensional scalability, or systematic improvement
+over PBME. TDSE and grid-QCLE have different epistemic roles: TDSE is
+model-exact within numerical controls, whereas grid QCLE solves an approximate
+quantum--classical equation numerically.
+
+The production regularization \(0.05\), pilot \(0.01\), and
+manufactured-test \(10^{-6}\) policies are all tested and reported rather than
+conflated. The tail study demonstrates extreme signed-weight instability, but
+its negligible-mass rule does not permit a nontrivial point-removal plateau,
+so the instability is not assigned uniquely to small initial labels.
+
+\section{Requirements for a successor}
+\label{sec:discussion-successor}
+
+A credible successor should regress the four real bath-dependent fields of the
+two-state SEO image so that Hermiticity and projection are enforced by
+construction. Its discrete excess source should preserve normalization and
+the relevant trace and energy identities before any renormalization. The
+regression should incorporate derivative information or structural constraints
+capable of controlling directions normal to the sampled manifold. A future
+success claim requires decreasing manufactured-operator errors under a
+controlled refinement, time-step changes resolvable above seed variation,
+independent-cloud uncertainty bands, raw conservation, and reproducibly
+smaller PBME-matched errors against controlled references where the excess
+source is appreciable
+\cite{TraskBochevPerego2020,BonetLok1999,Monaghan2005}.
+
+\section{Numerical scope and transferability}
+\label{sec:discussion-numerical-scope}
+
+The numerical conclusions are tied to the parameter ranges, independent seed
+sets, domains, and discretizations stated in Chapter~\ref{chap:results} and
+Appendix~\ref{app:reference-and-reproducibility}. Repeating those calculations
+tests this particular construction on the same benchmark; it does not by
+itself establish transferability to additional electronic states, nuclear
+dimensions, coupling regimes, or sampling measures. Such transfer would
+require renewed manufactured-operator, projection, conservation, and
+reference comparisons rather than extrapolation from the present negative
+result.
+
+\section{Conclusion}
+\label{sec:discussion-conclusions}
+
+The combined numerical evidence supports a controlled negative result.
+Accurate same-cloud value reconstruction does not guarantee an accurate
+derivative-dependent excess operator, preservation of the SEO image, raw
+conservation, or seed-stable dynamics. The tested MIDPOINT branch fails the
+joint reliability criteria and does not demonstrate systematic improvement
+over PBME. This conclusion applies to the tested discretization, not to the
+continuum QCLE excess term.
+
+Accordingly, the thesis contributes a precisely scoped formulation, a
+physics-based failure analysis, and evidence-backed redesign criteria. It
+does not claim that the tested construction is reliable, deterministically
+cloud-converged, or improved.

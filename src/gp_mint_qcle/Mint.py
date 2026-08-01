@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+# --- UTF-8 console safety: prevent UnicodeEncodeError on Windows cp1252 ---
+# Banners/diagnostics below print non-ASCII physics notation (α, ρ̂, Δ, →, ħ).
+# Reconfigure the console streams to UTF-8 so direct execution of this module
+# does not abort under Windows' default cp1252 encoding.  No-op where unsupported.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+# --------------------------------------------------------------------------
+
 from dataclasses import dataclass
 from typing import Tuple, Optional
 
@@ -321,6 +333,40 @@ class PBMEMIntDynamics:
 
     mint_step_z = step
     mint_step = step
+
+    def mapping_block_jacobian(self, z: ArrayLike, dt: float) -> FloatArray:
+        """
+        The (N,4,4) Jacobian B = d(r',p')/d(r,p) of the mapping-block map
+        applied by one MInt step, in the coordinate order (r0,r1,p0,p1).
+
+        The frozen-R mapping evolution is LINEAR in (r,p):
+            [r_e; p_e] -> [c r_e + s p_e ; c p_e - s r_e]   (adiabatic)
+        with r_e = U^T r, p_e = U^T p and c,s = cos/sin(E dt/hbar)
+        diagonal.  Hence, per state-pair, B is exactly the rotation
+        conjugated back to the diabatic mapping basis:
+            r' = U C U^T r + U S U^T p
+            p' = -U S U^T r + U C U^T p,
+        C = diag(c), S = diag(s).  This is the exact linear map the
+        transported reference profile is pulled back through — no autodiff.
+        """
+        zb, single = self._as_z_batch(z)
+        M = self.params.mass
+        hbar = self.params.hbar
+        R = zb[:, 0]; P = zb[:, 1]
+        R_half = R + 0.5 * dt * (P / M)
+        _, h, _, _ = self._frozen_R_objects(R_half)
+        E, U = np.linalg.eigh(h)                       # (N,2),(N,2,2)
+        U_T = np.swapaxes(U, 1, 2)
+        theta = (E * dt) / hbar
+        C = U @ (np.eye(2)[None] * np.cos(theta)[:, None, :]) @ U_T   # (N,2,2)
+        S = U @ (np.eye(2)[None] * np.sin(theta)[:, None, :]) @ U_T   # (N,2,2)
+        N = zb.shape[0]
+        B = np.zeros((N, 4, 4))
+        B[:, 0:2, 0:2] = C
+        B[:, 0:2, 2:4] = S
+        B[:, 2:4, 0:2] = -S
+        B[:, 2:4, 2:4] = C
+        return B[0] if single else B
 
     # -------------------------------------------------------------------------
     # Energies

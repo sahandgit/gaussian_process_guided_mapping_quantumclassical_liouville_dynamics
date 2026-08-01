@@ -1,0 +1,354 @@
+\documentclass[11pt]{article}
+\usepackage[margin=25mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern,microtype,array,xcolor,hyperref}
+\hypersetup{hidelinks,pdftitle={Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis --- Response to Examiner}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\newcommand{\field}[2]{\textbf{#1}\quad #2\par}
+\begin{document}
+\raggedright
+\begin{center}
+{\Large\bfseries Response to the Major-Revision Examiner Report\par}
+\vspace{6pt}
+{\bfseries Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis\par}
+\vspace{4pt}Sahand Nikzat
+\end{center}
+\section*{Revision overview}
+The revision presents the work as a controlled negative-result study. Accurate density interpolation is separated from operator fidelity, SEO structure, raw conservation, stochastic stability, and physical accuracy. Because these requirements are not jointly satisfied, the revised thesis does not call the MIDPOINT construction reliable and does not claim a systematic improvement over PBME.
+\section*{Final mandatory corrections}
+\subsection*{1 --- Time-step inventory reconciled}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{The campaign is stated as 24 paired momentum--seed--step configurations, 48 individual method executions, and four independent seeds.}
+\field{Final location:}{Thesis p. 80, Section 5 time-step tests; Table G.4.}
+\field{Archive evidence:}{final\_reviewer\_closure/timestep/timestep\_run\_by\_run.csv}
+\subsection*{2 --- Reference settings synchronized}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{Table 6.12 is generated from the same full-precision CSVs as Table F.1 and lists momentum, final time, all domain and grid/time levels, physical edge statistic, and a defined CFL ratio.}
+\field{Final location:}{Thesis p. 102, Table 6.12; Appendix F, Table F.1.}
+\field{Archive evidence:}{final\_reviewer\_closure/reference\_settings\_by\_method\_and\_momentum.csv}
+\subsection*{3 --- Temporal orders corrected}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{The text assigns approximately second-order temporal behaviour to TDSE and approximately fourth-order temporal behaviour to grid-QCLE RK4; spatial/grid behaviour is treated separately.}
+\field{Final location:}{Thesis p. 100, Section 6 reference controls; Tables 6.13--6.14.}
+\field{Archive evidence:}{final\_reviewer\_closure/reference\_tdse/tdse\_three\_level.csv and reference\_grid\_qcle/qcle\_three\_level.csv}
+\subsection*{4 --- Numerical-noise and stochastic guards enforced}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{The absolute-plus-relative floor is 1e-12 + 1e-12 times the maximum level scale. Noise-limited, nonmonotone, and rapidly contracting nonasymptotic rows are rejected; MIDPOINT also requires resolution above independent-seed variation.}
+\field{Final location:}{Thesis p. 80, Eq. (declared numerical-noise floor); Tables 6.7, 6.13, 6.14, and G.4.}
+\field{Archive evidence:}{full-precision order-reason and verdict columns in the three reference/time-step CSVs}
+\subsection*{5 --- Abstract claim calibrated}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{The abstract now says numerically controlled reference solutions and does not call them converged solutions.}
+\field{Final location:}{Thesis p. i, Abstract.}
+\field{Archive evidence:}{Thesis/Thesis.tex}
+\subsection*{6 --- Independent clouds no longer called convergent}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{N=500, 1000, and 2000 are described as independently sampled, nonnested cloud enlargement; no deterministic cloud order is claimed.}
+\field{Final location:}{Thesis p. 93, Section 6 independent-cloud enlargement; Table 6.8.}
+\field{Archive evidence:}{final\_reviewer\_closure/support/independent\_cloud\_summary.csv}
+\subsection*{7 --- Retrievable release record supplied}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{The final release identifies the archive filename, public release URL, source commit, archive SHA-256, checksum-index SHA-256, environment, manifests, and reproduction instructions.}
+\field{Final location:}{Thesis p. 140, Appendix F archive record.}
+\field{Archive evidence:}{frozen\_numerical\_evidence\_payload.zip; \url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01}}
+\subsection*{8 --- Visible typography repaired}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{The chapter range and radial-basis cross-validation phrase are kept unbroken; the dense Appendix G evidence remains complete.}
+\field{Final location:}{Thesis Chapter 1 roadmap and Chapter 4 cross-validation text.}
+\field{Archive evidence:}{Thesis/Thesis.tex}
+\subsection*{9 --- Final response crosswalk added}
+\field{Status:}{Implemented and verified in the revised source}
+\field{Correction:}{This section maps each mandatory correction to its final thesis page/section/table and machine-readable archive source.}
+\field{Final location:}{This response, Final mandatory corrections section.}
+\field{Archive evidence:}{reviewer\_data\_audit/final\_submission\_document\_manifest.json}
+\section*{Ten acceptance gates}
+\subsection*{Gate 1}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Each chapter states its question, motivation, approach, and outcome in connected prose.}
+\field{Revision in thesis:}{Chapter 1 opening argument (Section 1.1); opening and closing paragraphs of Chapters 2--7}
+\subsection*{Gate 2}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{The novelty statement is literature-bounded and application-specific.}
+\field{Revision in thesis:}{Chapter 1, novelty paragraph in Section 1.1; Chapter 7, application-specific contribution section}
+\subsection*{Gate 3}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Every retained scientific figure defines its quantity, averaging, uncertainty, and interpretation.}
+\field{Revision in thesis:}{Chapter 6, Figures 6.1--6.5; figure-data crosswalk (final\_reviewer\_closure/figures/FIGURE\_DATA\_CROSSWALK.csv)}
+\subsection*{Gate 4}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Density, gradient, and excess-action errors are reported on both the training cloud and an independent query cloud for every regularization and cloud size; the operator error is non-monotone with cloud size.}
+\field{Revision in thesis:}{Chapter 6, Tables 6.2--6.4 and Figure 6.1; Appendix G, Tables G.1--G.3}
+\subsection*{Gate 5}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Three endpoint values and two successive time-normalized differences are tested against the declared numerical-noise floor and independent-seed dispersion, so empirical order is withheld when either guard fails. TDSE and grid-QCLE use separate time and grid controls with explicit domains, discretizations, edge masses, and successive differences. The high-momentum TDSE grid case is identified as a boundary-adequacy control because all nominal levels use 8192 points.}
+\field{Revision in thesis:}{Chapter 6, Tables 6.7 and 6.12--6.14; Appendix G, Table G.4; Appendix F reference settings}
+\subsection*{Gate 6}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Clouds at N=500, 1000, and 2000 are independently sampled and non-nested, so the result is described as stochastic cloud-size sensitivity rather than deterministic convergence.}
+\field{Revision in thesis:}{Chapter 6, independent-cloud enlargement section, Table 6.8}
+\subsection*{Gate 7}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Paired MIDPOINT-minus-PBME physical-error differences do not consistently favour MIDPOINT, and the joint reliability requirements are not met.}
+\field{Revision in thesis:}{Chapter 6, Table 6.15 and Figure 6.5; Appendix G, Tables G.7--G.8}
+\subsection*{Gate 8}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{The final code, evidence archive, checksum index, environment, manifests, and reproduction instructions are retrievable from \url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01}}
+\field{Revision in thesis:}{Availability note of this response; Appendix F archive record (release commit and payload SHA-256)}
+\subsection*{Gate 9}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{The title is synchronized as: Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis.}
+\field{Revision in thesis:}{Title page, hypersetup/PDF metadata, and this response document}
+\subsection*{Gate 10}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Every I-, M-, and L-item is answered below with its revision location and scientific evidence.}
+\field{Revision in thesis:}{The itemized I-, M-, and L-rows of this response, each with section, table/figure, page, and archive-source identifiers}
+\section*{I-items}
+\subsection*{I-1 --- Complete three-seed manufactured result not shown}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Emit every seed x N x on/off-support table with means and spreads. Density, gradient, and excess-action errors are reported on both the training cloud and an independent query cloud for every regularization and cloud size; the operator error is non-monotone with cloud size.}
+\field{Revision in thesis:}{Chapter 6, manufactured-operator section}
+\field{Evidence:}{Tables G.1--G.3 (complete per-seed values); aggregates in Tables 6.2--6.4 and Figure 6.1; thesis p. 146}
+\subsection*{I-2 --- Time-step order conclusion cannot be reconstructed}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{One row per method/momentum/seed/observable/step triplet with both differences, guarded order, rejection reason, seed spread. Three endpoint values and two successive time-normalized differences are tested against the declared numerical-noise floor and independent-seed dispersion, so empirical order is withheld when either guard fails.}
+\field{Revision in thesis:}{Chapter 6, time-step section}
+\field{Evidence:}{Table G.4 (complete run-by-run evidence); summarized in Table 6.7; thesis p. 153}
+\subsection*{I-3 --- Reference-convergence orders are unassigned}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Recompute and classify all TDSE and grid-QCLE rows from separate three-level time and spatial/grid ladders under the declared guards. TDSE and grid-QCLE use separate time and grid controls with explicit domains, discretizations, edge masses, and successive differences. The high-momentum TDSE grid case is identified as a boundary-adequacy control because all nominal levels use 8192 points.}
+\field{Revision in thesis:}{Chapter 6 and Appendix F}
+\field{Evidence:}{Tables 6.13 and 6.14}
+\subsection*{I-4 --- MIDPOINT central value at P0=20 absent}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Report all four seed values, mean and SD for every estimator. Endpoint means, sample standard deviations, spreads, and Student-t intervals are reported in Table 6.9, and the four individual seed values for seeds 11, 29, 47, and 73 are shown in Figure 6.3 and the Delta-t=0.25 rows of Table G.4; MIDPOINT variability is far larger than PBME variability.}
+\field{Revision in thesis:}{Chapter 6, replication section}
+\field{Evidence:}{Table 6.9 (mean, SD, interval, spread); individual seed values in Figure 6.3 and the Delta-t=0.25 rows of Table G.4}
+\subsection*{I-5 --- Identical-support pass incompletely reported}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Report E1, E2, Einf at both momenta, or state which were not evaluated. The identical-cloud KDE/GP value-reconstruction criterion is met, while the thesis explicitly states that this does not validate derivatives or dynamics.}
+\field{Revision in thesis:}{Chapter 6, common-support baseline}
+\field{Evidence:}{Table 6.6}
+\subsection*{I-6 --- 41 retained figures have no complete provenance}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Retain only figures whose observable, normalization, independent realizations, uncertainty, and interpretation are completely defined. All retained figures define the observable, normalization, independent seed count, uncertainty bars, and sign convention in their captions.}
+\field{Revision in thesis:}{Chapter 6, Figures fig:manufactured-operator-regularization through fig:paired-physical-reference-differences}
+\field{Evidence:}{Figures 6.1--6.5}
+\subsection*{I-7 --- Figure-dependent descriptions not interpretable}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Attach a defined metric and numerical evidence to every retained comparison. The thesis uses five quantitative figures and fifteen reader-facing tables; every retained comparison has a defined metric, averaging rule, uncertainty description, and interpretation.}
+\field{Revision in thesis:}{Chapter 6, Figures 6.1--6.5 and Tables 6.1--6.15}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{I-8 --- Plotting thresholds undefined}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{State each threshold and its exact decision rule at the point of use. Every numerical threshold used for acceptance or display is stated with its rule. The numerical-noise, boundary-mass, negligible-tail-mass, and reconstruction thresholds are explicit in the relevant text, captions, and evidence CSVs.}
+\field{Revision in thesis:}{Chapters 5--6 and Appendix F--G, relevant captions and table notes}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{I-9 --- Diagnostics divide by undocumented |y0| tail}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Report |y0| distribution and minimum, truncation rule, affected fraction of points and mass, threshold sensitivity. The signed-label threshold study reports excluded physical mass and signed/absolute effective sample sizes. No nontrivial negligible-mass plateau exists, so the tail is not assigned as a unique cause.}
+\field{Revision in thesis:}{Chapters 5--7, tail-sensitivity analysis}
+\field{Evidence:}{Tables 6.11 and G.5--G.6; thesis p. 158}
+\subsection*{I-10 --- 'Applied source after stabilization' unspecified}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Read the production branch and state the exact formula, or state unambiguously that applied source equals raw source. The applied excess source is distinguished from clipped or renormalized alternatives; the reported MIDPOINT results use the unprojected, nonconservative source under examination.}
+\field{Revision in thesis:}{Chapter 6, applied-source controls}
+\field{Evidence:}{Chapter 5 excess-source equations and Table 6.10}
+\subsection*{I-11 --- 'Physically implausible' analytic observables not reported}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Remove the unsupported analytic-observable claim rather than inventing uncomputed results. The unsupported analytic-GP physical-observable claim was removed; no uncomputed table is implied. Retained physical comparisons use the reported cloud estimators and controlled references.}
+\field{Revision in thesis:}{Chapters 6--7, physical-comparison and claim-boundary sections}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{I-12 --- 'Only weakly' undefined and conflicts with Table 6.6}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Replace the global statement with per-estimator, per-momentum numbers. The independent sample size is four clouds, not the number of trajectories; intervals are described as small-sample sensitivity measures.}
+\field{Revision in thesis:}{Chapter 6, replication section}
+\field{Evidence:}{Table 6.9 (mean, SD, interval, spread); individual seed values in Figure 6.3 and the Delta-t=0.25 rows of Table G.4}
+\subsection*{I-13 --- High-momentum agreement not quantitative}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Seed-resolved L1/L2 field errors and observable errors, or take the escape. Paired MIDPOINT-minus-PBME physical-error differences do not consistently favour MIDPOINT, and the joint reliability requirements are not met.}
+\field{Revision in thesis:}{Chapter 6, PBME versus MIDPOINT section}
+\field{Evidence:}{Table 6.15; per-seed absolute errors in Tables G.7--G.8}
+\subsection*{I-14 --- Exact reference settings outside the thesis}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Reproduce grid, domain, dt, t\_final, boundary rule in Appendix F. Reference domains, time steps, grids, boundary conventions, edge masses, and CFL controls are stated in Chapter 6 and Appendix F.}
+\field{Revision in thesis:}{Chapter 6 and Appendix F}
+\field{Evidence:}{Tables 6.12--6.14 and F.1}
+\subsection*{I-15 --- Immutable configuration / versioned record not identified}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Provide stable public access to the final research materials and state honestly whether a permanent archival identifier has been assigned. The final code, evidence archive, checksum index, environment, manifests, and reproduction instructions are retrievable from \url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01}}
+\field{Revision in thesis:}{Response availability note; Appendix F archive and reproducibility record}
+\field{Evidence:}{Appendix F and Tables F.1--F.2}
+\subsection*{I-16 --- Thesis title not uniquely identified across artifact}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{One exact title in title page, PDF metadata, repository, response, paperwork. The title is synchronized as: Gaussian-Process Reconstruction of the Mapping-QCLE Excess Term: A Moving-Cloud Formulation and Failure Analysis.}
+\field{Revision in thesis:}{Title page, PDF metadata, response, release}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\section*{M-items}
+\subsection*{M-1 --- Contribution not separated from known mathematical fact}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{State the application-specific chain, not the generic identifiability fact. The requested wording, evidence boundary, or numerical table is present.}
+\field{Revision in thesis:}{Chapters 6--7 and Appendix F}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-2 --- 'Projected density is represented' is misleading}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Target is projected; the tested surrogate does not remain in its image. The four-field SEO image is derived and the measured leakage is large; projection is diagnosed but not enforced.}
+\field{Revision in thesis:}{Chapters 4, 6, and 7}
+\field{Evidence:}{Table 6.5}
+\subsection*{M-3 --- 'Semi-discretization of the complete generator' too strong}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Call it an attempted moving-cloud collocation of both formal generator terms. The requested wording, evidence boundary, or numerical table is present.}
+\field{Revision in thesis:}{Chapters 6--7 and Appendix F}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-4 --- 'Corrected method' implies correctness}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Use 'MIDPOINT prototype' / 'tested excess-update branch'. Visible method-level correctness vocabulary was replaced by MIDPOINT prototype, source update, or tested excess-source branch.}
+\field{Revision in thesis:}{Thesis source throughout}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-5 --- 'Four checks form a controlled argument' overstates}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Say the checks evidence failure under tested settings; list what stays unaudited. Failure is reported for the tested discretization; causal allocation remains explicitly nonunique.}
+\field{Revision in thesis:}{Chapters 6--7}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-6 --- 'Support refinement/convergence' used too freely}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Call it an independent-cloud enlargement study; state convergence untested. Clouds at N=500, 1000, and 2000 are independently sampled and non-nested, so the result is described as stochastic cloud-size sensitivity rather than deterministic convergence.}
+\field{Revision in thesis:}{Chapter 6, independent-cloud enlargement}
+\field{Evidence:}{Table 6.8}
+\subsection*{M-7 --- l2=0.01 control does not globally rule out regularization}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{State only: 0.05 -> 0.01 did not remove instability for P0=100, seed 11. All three regularizations are compared under paired manufactured clouds, with no claim that regularization alone cures the instability.}
+\field{Revision in thesis:}{Chapter 6, regularization controls}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-8 --- Formal second order is not demonstrated order}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{State assumptions unverified and positive production order not observed. Time-step changes are judged against seed dispersion and are not converted into formal convergence claims when unresolved.}
+\field{Revision in thesis:}{Chapter 6, time-step section}
+\field{Evidence:}{Table G.4 (complete run-by-run evidence); summarized in Table 6.7; thesis p. 153}
+\subsection*{M-9 --- 'Qualitative visualization' does not admit untraceable images}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Regenerate/trace, or remove images and all figure-dependent conclusions. No untraceable scientific figure remains.}
+\field{Revision in thesis:}{Chapter 6, figure disposition}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-10 --- Independent shape normalization conceals the failure}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Label conclusions shape-only; show raw integral beside each. Raw normalization, trace, and energy are reported before display normalization; MIDPOINT exhibits severe drift whereas PBME remains stable on the reported scale.}
+\field{Revision in thesis:}{Chapter 6, conservation section}
+\field{Evidence:}{Table 6.10}
+\subsection*{M-11 --- 'Less than \textasciitilde{}1\% per step' reads as a pointwise bound}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{State it is a ratio of global RMS norms and bounds nothing pointwise. The requested wording, evidence boundary, or numerical table is present.}
+\field{Revision in thesis:}{Chapters 6--7 and Appendix F}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-12 --- 'Not confined to negligible-label tails' unsupported}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Supply quantile-resolved source contributions and tail-threshold sensitivity. The signed-label ratio, effective sample sizes, excluded mass, normalization, and energy are examined together across the threshold sweep.}
+\field{Revision in thesis:}{Chapters 5--7}
+\field{Evidence:}{Tables 6.11 and G.5--G.6; thesis p. 158}
+\subsection*{M-13 --- Self-normalized GP normalization too prominent}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Label as tautological; foreground the raw integral and GP-cloud discrepancy. Self-normalized unity is never used as conservation evidence.}
+\field{Revision in thesis:}{Chapter 6, conservation section}
+\field{Evidence:}{Table 6.10}
+\subsection*{M-14 --- No explicit estimator hierarchy}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Define each estimator once with validity domain and admissibility order. Chapter 6 states the hierarchy from raw invariants and reference errors to internal surrogate diagnostics before interpreting the data.}
+\field{Revision in thesis:}{Opening of Chapter 6}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-15 --- 'Anchor-cloud estimator is more defensible' too strong}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Neither estimator is validated in the low-ESS regime. Low signed effective sample size is treated as loss of estimator reliability, not as validated physical information.}
+\field{Revision in thesis:}{Chapters 6--7}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-16 --- Undefined proximity language for the reference benchmark}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Define by numerical field and observable errors with thresholds. The requested wording, evidence boundary, or numerical table is present.}
+\field{Revision in thesis:}{Chapters 6--7 and Appendix F}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-17 --- Causation attributed to the excess update, not the discretization}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Attribute to the tested nonprojected, nonconservative MIDPOINT discretization. The negative conclusion is restricted to the tested product-GP moving-cloud MIDPOINT discretization, not the continuum QCLE excess term.}
+\field{Revision in thesis:}{Chapters 6--7}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-18 --- 'PBME reconstruction is faithful' broader than the gate}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{State exactly that the declared E1 gate passed on the tested support. The identical-cloud control isolates value reconstruction and is not generalized to derivative or propagation accuracy.}
+\field{Revision in thesis:}{Chapter 6, common-support baseline}
+\field{Evidence:}{Table 6.6}
+\subsection*{M-19 --- Failure attribution not fully isolated}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Describe as an evidence-supported pathway; causality not uniquely apportioned. The thesis presents a compatible failure pathway but explicitly avoids claiming a unique causal mechanism.}
+\field{Revision in thesis:}{Chapters 6--7}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-20 --- 'Reproducible basis' contradicts archive defects}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Use 'documented but presently incomplete basis for future development'. Appendix F gives a retrievable release record while the scientific chapters retain only the numerical methods and parameter scope needed to interpret the calculations.}
+\field{Revision in thesis:}{Chapter 7 and Appendix F}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-21 --- Objective broader than the tested construction}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Name the single product-GP/moving-cloud/MIDPOINT construction and its 1D two-state test. The objective is restricted to one product-GP moving-cloud construction on a one-dimensional two-state benchmark.}
+\field{Revision in thesis:}{Chapter 1 objective}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-22 --- Chapter 6 opens with the wrong decision question}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Begin with the four Chapter 1 acceptance criteria and the negative answer. Chapter 6 opens with the decisive physical reliability question and its controlled negative answer.}
+\field{Revision in thesis:}{Opening of Chapter 6}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-23 --- 'Full-density representation' ambiguous}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Define at first use as a software architecture; rename to avoid implying exactness. Ambiguous full-density wording is absent.}
+\field{Revision in thesis:}{Chapters 1, 4, 6, and 7}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{M-24 --- 'Selected l2 = 0.01' needs qualification}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Call it pilot-selected; repeat the operator test at production 0.05 and pilot 0.01. Complete manufactured density, gradient, and excess-action evidence is summarized over three independent cloud pairs for every tested regularization and cloud size.}
+\field{Revision in thesis:}{Chapter 6, manufactured-operator section}
+\field{Evidence:}{Tables G.1--G.3 (complete per-seed values)}
+\subsection*{M-25 --- Completion counts confused with validation}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{Replace computational completion language with a numerical-design table organized by physical question and diagnostic. The numerical design table states the physical question, controlled variation, independent realizations, and diagnostic for every study.}
+\field{Revision in thesis:}{Chapter 6, numerical design and hierarchy of evidence}
+\field{Evidence:}{Table 6.1}
+\section*{L-items}
+\subsection*{L-1 --- Use one method vocabulary}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{L-2 --- Define every estimator at first use and map it to one equation}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{L-3 --- Reserve evidentiary words for declared standards}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{L-4 --- Correct compound-word and hyphenation defects}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{L-5 --- Replace vague antecedents}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{L-6 --- Compress repetitive figure narration}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\subsection*{L-7 --- Make the response document an audit trail}
+\field{Status:}{Addressed in the revised thesis}
+\field{Response:}{ Terminology, definitions, claim calibration, local clarity, and the row-level audit trail were applied.}
+\field{Revision in thesis:}{Thesis source and this reviewer response}
+\field{Evidence:}{Tables 6.1--6.15 and G.1--G.8, traced through final\_reviewer\_closure/table\_data\_crosswalk.csv}
+\section*{Final scientific statement}
+The revision retains unfavourable and unstable outcomes rather than turning numerical completion into a success claim. Evidence is presented as physical observables, raw invariants, operator errors, uncertainty intervals, and controlled-reference comparisons. No internal surrogate diagnostic is presented as a physical-error estimate.
+\section*{Availability note}
+The current research-code repository is \url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics}. The permanent identifier is \url{https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01}.
+\end{document}

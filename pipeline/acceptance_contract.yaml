@@ -1,0 +1,102 @@
+# Acceptance contract — Pipeline Reviewer-Closure Specification section 7
+#
+# Predeclared, non-post-hoc decision gates. This file is hashed into every
+# analysis artifact. Editing it after a campaign has run invalidates that
+# campaign: bump `version` and re-run.
+#
+# Machine twin: acceptance_contract.json (generated; must agree with this file).
+
+version: "reviewer-closure-1.0"
+declared_utc: "2026-07-28T00:00:00Z"
+
+order_estimate:
+  formula: "p_obs = log2( ||u_h - u_h2|| / ||u_h2 - u_h4|| )"
+  suppress_when:
+    - "denominator nonfinite"
+    - "denominator below 100 * eps_mach * solution_scale"
+    - "denominator below independent-seed noise floor"
+    - "numerator below 100 * eps_mach * solution_scale"
+  eps_mach_multiplier: 100
+  preserve_suppressed_rows: true
+  suppressed_status_value: "SUPPRESSED"
+
+gates:
+
+  pbme_common_support_reconstruction:
+    metric: "E1"
+    threshold: 0.02
+    comparison: "<="
+    mandatory_reporting: ["E1", "E2", "Einf", "raw_mass_error"]
+    applies_only_if: "manifest.method == 'PBME'"
+    note: >
+      The acceptance flag may be true only for a manifest whose method is PBME
+      and whose E1 satisfies the threshold. A MIDPOINT artifact must never be
+      accepted as a PBME baseline.
+
+  projection_preserving_four_field:
+    metric: "relative_l2_leakage"
+    threshold: 1.0e-10
+    comparison: "<="
+    on_failure: "FAIL"
+    note: "Declared probe set. This is the experimental four-field branch only."
+
+  unconstrained_product_branch:
+    role: "diagnostic_only"
+    note: >
+      Report leakage. Never relabel the product surrogate as a projected
+      density. It targets the projected density; the tested surrogate leaks.
+
+  time_refinement:
+    requirement: "difference(h/2 -> h/4) < difference(h -> h/2) for each seed"
+    report_order_only_above: ["noise_floor", "roundoff_guard"]
+    on_failure: "COMPLETE - FAILED AND REPORTED"
+
+  support_refinement:
+    requirement: "nested differences decrease across levels"
+    compare_against: "independent_seed_sd"
+    deterministic_order_claim_allowed: false
+    deterministic_order_claim_allowed_if: "nested differences decrease"
+    note: >
+      Independent-cloud variation is sampling sensitivity, never deterministic
+      support convergence.
+
+  raw_conservation:
+    report: ["endpoint_drift", "max_abs_drift", "time_of_max",
+             "pre_interaction_max", "interaction_max", "post_interaction_max",
+             "refinement_trend"]
+    generic_threshold_declaration_allowed: false
+    self_normalization_as_evidence: false
+
+  method_improvement:
+    requirement: >
+      MIDPOINT matched reference error < PBME matched reference error for the
+      same observable, momentum and seed, with the uncertainty interval of the
+      paired difference excluding zero.
+    on_failure_text: "No validated evidence"
+    note: "Never infer superiority from a plot."
+
+  manufactured_operator:
+    require_finite: true
+    report_trends_for: ["density", "gradient", "operator_Q"]
+    query_types: ["on_support", "independent_off_support", "off_manifold_shell"]
+    absolute_physical_tolerance: null
+    nondecreasing_trend_status: "COMPLETE - FAILED AND REPORTED"
+    note: "Do not invent an absolute tolerance. A nondecreasing trend closes as failed validation."
+
+  tail_source_sensitivity:
+    requirement: "scientific conclusion unchanged across the declared threshold grid"
+    threshold_grid_relative: [0.0, 1.0e-14, 1.0e-12, 1.0e-10, 1.0e-8, 1.0e-6]
+    on_failure: "report threshold dependence"
+
+off_manifold_shell_bins: [[0.0, 0.5], [0.5, 1.0], [1.0, 2.0], [2.0, 4.0]]
+
+terminal_statuses_allowed:
+  - "COMPLETE - PASSED"
+  - "COMPLETE - FAILED AND REPORTED"
+  - "NOT APPLICABLE - JUSTIFIED"
+
+terminal_statuses_forbidden:
+  - "PARTIAL"
+  - "OPEN"
+  - "UNKNOWN"
+  - ""
