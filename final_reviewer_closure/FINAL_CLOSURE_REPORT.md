@@ -1,6 +1,6 @@
 Overall status: FAIL
 Scientific result: no validated improvement
-Thesis compile: PASS
+Thesis compile: FAIL
 Reviewer response compile: FAIL
 Evidence archive: PASS
 Versioned public release URL: https://github.com/sahandgit/gaussian_process_guided_mapping_quantumclassical_liouville_dynamics/releases/tag/thesis-final-2026-08-01-r3
@@ -56,7 +56,7 @@ Thesis PDF: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_
 
 ## Archive
 
-Frozen numerical-evidence payload SHA-256: `9752f3e16a305225ed30796d799d5a9795d09d8cdebd1ee74648054cf84af87e`
+Frozen numerical-evidence payload SHA-256: `46f16f57852d7b4d8524e965475979880984b9c0a1502eb929b16fee148a20e2`
 
 Archive: `D:\PhD-Project\GP_RKHS_MINT\GP_RKHS_MINT\Tully_models\GP_MInt_QCLE_Reviewer_Ready_Pipeline_v4\output\fixed_pipeline\final_reviewer_closure\MSC-THESIS-FINAL-CLOSURE-2026-08-01T111722.zip`
 
